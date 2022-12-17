@@ -5,6 +5,7 @@ import {
   createTypePropertyNode,
   createNamedTypeNode,
   createObjectTypeNode,
+  createAnonymousTypeNode,
 } from './ast'
 import { _remoteDefinition } from './remote'
 
@@ -53,16 +54,19 @@ describe('_remoteDefinition', () => {
     expect(remote.properties[0]).toEqual(
       createTypePropertyNode(
         createPropertyKeyNode(createIdentifierNode('response')),
-        createObjectTypeNode([
-          createTypePropertyNode(
-            createPropertyKeyNode(createIdentifierNode('success')),
-            createNamedTypeNode('bool', [], false)
-          ),
-          createTypePropertyNode(
-            createPropertyKeyNode(createIdentifierNode('data')),
-            createNamedTypeNode('Thing', [], true)
-          ),
-        ])
+        createAnonymousTypeNode(
+          createObjectTypeNode([
+            createTypePropertyNode(
+              createPropertyKeyNode(createIdentifierNode('success')),
+              createNamedTypeNode('bool', [], false)
+            ),
+            createTypePropertyNode(
+              createPropertyKeyNode(createIdentifierNode('data')),
+              createNamedTypeNode('Thing', [], true)
+            ),
+          ]),
+          false
+        )
       )
     )
     expect(remote.properties[1]).toEqual(

@@ -7,6 +7,7 @@ import {
   createNamedTypeNode,
   TypeNode,
   createObjectTypeNode,
+  createAnonymousTypeNode,
 } from './ast'
 import { token, between } from './combinators'
 import { _identifier } from './common'
@@ -44,7 +45,9 @@ export const _objectType = between(
   maybe(list(_typeProperty, token(/,/y))).map((properties) => properties ?? [])
 ).map(createObjectTypeNode)
 
-export const _anonymousType = _objectType
+export const _anonymousType = pair(_objectType, _isArray).map(
+  ([type, isArray]) => createAnonymousTypeNode(type, isArray)
+)
 
 _type = _namedType.or(_anonymousType)
 

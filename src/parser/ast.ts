@@ -58,7 +58,17 @@ export const createObjectTypeNode = (
   properties: TypePropertyNode[]
 ): ObjectTypeNode => ({ __type: 'ObjectType', properties })
 
-export type TypeNode = NamedTypeNode | ObjectTypeNode
+export interface AnonymousTypeNode {
+  __type: 'AnonymousType'
+  type: ObjectTypeNode
+  isArray: boolean
+}
+export const createAnonymousTypeNode = (
+  type: ObjectTypeNode,
+  isArray: boolean
+): AnonymousTypeNode => ({ __type: 'AnonymousType', type, isArray })
+
+export type TypeNode = NamedTypeNode | AnonymousTypeNode | ObjectTypeNode
 
 export interface IdentifierNode {
   __type: 'Identifier'
@@ -182,6 +192,7 @@ export const createProgramNode = (
 ): ProgramNode => ({ __type: 'Program', typeDefinitions, remoteDefinitions })
 
 export type Node =
+  | AnonymousTypeNode
   | BlockNode
   | ExpressionNode
   | IdentifierNode

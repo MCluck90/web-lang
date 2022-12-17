@@ -143,4 +143,108 @@ describe('_namedType', () => {
     expect(type.name).toBe('int')
     expect(type.isArray).toBe(true)
   })
+
+  test('can parse a generic argument', () => {
+    const source = 'List<int>'
+    const type = _namedType.parseToEnd(source)
+    assertSuccessfulParse(type)
+    assertNodeType(type, 'NamedType')
+    expect(type.name).toBe('List')
+    expect(type.genericArguments).toHaveLength(1)
+
+    const t = type.genericArguments[0]
+    assertNodeType(t, 'NamedType')
+    expect(t.name).toBe('int')
+  })
+
+  test('can parse 2 generic arguments', () => {
+    const source = 'Map<int, string>'
+    const type = _namedType.parseToEnd(source)
+    assertSuccessfulParse(type)
+    assertNodeType(type, 'NamedType')
+    expect(type.name).toBe('Map')
+    expect(type.genericArguments).toHaveLength(2)
+
+    const t = type.genericArguments[0]
+    assertNodeType(t, 'NamedType')
+    expect(t.name).toBe('int')
+
+    const u = type.genericArguments[1]
+    assertNodeType(u, 'NamedType')
+    expect(u.name).toBe('string')
+  })
+
+  test('can parse multiple generic arguments', () => {
+    const source = 'ComplexType<int, string, bool>'
+    const type = _namedType.parseToEnd(source)
+    assertSuccessfulParse(type)
+    assertNodeType(type, 'NamedType')
+    expect(type.name).toBe('ComplexType')
+    expect(type.genericArguments).toHaveLength(3)
+
+    const t1 = type.genericArguments[0]
+    assertNodeType(t1, 'NamedType')
+    expect(t1.name).toBe('int')
+
+    const t2 = type.genericArguments[1]
+    assertNodeType(t2, 'NamedType')
+    expect(t2.name).toBe('string')
+
+    const t3 = type.genericArguments[2]
+    assertNodeType(t3, 'NamedType')
+    expect(t3.name).toBe('bool')
+  })
+
+  test('can parse nested generic arguments', () => {
+    const source = 'Map<int, List<string>>'
+    const type = _namedType.parseToEnd(source)
+    assertSuccessfulParse(type)
+    assertNodeType(type, 'NamedType')
+    expect(type.name).toBe('Map')
+    expect(type.genericArguments).toHaveLength(2)
+
+    const t1 = type.genericArguments[0]
+    assertNodeType(t1, 'NamedType')
+    expect(t1.name).toBe('int')
+
+    const t2 = type.genericArguments[1]
+    assertNodeType(t2, 'NamedType')
+    expect(t2.name).toBe('List')
+    expect(t2.genericArguments).toHaveLength(1)
+
+    const t3 = t2.genericArguments[0]
+    assertNodeType(t3, 'NamedType')
+    expect(t3.name).toBe('string')
+  })
+
+  test('can pass object types as generics', () => {
+    const source = 'List<{ name: string, age: int, }>'
+    const type = _namedType.parseToEnd(source)
+    assertSuccessfulParse(type)
+    assertNodeType(type, 'NamedType')
+    expect(type.name).toBe('List')
+    expect(type.genericArguments).toHaveLength(1)
+
+    const t = type.genericArguments[0]
+    assertNodeType(t, 'AnonymousType')
+    const objectType = t.type
+    assertNodeType(objectType, 'ObjectType')
+    expect(objectType.properties).toHaveLength(2)
+  })
+
+  test('can pass arrays of object types as generics', () => {
+    const source = 'List<{ name: string, age: int, }[]>'
+    const type = _namedType.parseToEnd(source)
+    assertSuccessfulParse(type)
+    assertNodeType(type, 'NamedType')
+    expect(type.name).toBe('List')
+    expect(type.genericArguments).toHaveLength(1)
+
+    const t = type.genericArguments[0]
+    assertNodeType(t, 'AnonymousType')
+    expect(t.isArray).toBe(true)
+    const objectType = t.type
+    assertNodeType(objectType, 'ObjectType')
+    expect(objectType.properties).toHaveLength(2)
+  })
 })
