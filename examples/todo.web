@@ -1,0 +1,67 @@
+type Todo {
+  id: int,
+  title: string,
+  done: bool
+}
+
+remote GetAllTodos {
+  GET /api/v1/todos
+
+  response: {
+    success: bool
+    data: Todo[]
+  }
+  output: Todo[]
+
+  mapResponse = (=> it.data)
+
+  validate(statusCode) =
+    match statusCode {
+      2xx => 
+        it
+        |> Result.mapError(((value, desired)) => {
+          Log.debug({ value, desired });
+          "Unexpected format for todos. Please try again later"
+        }),
+
+      _ => Result.Error("Failed to retrieve todos")
+    }
+}
+
+remote UpdateTodo {
+  POST /api/v1/todo/:id
+  body: Todo
+
+  mapArguments(todo: Todo) = {
+    parameters: { id: todo.id },
+    body: todo
+  }
+}
+
+main {
+  let todos: Remote<Todo[]>
+
+  setup() {
+    this.todos = call GetAllTodos();
+  }
+
+  render() {
+    (
+      h1!("Todos"),
+      if todos.loading {
+        p!("Loading...")
+      },
+      ul!(
+        todos.data
+        .mapEach(=> li!(
+          input!(
+            type: "checkbox",
+            checked: it.done,
+            onChange: () => call UpdateTodo({ ...it, done: !it.done })
+          )
+        ))
+        .mapError(p!)
+      )
+    )
+  }
+}
