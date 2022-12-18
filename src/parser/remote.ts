@@ -1,4 +1,5 @@
-import { list, pair, Parser, regexp, text, zeroOrMore } from 'parsnip-ts'
+import { list, Parser, regexp, text, zeroOrMore } from 'parsnip-ts'
+import { seq } from 'parsnip-ts/seq'
 import {
   createRemoteParameterNode,
   createRemoteDefinitionNode,
@@ -7,7 +8,7 @@ import {
   RemoteType,
 } from './ast'
 import { between, token } from './combinators'
-import { _identifier } from './common'
+import { braces, _identifier } from './common'
 import { _remoteKeyword } from './keywords'
 import { _methodDefinition } from './methods'
 import { _typeProperty } from './types'
@@ -34,25 +35,15 @@ export const _remoteUrl = token(/\//y)
 
 export const _remoteDefinition = _remoteKeyword.and(_identifier).bind((name) =>
   between(
-    [token(/{/y), token(/}/y)],
-    pair(_remoteType, _remoteUrl).bind(([type, url]) =>
-      zeroOrMore(_typeProperty.or(_methodDefinition)).map(
-        (propertiesOrMethods) => {
-          const properties = propertiesOrMethods.filter(
-            isNodeType('TypeProperty')
-          )
-          const methods = propertiesOrMethods.filter(
-            isNodeType('MethodDefinition')
-          )
-          return createRemoteDefinitionNode(
-            name,
-            type,
-            url,
-            properties,
-            methods
-          )
-        }
-      )
-    )
+    braces,
+    seq([
+      _remoteType,
+      _remoteUrl,
+      zeroOrMore(_typeProperty.or(_methodDefinition)),
+    ]).map(([type, url, propertiesOrMethods]) => {
+      const properties = propertiesOrMethods.filter(isNodeType('TypeProperty'))
+      const methods = propertiesOrMethods.filter(isNodeType('MethodDefinition'))
+      return createRemoteDefinitionNode(name, type, url, properties, methods)
+    })
   )
 )

@@ -1,4 +1,4 @@
-import { pair, list, maybe, Parser, error, lazy, constant } from 'parsnip-ts'
+import { list, maybe, Parser, error, lazy, constant } from 'parsnip-ts'
 import { seq } from 'parsnip-ts/seq'
 import {
   createPropertyKeyNode,
@@ -26,31 +26,32 @@ const _genericArguments = between(
   ).map((genericArguments) => genericArguments ?? [])
 )
 const _isArray = token(/\[]/y).and(constant(true)).or(constant(false))
-export const _namedType = pair(_typeName, maybe(_genericArguments)).bind(
-  ([name, genericArgs]) =>
-    _isArray.map((isArray) =>
-      createNamedTypeNode(name, genericArgs ?? [], isArray)
-    )
+export const _namedType = seq([
+  _typeName,
+  maybe(_genericArguments),
+  _isArray,
+]).map(([name, genericArgs, isArray]) =>
+  createNamedTypeNode(name, genericArgs ?? [], isArray)
 )
 
 export const _propertyKey = _identifier.map(createPropertyKeyNode)
 
-export const _typeProperty = pair(
+export const _typeProperty = seq([
   _propertyKey,
-  token(/:/y).and(lazy(() => _type))
-).map((args) => createTypePropertyNode(...args))
+  token(/:/y).and(lazy(() => _type)),
+]).map((args) => createTypePropertyNode(...args))
 
 export const _objectType = between(
   [token(/{/y), maybe(token(/,/y)).and(token(/}/y))],
   maybe(list(_typeProperty, token(/,/y))).map((properties) => properties ?? [])
 ).map(createObjectTypeNode)
 
-export const _anonymousType = pair(_objectType, _isArray).map(
+export const _anonymousType = seq([_objectType, _isArray]).map(
   ([type, isArray]) => createAnonymousTypeNode(type, isArray)
 )
 
 _type = _namedType.or(_anonymousType)
 
 export const _typeDefinition = _typeKeyword
-  .and(pair(_identifier, _objectType))
+  .and(seq([_identifier, _objectType]))
   .map((args) => createTypeDefinitionNode(...args))

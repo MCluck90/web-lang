@@ -146,11 +146,11 @@ export const createParameterListNode = (
 export interface ParameterNode {
   __type: 'Parameter'
   name: IdentifierNode
-  type: NamedTypeNode
+  type: NamedTypeNode | null
 }
 export const createParameterNode = (
   name: IdentifierNode,
-  type: NamedTypeNode
+  type: NamedTypeNode | null
 ): ParameterNode => ({
   __type: 'Parameter',
   name,
