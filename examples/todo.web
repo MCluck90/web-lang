@@ -4,6 +4,9 @@ type Todo {
   done: bool
 }
 
+/**
+ * Retrieves all todo items
+ */
 remote GetAllTodos {
   GET /api/v1/todos
 
@@ -13,9 +16,10 @@ remote GetAllTodos {
   }
   output: Todo[]
 
-  mapResponse = (=> it.data)
+  // We need to extract the desired data from the API response
+  mapResponse(response) { response.data }
 
-  validate(statusCode) =
+  validate(statusCode) {
     match statusCode {
       2xx => 
         it
@@ -26,15 +30,18 @@ remote GetAllTodos {
 
       _ => Result.Error("Failed to retrieve todos")
     }
+  }
 }
 
 remote UpdateTodo {
   POST /api/v1/todo/:id
   body: Todo
 
-  mapArguments(todo: Todo) = {
-    parameters: { id: todo.id },
-    body: todo
+  mapArguments(todo: Todo) {
+    {
+      parameters: { id: todo.id },
+      body: todo
+    }
   }
 }
 
@@ -47,20 +54,20 @@ main {
 
   render() {
     (
-      h1!("Todos"),
+      #h1("Todos"),
       if todos.loading {
-        p!("Loading...")
+        #p("Loading...")
       },
-      ul!(
+      #ul(
         todos.data
-        .mapEach(=> li!(
-          input!(
+        .mapEach(=> #li(
+          #input(
             type: "checkbox",
             checked: it.done,
             onChange: () => call UpdateTodo({ ...it, done: !it.done })
           )
         ))
-        .mapError(p!)
+        .mapError(#p)
       )
     )
   }

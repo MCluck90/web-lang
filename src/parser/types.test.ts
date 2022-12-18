@@ -13,16 +13,28 @@ import {
 } from './types'
 
 describe('_objectType', () => {
-  test('can parse an empty type block', () => {
-    const source = '{}'
-    const objectType = _objectType.parseToEnd(source)
-    assertSuccessfulParse(objectType)
-    assertNodeType(objectType, 'ObjectType')
-    expect(objectType.properties).toHaveLength(0)
-  })
+  test.each(['{}', '{ /* this is a comment */ }', '{ // line comment\n }'])(
+    'can parse an empty type block',
+    (source) => {
+      const objectType = _objectType.parseToEnd(source)
+      assertSuccessfulParse(objectType)
+      assertNodeType(objectType, 'ObjectType')
+      expect(objectType.properties).toHaveLength(0)
+    }
+  )
 
-  test('can parse an object type with one property', () => {
-    const source = '{ age: int }'
+  test.each([
+    '{ age: int }',
+    `
+      {
+        // age of the person
+        age: int
+      }
+    `,
+    '{ /* age of the person */ age: int }',
+    '{ age: int /* age of the person */ }',
+    '{ age: /* comment */ int }',
+  ])('can parse an object type with one property', (source) => {
     const objectType = _objectType.parseToEnd(source)
     assertSuccessfulParse(objectType)
     assertNodeType(objectType, 'ObjectType')
@@ -101,8 +113,18 @@ describe('_objectType', () => {
 })
 
 describe('_typeDefinition', () => {
-  test('can parse a type definition', () => {
-    const source = 'type Person { age: int }'
+  test.each([
+    'type Person { age: int }',
+    'type /* comment */ Person { age: int }',
+    'type Person /* comment */ { age: int }',
+    `
+    type 
+    // comment
+    Person {
+      age: int
+    }
+    `,
+  ])('can parse a type definition', (source) => {
     const typeDefinition = _typeDefinition.parseToEnd(source)
     assertSuccessfulParse(typeDefinition)
     assertNodeType(typeDefinition, 'TypeDefinition')
