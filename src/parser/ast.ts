@@ -189,7 +189,47 @@ export const createIntegerNode = (value: number): IntegerNode => ({
   value,
 })
 
-export type ExpressionNode = IntegerNode
+export interface FloatingPointNode {
+  __type: 'FloatingPoint'
+  value: number
+}
+export const createFloatingPointNode = (value: number): FloatingPointNode => ({
+  __type: 'FloatingPoint',
+  value,
+})
+
+export interface VariableAccessNode {
+  __type: 'VariableAccess'
+  name: IdentifierNode
+}
+export const createVariableAccessNode = (
+  name: IdentifierNode
+): VariableAccessNode => ({ __type: 'VariableAccess', name })
+
+export type BinaryOperator = '+' | '-' | '*' | '/'
+
+export interface BinaryExpressionNode {
+  __type: 'BinaryExpression'
+  left: ExpressionNode
+  operator: BinaryOperator
+  right: ExpressionNode
+}
+export const createBinaryExpressionNode = (
+  left: ExpressionNode,
+  operator: BinaryOperator,
+  right: ExpressionNode
+): BinaryExpressionNode => ({
+  __type: 'BinaryExpression',
+  left,
+  operator,
+  right,
+})
+
+export type ExpressionNode =
+  | IntegerNode
+  | FloatingPointNode
+  | VariableAccessNode
+  | BinaryExpressionNode
 
 export interface ProgramNode {
   __type: 'Program'
