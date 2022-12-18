@@ -8,7 +8,7 @@ import {
   RemoteType,
 } from './ast'
 import { between, token } from './combinators'
-import { braces, _identifier } from './common'
+import { _braces, _identifier } from './common'
 import { _remoteKeyword } from './keywords'
 import { _methodDefinition } from './methods'
 import { _typeProperty } from './types'
@@ -35,7 +35,7 @@ export const _remoteUrl = token(/\//y)
 
 export const _remoteDefinition = _remoteKeyword.and(_identifier).bind((name) =>
   between(
-    braces,
+    _braces,
     seq([
       _remoteType,
       _remoteUrl,

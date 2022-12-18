@@ -127,13 +127,23 @@ export const createRemoteParameterNode = (
 
 export interface MethodDefinitionNode {
   __type: 'MethodDefinition'
-  parameters: ParameterListNode
+  name: IdentifierNode
+  parameterList: ParameterListNode
+  returnType: TypeNode | null
   body: MethodBodyNode
 }
 export const createMethodDefinitionNode = (
-  parameters: ParameterListNode,
+  name: IdentifierNode,
+  parameterList: ParameterListNode,
+  returnType: TypeNode | null,
   body: MethodBodyNode
-): MethodDefinitionNode => ({ __type: 'MethodDefinition', parameters, body })
+): MethodDefinitionNode => ({
+  __type: 'MethodDefinition',
+  name,
+  parameterList,
+  returnType,
+  body,
+})
 
 export interface ParameterListNode {
   __type: 'ParameterList'
@@ -146,11 +156,11 @@ export const createParameterListNode = (
 export interface ParameterNode {
   __type: 'Parameter'
   name: IdentifierNode
-  type: NamedTypeNode | null
+  type: TypeNode | null
 }
 export const createParameterNode = (
   name: IdentifierNode,
-  type: NamedTypeNode | null
+  type: TypeNode | null
 ): ParameterNode => ({
   __type: 'Parameter',
   name,

@@ -10,7 +10,7 @@ import {
   createAnonymousTypeNode,
 } from './ast'
 import { token, between } from './combinators'
-import { _identifier } from './common'
+import { _colon, _identifier } from './common'
 import { _builtInTypeKeyword, _typeKeyword } from './keywords'
 
 export let _type: Parser<TypeNode> = error('Not yet implemented')
@@ -38,7 +38,7 @@ export const _propertyKey = _identifier.map(createPropertyKeyNode)
 
 export const _typeProperty = seq([
   _propertyKey,
-  token(/:/y).and(lazy(() => _type)),
+  _colon.and(lazy(() => _type)),
 ]).map((args) => createTypePropertyNode(...args))
 
 export const _objectType = between(

@@ -1,6 +1,25 @@
-import { error, Parser } from 'parsnip-ts'
-import { MethodDefinitionNode } from './ast'
+import { error, list, maybe, Parser } from 'parsnip-ts'
+import { seq } from 'parsnip-ts/seq'
+import {
+  createMethodDefinitionNode,
+  createParameterListNode,
+  createParameterNode,
+} from './ast'
+import { _block } from './block'
+import { between } from './combinators'
+import { _colon, _comma, _identifier, _parens } from './common'
+import { _type } from './types'
 
-export const _methodDefinition: Parser<MethodDefinitionNode> = error(
-  'Not yet implemented'
+const _parameter = seq([_identifier, maybe(_colon.and(_type))]).map(
+  ([name, type]) => createParameterNode(name, type)
 )
+const _parameterList = between(
+  _parens,
+  maybe(list(_parameter, _comma)).map((it) => it ?? [])
+).map(createParameterListNode)
+export const _methodDefinition = seq([
+  _identifier,
+  _parameterList,
+  maybe(_colon.and(_type)),
+  _block,
+]).map((args) => createMethodDefinitionNode(...args))
