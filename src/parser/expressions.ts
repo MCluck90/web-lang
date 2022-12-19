@@ -10,10 +10,9 @@ import {
   createUnaryExpression,
   createVariableAccessNode,
   ExpressionNode,
-  PropertyAccessNode,
 } from './ast'
-import { between, token } from './combinators'
-import { _identifier, _parens } from './common'
+import { between, token, _parens } from './common'
+import { _identifier } from './identifier'
 
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
 

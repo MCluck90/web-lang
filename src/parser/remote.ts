@@ -7,8 +7,8 @@ import {
   isNodeType,
   RemoteType,
 } from './ast'
-import { between, token } from './combinators'
-import { _braces, _identifier } from './common'
+import { between, token, _braces } from './common'
+import { _identifier } from './identifier'
 import { _remoteKeyword } from './keywords'
 import { _methodDefinition } from './methods'
 import { _typeProperty } from './types'

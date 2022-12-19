@@ -9,8 +9,8 @@ import {
   createObjectTypeNode,
   createAnonymousTypeNode,
 } from './ast'
-import { token, between } from './combinators'
-import { _colon, _identifier } from './common'
+import { between, token, _colon } from './common'
+import { _identifier } from './identifier'
 import { _builtInTypeKeyword, _typeKeyword } from './keywords'
 
 export let _type: Parser<TypeNode> = error('Not yet implemented')

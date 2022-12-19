@@ -1,4 +1,4 @@
-import { token } from './combinators'
+import { token } from './common'
 
 export const _typeKeyword = token(/type/y)
 export const _intKeyword = token(/int/y)
