@@ -4,6 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
+    "start": "ts-node src/cli.ts",
     "test": "jest"
   },
   "dependencies": {
