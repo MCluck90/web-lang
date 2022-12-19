@@ -7,6 +7,7 @@ import {
   createIdentifierNode,
   createIntegerNode,
   createPropertyAccessNode,
+  createStringNode,
   createVariableAccessNode,
   Node,
 } from './ast'
@@ -305,6 +306,11 @@ describe('_expression', () => {
 
   test.each([
     ['fn()', createVariableAccessNode(createIdentifierNode('fn')), []],
+    [
+      'hello("world")',
+      createVariableAccessNode(createIdentifierNode('hello')),
+      [createStringNode('world')],
+    ],
     [
       'add(1, 2)',
       createVariableAccessNode(createIdentifierNode('add')),
