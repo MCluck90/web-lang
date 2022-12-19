@@ -1,4 +1,4 @@
-import { error, list, maybe, pair, Parser, zeroOrMore } from 'parsnip-ts'
+import { error, lazy, list, maybe, pair, Parser, zeroOrMore } from 'parsnip-ts'
 import { separatedFloatingPoint, separatedInteger } from 'parsnip-ts/numbers'
 import { seq } from 'parsnip-ts/seq'
 import {
@@ -12,8 +12,8 @@ import {
   ExpressionNode,
   PropertyAccessNode,
 } from './ast'
-import { token } from './combinators'
-import { _identifier } from './common'
+import { between, token } from './combinators'
+import { _identifier, _parens } from './common'
 
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
 
@@ -36,9 +36,12 @@ const foldBinaryExpression = ([left, rights]: [
 
 const _literalValue = _floatingPoint.or(_integer)
 
-const _primaryExpression = _literalValue.or(
-  _identifier.map(createVariableAccessNode)
+const _primaryExpression = between(
+  _parens,
+  lazy(() => _expression)
 )
+  .or(_literalValue)
+  .or(_identifier.map(createVariableAccessNode))
 
 const _propertyAccess = seq([
   _primaryExpression,

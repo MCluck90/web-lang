@@ -267,4 +267,27 @@ describe('_expression', () => {
     assertSuccessfulParse(exp)
     expect(expression).toEqual(expected)
   })
+
+  test('can parse expressions surrounded by parentheses', () => {
+    const source = '(1 + 2)'
+    const expression = _expression.parseToEnd(source)
+    assertSuccessfulParse(expression)
+  })
+
+  test('can parentheses have higher precedence', () => {
+    const source = '(1 + 2) * 3'
+    const expression = _expression.parseToEnd(source)
+    assertSuccessfulParse(expression)
+    expect(expression).toEqual(
+      createBinaryExpressionNode(
+        createBinaryExpressionNode(
+          createIntegerNode(1),
+          '+',
+          createIntegerNode(2)
+        ),
+        '*',
+        createIntegerNode(3)
+      )
+    )
+  })
 })
