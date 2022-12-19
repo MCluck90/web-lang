@@ -311,15 +311,31 @@ export type ExpressionNode =
   | UnaryExpressionNode
   | VariableAccessNode
 
+export interface MainNode {
+  __type: 'Main'
+  methods: MethodDefinitionNode[]
+}
+export const createMainNode = (methods: MethodDefinitionNode[]): MainNode => ({
+  __type: 'Main',
+  methods,
+})
+
 export interface ProgramNode {
   __type: 'Program'
   typeDefinitions: TypeDefinitionNode[]
   remoteDefinitions: RemoteDefinitionNode[]
+  main: MainNode
 }
 export const createProgramNode = (
   typeDefinitions: TypeDefinitionNode[],
-  remoteDefinitions: RemoteDefinitionNode[]
-): ProgramNode => ({ __type: 'Program', typeDefinitions, remoteDefinitions })
+  remoteDefinitions: RemoteDefinitionNode[],
+  main: MainNode
+): ProgramNode => ({
+  __type: 'Program',
+  typeDefinitions,
+  remoteDefinitions,
+  main,
+})
 
 export type Node =
   | AnonymousTypeNode
