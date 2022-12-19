@@ -3,15 +3,17 @@ import { separatedFloatingPoint, separatedInteger } from 'parsnip-ts/numbers'
 import { seq } from 'parsnip-ts/seq'
 import {
   BinaryOperator,
+  createArgumentListNode,
   createBinaryExpressionNode,
   createFloatingPointNode,
+  createFunctionCallNode,
   createIntegerNode,
   createPropertyAccessNode,
   createUnaryExpression,
   createVariableAccessNode,
   ExpressionNode,
 } from './ast'
-import { between, token, _parens } from './common'
+import { between, token, trailingCommaList, _parens } from './common'
 import { _identifier } from './identifier'
 
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
@@ -53,13 +55,22 @@ const _propertyAccess = seq([
     : createPropertyAccessNode(primary, maybeAccessChain)
 )
 
-const _unary = seq([maybe(_subtractionOperator), _propertyAccess]).map(
+const _functionCall = seq([
+  _propertyAccess,
+  maybe(between(_parens, trailingCommaList(lazy(() => _expression)))),
+]).map(([left, right]) =>
+  right === null
+    ? left
+    : createFunctionCallNode(left, createArgumentListNode(right))
+)
+
+const _unary = seq([maybe(_subtractionOperator), _functionCall]).map(
   ([op, expression]) =>
     op !== null ? createUnaryExpression(op, expression) : expression
 )
 
 const _factor = seq([
-  _propertyAccess.or(_unary),
+  _functionCall.or(_unary),
   zeroOrMore(pair(_multiplicationOperator.or(_divisionOperator), _unary)),
 ]).map(foldBinaryExpression)
 

@@ -1,7 +1,9 @@
 import exp from 'constants'
 import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
 import {
+  createArgumentListNode,
   createBinaryExpressionNode,
+  createFunctionCallNode,
   createIdentifierNode,
   createIntegerNode,
   createPropertyAccessNode,
@@ -289,5 +291,50 @@ describe('_expression', () => {
         createIntegerNode(3)
       )
     )
+  })
+
+  test.each([
+    ['fn()', createVariableAccessNode(createIdentifierNode('fn')), []],
+    [
+      'add(1, 2)',
+      createVariableAccessNode(createIdentifierNode('add')),
+      [createIntegerNode(1), createIntegerNode(2)],
+    ],
+    [
+      'log(add(1, 2), add(3, 4))',
+      createVariableAccessNode(createIdentifierNode('log')),
+      [
+        createFunctionCallNode(
+          createVariableAccessNode(createIdentifierNode('add')),
+          createArgumentListNode([createIntegerNode(1), createIntegerNode(2)])
+        ),
+        createFunctionCallNode(
+          createVariableAccessNode(createIdentifierNode('add')),
+          createArgumentListNode([createIntegerNode(3), createIntegerNode(4)])
+        ),
+      ],
+    ],
+  ])('can parse function calls', (source, callee, args) => {
+    const functionCall = _expression.parseToEnd(source)
+    assertSuccessfulParse(functionCall)
+    assertNodeType(functionCall, 'FunctionCall')
+    expect(functionCall.callee).toEqual(callee)
+    expect(functionCall.argumentList.arguments).toEqual(args)
+  })
+
+  test('function calls have lower precedence than property access', () => {
+    const source = 'console.log()'
+    const fnCall = _expression.parseToEnd(source)
+    assertSuccessfulParse(fnCall)
+    assertNodeType(fnCall, 'FunctionCall')
+    assertNodeType(fnCall.callee, 'PropertyAccess')
+  })
+
+  test('function calls have higher precedence than multiplication', () => {
+    const source = 'getX() * 10'
+    const binaryExpression = _expression.parseToEnd(source)
+    assertSuccessfulParse(binaryExpression)
+    assertNodeType(binaryExpression, 'BinaryExpression')
+    assertNodeType(binaryExpression.left, 'FunctionCall')
   })
 })

@@ -255,6 +255,24 @@ export const createBinaryExpressionNode = (
   right,
 })
 
+export interface FunctionCallNode {
+  __type: 'FunctionCall'
+  callee: ExpressionNode
+  argumentList: ArgumentListNode
+}
+export const createFunctionCallNode = (
+  callee: ExpressionNode,
+  argumentList: ArgumentListNode
+): FunctionCallNode => ({ __type: 'FunctionCall', callee, argumentList })
+
+export interface ArgumentListNode {
+  __type: 'ArgumentList'
+  arguments: ExpressionNode[]
+}
+export const createArgumentListNode = (
+  args: ExpressionNode[]
+): ArgumentListNode => ({ __type: 'ArgumentList', arguments: args })
+
 export type ExpressionNode =
   | BinaryExpressionNode
   | FloatingPointNode
@@ -262,6 +280,7 @@ export type ExpressionNode =
   | PropertyAccessNode
   | UnaryExpressionNode
   | VariableAccessNode
+  | FunctionCallNode
 
 export interface ProgramNode {
   __type: 'Program'
@@ -275,6 +294,7 @@ export const createProgramNode = (
 
 export type Node =
   | AnonymousTypeNode
+  | ArgumentListNode
   | BlockNode
   | ExpressionNode
   | IdentifierNode
