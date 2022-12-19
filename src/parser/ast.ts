@@ -282,11 +282,30 @@ export const createArgumentListNode = (
   args: ExpressionNode[]
 ): ArgumentListNode => ({ __type: 'ArgumentList', arguments: args })
 
+export interface ObjectLiteralNode {
+  __type: 'ObjectLiteral'
+  properties: ObjectPropertyNode[]
+}
+export const createObjectLiteralNode = (
+  properties: ObjectPropertyNode[]
+): ObjectLiteralNode => ({ __type: 'ObjectLiteral', properties })
+
+export interface ObjectPropertyNode {
+  __type: 'ObjectProperty'
+  key: IdentifierNode
+  value: ExpressionNode
+}
+export const createObjectPropertyNode = (
+  key: IdentifierNode,
+  value: ExpressionNode
+): ObjectPropertyNode => ({ __type: 'ObjectProperty', key, value })
+
 export type ExpressionNode =
   | BinaryExpressionNode
   | FloatingPointNode
   | FunctionCallNode
   | IntegerNode
+  | ObjectLiteralNode
   | PropertyAccessNode
   | StringNode
   | UnaryExpressionNode

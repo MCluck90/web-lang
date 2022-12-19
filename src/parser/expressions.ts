@@ -9,13 +9,22 @@ import {
   createFloatingPointNode,
   createFunctionCallNode,
   createIntegerNode,
+  createObjectLiteralNode,
+  createObjectPropertyNode,
   createPropertyAccessNode,
   createStringNode,
   createUnaryExpression,
   createVariableAccessNode,
   ExpressionNode,
 } from './ast'
-import { between, token, trailingCommaList, _parens } from './common'
+import {
+  between,
+  token,
+  trailingCommaList,
+  _braces,
+  _colon,
+  _parens,
+} from './common'
 import { _identifier } from './identifier'
 
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
@@ -38,7 +47,15 @@ const foldBinaryExpression = ([left, rights]: [
     left as ExpressionNode
   )
 
-const _literalValue = _floatingPoint.or(_integer).or(_string)
+const _objectProperty = pair(
+  _identifier,
+  _colon.and(lazy(() => _expression))
+).map(([key, value]) => createObjectPropertyNode(key, value))
+const _objectLiteral = between(_braces, trailingCommaList(_objectProperty)).map(
+  createObjectLiteralNode
+)
+
+const _literalValue = _floatingPoint.or(_integer).or(_string).or(_objectLiteral)
 
 const _primaryExpression = between(
   _parens,

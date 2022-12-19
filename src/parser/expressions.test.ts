@@ -6,6 +6,7 @@ import {
   createFunctionCallNode,
   createIdentifierNode,
   createIntegerNode,
+  createObjectPropertyNode,
   createPropertyAccessNode,
   createStringNode,
   createVariableAccessNode,
@@ -352,5 +353,67 @@ describe('_expression', () => {
     assertSuccessfulParse(binaryExpression)
     assertNodeType(binaryExpression, 'BinaryExpression')
     assertNodeType(binaryExpression.left, 'FunctionCall')
+  })
+
+  test.each([
+    ['{}', []],
+    [
+      '{ age: 100 }',
+      [
+        createObjectPropertyNode(
+          createIdentifierNode('age'),
+          createIntegerNode(100)
+        ),
+      ],
+    ],
+    [
+      '{ age: 100, name: "Mike" }',
+      [
+        createObjectPropertyNode(
+          createIdentifierNode('age'),
+          createIntegerNode(100)
+        ),
+        createObjectPropertyNode(
+          createIdentifierNode('name'),
+          createStringNode('Mike')
+        ),
+      ],
+    ],
+  ])('can parse object literals', (source, properties) => {
+    const objectLiteral = _expression.parseToEnd(source)
+    assertSuccessfulParse(objectLiteral)
+    assertNodeType(objectLiteral, 'ObjectLiteral')
+    expect(objectLiteral.properties).toEqual(properties)
+  })
+
+  test('can parse nested objects', () => {
+    const source = `
+      {
+        name: 'Mike',
+        accounts: {
+          github: {
+            username: 'MCluck90'
+          }
+        }
+      }
+    `
+    const person = _expression.parseToEnd(source)
+    assertSuccessfulParse(person)
+    assertNodeType(person, 'ObjectLiteral')
+    expect(person.properties).toHaveLength(2)
+
+    const accountsProp = person.properties[1]
+    expect(accountsProp.key.value).toBe('accounts')
+    const accountsObject = accountsProp.value
+    assertNodeType(accountsObject, 'ObjectLiteral')
+    expect(accountsObject.properties).toHaveLength(1)
+
+    const githubObject = accountsObject.properties[0].value
+    assertNodeType(githubObject, 'ObjectLiteral')
+    expect(githubObject.properties).toHaveLength(1)
+    expect(githubObject.properties[0].key.value).toBe('username')
+    expect(githubObject.properties[0].value).toEqual(
+      createStringNode('MCluck90')
+    )
   })
 })
