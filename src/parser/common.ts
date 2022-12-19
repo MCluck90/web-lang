@@ -24,5 +24,5 @@ export const _colon = token(/:/y)
 export const _parens = [token(/\(/y), token(/\)/y)] as const
 export const _braces = [token(/{/y), token(/}/y)] as const
 
-export const commaDelimited = <T>(parser: Parser<T>): Parser<T[]> =>
+export const trailingCommaList = <T>(parser: Parser<T>): Parser<T[]> =>
   pair(maybe(list(parser, _comma)), maybe(_comma)).map(([first]) => first ?? [])

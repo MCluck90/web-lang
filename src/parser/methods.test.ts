@@ -73,4 +73,18 @@ describe('_methodDefinition', () => {
     assertNodeType(returnType, 'NamedType')
     expect(returnType.name).toBe('int')
   })
+
+  test('can parse parameter list with hanging comma', () => {
+    const source = `
+      add(
+        x,
+        y,
+      ) {}
+    `
+
+    const methodDefinition = _methodDefinition.parseToEnd(source)
+    assertSuccessfulParse(methodDefinition)
+    assertNodeType(methodDefinition, 'MethodDefinition')
+    expect(methodDefinition.parameterList.parameters).toHaveLength(2)
+  })
 })

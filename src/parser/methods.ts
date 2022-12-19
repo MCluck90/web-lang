@@ -6,14 +6,14 @@ import {
   createParameterNode,
 } from './ast'
 import { _block } from './block'
-import { between, commaDelimited, _colon, _comma, _parens } from './common'
+import { between, trailingCommaList, _colon, _parens } from './common'
 import { _identifier } from './identifier'
 import { _type } from './types'
 
 const _parameter = seq([_identifier, maybe(_colon.and(_type))]).map(
   ([name, type]) => createParameterNode(name, type)
 )
-const _parameterList = between(_parens, commaDelimited(_parameter)).map(
+const _parameterList = between(_parens, trailingCommaList(_parameter)).map(
   createParameterListNode
 )
 export const _methodDefinition = seq([
