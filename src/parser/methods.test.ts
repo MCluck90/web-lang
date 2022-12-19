@@ -10,7 +10,7 @@ describe('_methodDefinition', () => {
     assertNodeType(methodDefinition, 'MethodDefinition')
     expect(methodDefinition.name.value).toBe('hello')
     expect(methodDefinition.parameterList.parameters).toHaveLength(0)
-    expect(methodDefinition.body.expressions).toHaveLength(0)
+    expect(methodDefinition.body.statements).toHaveLength(0)
   })
 
   test('can parse a method with an implicitly typed parameter', () => {

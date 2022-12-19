@@ -173,11 +173,13 @@ export type MethodBodyNode = BlockNode
 
 export interface BlockNode {
   __type: 'Block'
-  expressions: ExpressionNode[]
+  statements: (ExpressionNode | VariableDeclarationNode)[]
 }
-export const createBlockNode = (expressions: ExpressionNode[]): BlockNode => ({
+export const createBlockNode = (
+  expressions: (ExpressionNode | VariableDeclarationNode)[]
+): BlockNode => ({
   __type: 'Block',
-  expressions,
+  statements: expressions,
 })
 
 export interface IntegerNode {
@@ -313,6 +315,26 @@ export type ExpressionNode =
   | UnaryExpressionNode
   | VariableAccessNode
 
+export interface VariableDeclarationNode {
+  __type: 'VariableDeclaration'
+  identifier: IdentifierNode
+  mutable: boolean
+  type: TypeNode | null
+  initializer: ExpressionNode
+}
+export const createVariableDeclarationNode = (
+  identifier: IdentifierNode,
+  mutable: boolean,
+  type: TypeNode | null,
+  initializer: ExpressionNode
+): VariableDeclarationNode => ({
+  __type: 'VariableDeclaration',
+  identifier,
+  mutable,
+  type,
+  initializer,
+})
+
 export interface MainNode {
   __type: 'Main'
   methods: MethodDefinitionNode[]
@@ -358,6 +380,7 @@ export type Node =
   | RemoteUrlNode
   | TypeDefinitionNode
   | TypePropertyNode
+  | VariableDeclarationNode
 
 export type NodeType = Node['__type']
 

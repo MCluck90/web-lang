@@ -2,17 +2,8 @@ import { parseProgram } from '.'
 import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
 
 describe('parseProgram', () => {
-  test('can parse an empty program', () => {
-    const source = ''
-    const program = parseProgram(source)
-    assertSuccessfulParse(program)
-    assertNodeType(program, 'Program')
-    expect(program.typeDefinitions).toHaveLength(0)
-    expect(program.remoteDefinitions).toHaveLength(0)
-  })
-
-  test('can parse an empty program with random whitespace', () => {
-    const source = ' \r\n\t  \n\r\t \t\n '
+  test('can parse program with only a main block', () => {
+    const source = 'main {}'
     const program = parseProgram(source)
     assertSuccessfulParse(program)
     assertNodeType(program, 'Program')
@@ -29,6 +20,8 @@ describe('parseProgram', () => {
 
         response: Todo
       }
+
+      main {}
     `
     const program = parseProgram(source)
     assertSuccessfulParse(program)
@@ -56,6 +49,8 @@ describe('parseProgram', () => {
         POST /person
         body: Person
       }
+
+      main {}
     `
     const program = parseProgram(source)
     assertSuccessfulParse(program)

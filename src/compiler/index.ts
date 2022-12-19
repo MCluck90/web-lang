@@ -8,7 +8,7 @@ export const compileProgram = (program: ProgramNode) => {
     throw new Error('`main` must have a render method')
   }
 
-  const mainExpressions = renderMethod.body.expressions
+  const mainExpressions = renderMethod.body.statements
   const lastExpression = mainExpressions[mainExpressions.length - 1]
   if (!isStringNode(lastExpression)) {
     throw new Error('Only string literals are implemented')

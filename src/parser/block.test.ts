@@ -7,7 +7,7 @@ describe('_block', () => {
     const block = _block.parseToEnd(source)
     assertSuccessfulParse(block)
     assertNodeType(block, 'Block')
-    expect(block.expressions).toHaveLength(0)
+    expect(block.statements).toHaveLength(0)
   })
 
   test.each([
@@ -17,8 +17,8 @@ describe('_block', () => {
     const block = _block.parseToEnd(source)
     assertSuccessfulParse(block)
     assertNodeType(block, 'Block')
-    expect(block.expressions).toHaveLength(1)
-    assertNodeType(block.expressions[0], expressionType)
+    expect(block.statements).toHaveLength(1)
+    assertNodeType(block.statements[0], expressionType)
   })
 
   test.each([
@@ -45,7 +45,7 @@ describe('_block', () => {
     const block = _block.parseToEnd(source)
     assertSuccessfulParse(block)
     assertNodeType(block, 'Block')
-    expect(block.expressions).toHaveLength(count)
+    expect(block.statements).toHaveLength(count)
   })
 
   test('allow separating expressions with semicolons', () => {
@@ -53,6 +53,55 @@ describe('_block', () => {
     const block = _block.parseToEnd(source)
     assertSuccessfulParse(block)
     assertNodeType(block, 'Block')
-    expect(block.expressions).toHaveLength(3)
+    expect(block.statements).toHaveLength(3)
+  })
+
+  test('can parse blocks with a variable declaration', () => {
+    const source = `
+      {
+        let x = 1
+      }
+    `
+    const block = _block.parseToEnd(source)
+    assertSuccessfulParse(block)
+    assertNodeType(block, 'Block')
+    expect(block.statements).toHaveLength(1)
+    assertNodeType(block.statements[0], 'VariableDeclaration')
+  })
+
+  test('can parse blocks with multiple variable declarations', () => {
+    const source = `
+      {
+        let x = 1
+        let mut y = 2
+      }
+    `
+    const block = _block.parseToEnd(source)
+    assertSuccessfulParse(block)
+    assertNodeType(block, 'Block')
+    expect(block.statements).toHaveLength(2)
+    assertNodeType(block.statements[0], 'VariableDeclaration')
+    assertNodeType(block.statements[1], 'VariableDeclaration')
+  })
+
+  test('can mix expressions and variable declarations', () => {
+    const source = `
+      {
+        10
+        let x = 1
+        20
+        let mut y = 2
+        30
+      }
+    `
+    const block = _block.parseToEnd(source)
+    assertSuccessfulParse(block)
+    assertNodeType(block, 'Block')
+    expect(block.statements).toHaveLength(5)
+    assertNodeType(block.statements[0], 'Integer')
+    assertNodeType(block.statements[1], 'VariableDeclaration')
+    assertNodeType(block.statements[2], 'Integer')
+    assertNodeType(block.statements[3], 'VariableDeclaration')
+    assertNodeType(block.statements[4], 'Integer')
   })
 })

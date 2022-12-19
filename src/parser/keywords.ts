@@ -1,6 +1,8 @@
 import { token } from './common'
 
 export const _mainKeyword = token(/main/y)
+export const _letKeyword = token(/let/y)
+export const _mutKeyword = token(/mut/y)
 export const _typeKeyword = token(/type/y)
 export const _intKeyword = token(/int/y)
 export const _stringKeyword = token(/string/y)
