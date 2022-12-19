@@ -206,6 +206,22 @@ export const createVariableAccessNode = (
   name: IdentifierNode
 ): VariableAccessNode => ({ __type: 'VariableAccess', name })
 
+export type UnaryOperator = '-'
+
+export interface UnaryExpressionNode {
+  __type: 'UnaryExpression'
+  operator: UnaryOperator
+  expression: ExpressionNode
+}
+export const createUnaryExpression = (
+  operator: UnaryOperator,
+  expression: ExpressionNode
+): UnaryExpressionNode => ({
+  __type: 'UnaryExpression',
+  operator,
+  expression,
+})
+
 export type BinaryOperator = '+' | '-' | '*' | '/'
 
 export interface BinaryExpressionNode {
@@ -229,6 +245,7 @@ export type ExpressionNode =
   | IntegerNode
   | FloatingPointNode
   | VariableAccessNode
+  | UnaryExpressionNode
   | BinaryExpressionNode
 
 export interface ProgramNode {

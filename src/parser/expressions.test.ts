@@ -3,8 +3,8 @@ import { createBinaryExpressionNode, createIntegerNode, Node } from './ast'
 import { _expression } from './expressions'
 
 describe('_expression', () => {
-  test.each([['1', 1] as const, ['-1', -1] as const, ['9_001', 9001] as const])(
-    'can parse integers',
+  test.each([['1', 1] as const, ['9_001', 9001] as const])(
+    'can parse positive integers',
     (source, value) => {
       const integer = _expression.parseToEnd(source)
       assertSuccessfulParse(integer)
@@ -13,16 +13,43 @@ describe('_expression', () => {
     }
   )
 
-  test.each([
-    ['1.0', 1.0] as const,
-    ['-1.0', -1.0] as const,
-    ['9_00.1', 900.1] as const,
-  ])('can parse floating point numbers', (source, value) => {
-    const floatingPoint = _expression.parseToEnd(source)
-    assertSuccessfulParse(floatingPoint)
-    assertNodeType(floatingPoint, 'FloatingPoint')
-    expect(floatingPoint.value).toBe(value)
-  })
+  test.each([['-1', 1] as const, ['-9_001', 9001] as const])(
+    'can parse negative integers',
+    (source, value) => {
+      const unaryExpression = _expression.parseToEnd(source)
+      assertSuccessfulParse(unaryExpression)
+      assertNodeType(unaryExpression, 'UnaryExpression')
+      expect(unaryExpression.operator).toBe('-')
+
+      const integer = unaryExpression.expression
+      assertNodeType(integer, 'Integer')
+      expect(integer.value).toBe(value)
+    }
+  )
+
+  test.each([['1.0', 1.0] as const, ['9_00.1', 900.1] as const])(
+    'can parse positive floating point numbers',
+    (source, value) => {
+      const floatingPoint = _expression.parseToEnd(source)
+      assertSuccessfulParse(floatingPoint)
+      assertNodeType(floatingPoint, 'FloatingPoint')
+      expect(floatingPoint.value).toBe(value)
+    }
+  )
+
+  test.each([['-1.0', 1.0] as const, ['-9_00.1', 900.1] as const])(
+    'can parse negative floating point numbers',
+    (source, value) => {
+      const unaryExpression = _expression.parseToEnd(source)
+      assertSuccessfulParse(unaryExpression)
+      assertNodeType(unaryExpression, 'UnaryExpression')
+      expect(unaryExpression.operator).toBe('-')
+
+      const floatingPoint = unaryExpression.expression
+      assertNodeType(floatingPoint, 'FloatingPoint')
+      expect(floatingPoint.value).toBe(value)
+    }
+  )
 
   test.each([
     ['1 + 2', 'Integer' as const, 'Integer' as const],

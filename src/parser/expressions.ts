@@ -1,14 +1,12 @@
-import { error, pair, Parser, zeroOrMore } from 'parsnip-ts'
-import {
-  signedSeparatedFloatingPoint,
-  signedSeparatedInteger,
-} from 'parsnip-ts/numbers'
+import { error, maybe, pair, Parser, zeroOrMore } from 'parsnip-ts'
+import { separatedFloatingPoint, separatedInteger } from 'parsnip-ts/numbers'
 import { seq } from 'parsnip-ts/seq'
 import {
   BinaryOperator,
   createBinaryExpressionNode,
   createFloatingPointNode,
   createIntegerNode,
+  createUnaryExpression,
   createVariableAccessNode,
   ExpressionNode,
 } from './ast'
@@ -21,9 +19,8 @@ const _additionOperator = token(/\+/y) as Parser<'+'>
 const _subtractionOperator = token(/\-/y) as Parser<'-'>
 const _multiplicationOperator = token(/\*/y) as Parser<'*'>
 const _divisionOperator = token(/\//y) as Parser<'/'>
-const _variableAccessOperator = token(/\./y) as Parser<'.'>
-const _integer = signedSeparatedInteger.map(createIntegerNode)
-const _floatingPoint = signedSeparatedFloatingPoint.map(createFloatingPointNode)
+const _integer = separatedInteger.map(createIntegerNode)
+const _floatingPoint = separatedFloatingPoint.map(createFloatingPointNode)
 
 const foldBinaryExpression = ([left, rights]: [
   ExpressionNode,
@@ -40,8 +37,13 @@ const _primaryExpression = _literalValue.or(
   _identifier.map(createVariableAccessNode)
 )
 
+const _unary = seq([maybe(_subtractionOperator), _primaryExpression]).map(
+  ([op, expression]) =>
+    op !== null ? createUnaryExpression(op, expression) : expression
+)
+
 const _factor = seq([
-  _primaryExpression,
+  _unary,
   zeroOrMore(
     pair(_multiplicationOperator.or(_divisionOperator), _primaryExpression)
   ),
