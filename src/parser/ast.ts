@@ -312,6 +312,8 @@ export type Node =
   | TypeDefinitionNode
   | TypePropertyNode
 
+export type NodeType = Node['__type']
+
 export const isNodeType =
   <T extends Node['__type']>(type: T) =>
   (value: unknown): value is Node & { __type: T } => {
