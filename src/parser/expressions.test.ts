@@ -62,6 +62,16 @@ describe('_expression', () => {
   )
 
   test.each([
+    ['"Hello"', 'Hello'],
+    ["'World'", 'World'],
+  ])('can parse strings', (source, value) => {
+    const string = _expression.parseToEnd(source)
+    assertSuccessfulParse(string)
+    assertNodeType(string, 'String')
+    expect(string.value).toBe(value)
+  })
+
+  test.each([
     ['1 + 2', 'Integer' as const, 'Integer' as const],
     ['x + 2', 'VariableAccess' as const, 'Integer' as const],
     ['1 + x', 'Integer' as const, 'VariableAccess' as const],

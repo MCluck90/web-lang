@@ -1,6 +1,7 @@
 import { error, lazy, list, maybe, pair, Parser, zeroOrMore } from 'parsnip-ts'
 import { separatedFloatingPoint, separatedInteger } from 'parsnip-ts/numbers'
 import { seq } from 'parsnip-ts/seq'
+import { singleQuoteString, doubleQuoteString } from 'parsnip-ts/strings'
 import {
   BinaryOperator,
   createArgumentListNode,
@@ -9,6 +10,7 @@ import {
   createFunctionCallNode,
   createIntegerNode,
   createPropertyAccessNode,
+  createStringNode,
   createUnaryExpression,
   createVariableAccessNode,
   ExpressionNode,
@@ -25,6 +27,7 @@ const _divisionOperator = token(/\//y) as Parser<'/'>
 const _propertyAccessOperator = token(/\./y) as Parser<'.'>
 const _integer = separatedInteger.map(createIntegerNode)
 const _floatingPoint = separatedFloatingPoint.map(createFloatingPointNode)
+const _string = singleQuoteString.or(doubleQuoteString).map(createStringNode)
 
 const foldBinaryExpression = ([left, rights]: [
   ExpressionNode,
@@ -35,7 +38,7 @@ const foldBinaryExpression = ([left, rights]: [
     left as ExpressionNode
   )
 
-const _literalValue = _floatingPoint.or(_integer)
+const _literalValue = _floatingPoint.or(_integer).or(_string)
 
 const _primaryExpression = between(
   _parens,

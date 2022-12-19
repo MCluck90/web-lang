@@ -198,6 +198,15 @@ export const createFloatingPointNode = (value: number): FloatingPointNode => ({
   value,
 })
 
+export interface StringNode {
+  __type: 'String'
+  value: string
+}
+export const createStringNode = (value: string): StringNode => ({
+  __type: 'String',
+  value,
+})
+
 export interface VariableAccessNode {
   __type: 'VariableAccess'
   name: IdentifierNode
@@ -276,11 +285,12 @@ export const createArgumentListNode = (
 export type ExpressionNode =
   | BinaryExpressionNode
   | FloatingPointNode
+  | FunctionCallNode
   | IntegerNode
   | PropertyAccessNode
+  | StringNode
   | UnaryExpressionNode
   | VariableAccessNode
-  | FunctionCallNode
 
 export interface ProgramNode {
   __type: 'Program'
