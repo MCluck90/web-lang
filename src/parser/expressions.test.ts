@@ -1,5 +1,13 @@
+import exp from 'constants'
 import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
-import { createBinaryExpressionNode, createIntegerNode, Node } from './ast'
+import {
+  createBinaryExpressionNode,
+  createIdentifierNode,
+  createIntegerNode,
+  createPropertyAccessNode,
+  createVariableAccessNode,
+  Node,
+} from './ast'
 import { _expression } from './expressions'
 
 describe('_expression', () => {
@@ -171,5 +179,92 @@ describe('_expression', () => {
     const expression = _expression.parseToEnd(source)
     assertSuccessfulParse(expression)
     expect(expression).toEqual(output)
+  })
+
+  test('can parse property access', () => {
+    const source = 'x.y'
+    const propertyAccess = _expression.parseToEnd(source)
+    assertSuccessfulParse(propertyAccess)
+    assertNodeType(propertyAccess, 'PropertyAccess')
+    expect(propertyAccess).toEqual(
+      createPropertyAccessNode(
+        createVariableAccessNode(createIdentifierNode('x')),
+        [createIdentifierNode('y')]
+      )
+    )
+  })
+
+  test.each([
+    [
+      'x.y + 1',
+      createBinaryExpressionNode(
+        createPropertyAccessNode(
+          createVariableAccessNode(createIdentifierNode('x')),
+          [createIdentifierNode('y')]
+        ),
+        '+',
+        createIntegerNode(1)
+      ),
+    ],
+    [
+      '1 + x.y',
+      createBinaryExpressionNode(
+        createIntegerNode(1),
+        '+',
+        createPropertyAccessNode(
+          createVariableAccessNode(createIdentifierNode('x')),
+          [createIdentifierNode('y')]
+        )
+      ),
+    ],
+    [
+      '1 + 2 * x.y',
+      createBinaryExpressionNode(
+        createIntegerNode(1),
+        '+',
+        createBinaryExpressionNode(
+          createIntegerNode(2),
+          '*',
+          createPropertyAccessNode(
+            createVariableAccessNode(createIdentifierNode('x')),
+            [createIdentifierNode('y')]
+          )
+        )
+      ),
+    ],
+    [
+      'x.y * 2 + 1',
+      createBinaryExpressionNode(
+        createBinaryExpressionNode(
+          createPropertyAccessNode(
+            createVariableAccessNode(createIdentifierNode('x')),
+            [createIdentifierNode('y')]
+          ),
+          '*',
+          createIntegerNode(2)
+        ),
+        '+',
+        createIntegerNode(1)
+      ),
+    ],
+    [
+      '1 + x.y * 2',
+      createBinaryExpressionNode(
+        createIntegerNode(1),
+        '+',
+        createBinaryExpressionNode(
+          createPropertyAccessNode(
+            createVariableAccessNode(createIdentifierNode('x')),
+            [createIdentifierNode('y')]
+          ),
+          '*',
+          createIntegerNode(2)
+        )
+      ),
+    ],
+  ])('property access has correct precedence', (source, expected) => {
+    const expression = _expression.parseToEnd(source)
+    assertSuccessfulParse(exp)
+    expect(expression).toEqual(expected)
   })
 })

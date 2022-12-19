@@ -206,6 +206,20 @@ export const createVariableAccessNode = (
   name: IdentifierNode
 ): VariableAccessNode => ({ __type: 'VariableAccess', name })
 
+export interface PropertyAccessNode {
+  __type: 'PropertyAccess'
+  left: ExpressionNode
+  rights: IdentifierNode[]
+}
+export const createPropertyAccessNode = (
+  left: ExpressionNode,
+  rights: IdentifierNode[]
+): PropertyAccessNode => ({
+  __type: 'PropertyAccess',
+  left,
+  rights,
+})
+
 export type UnaryOperator = '-'
 
 export interface UnaryExpressionNode {
@@ -242,11 +256,12 @@ export const createBinaryExpressionNode = (
 })
 
 export type ExpressionNode =
-  | IntegerNode
-  | FloatingPointNode
-  | VariableAccessNode
-  | UnaryExpressionNode
   | BinaryExpressionNode
+  | FloatingPointNode
+  | IntegerNode
+  | PropertyAccessNode
+  | UnaryExpressionNode
+  | VariableAccessNode
 
 export interface ProgramNode {
   __type: 'Program'
