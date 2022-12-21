@@ -1,7 +1,7 @@
 main {
   render() {
     main#(
-      h1#('Hello world'),
+      h1#({ style: 'color: red' }, 'Hello world'),
       p#('The compiler will determine the initial state of the HTML and render that directly to the file.')
     )
   }

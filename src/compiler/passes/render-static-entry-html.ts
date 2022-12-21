@@ -13,10 +13,23 @@ const toStaticHtml = (expression: ExpressionNode): string => {
     case 'String':
       return expression.value.toString()
 
-    case 'HTML':
-      return `<${expression.tag}>${expression.children
-        .map(toStaticHtml)
-        .join('')}</${expression.tag}>`
+    case 'HTML': {
+      let html = `<${expression.tag}`
+      if (expression.children.length > 0) {
+        const firstExpression = expression.children[0]
+        if (isNodeType('ObjectLiteral')(firstExpression)) {
+          html +=
+            firstExpression.properties
+              .map((prop) => ` ${prop.key.value}="${toStaticHtml(prop.value)}"`)
+              .join('') + '>'
+          html += expression.children.slice(1).map(toStaticHtml).join('')
+        } else {
+          html += '>'
+          html += expression.children.map(toStaticHtml).join('')
+        }
+      }
+      return `${html}</${expression.tag}>`
+    }
   }
 
   throw new Error(`Unhandled expression type: ${expression.__type}`)
@@ -59,7 +72,6 @@ export const renderStaticEntryHtmlPass = (program: Input): Output => {
     return new HTMLModule('index', '')
   }
 
-  console.log(lastStatement)
   return new HTMLModule(
     'index',
     generateHtmlDocument(toStaticHtml(lastStatement))
