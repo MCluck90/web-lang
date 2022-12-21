@@ -1,20 +1,9 @@
-import { isStringNode, ProgramNode } from '../parser/ast'
+import { ProgramNode } from '../parser/ast'
+import { CompilerConfig, CompilerOutput, HTMLModule } from './index.types'
+import { renderStaticEntryHtmlPass } from './passes/render-static-entry-html'
 
-export const compileProgram = (program: ProgramNode) => {
-  const renderMethod = program.main.methods.find(
-    (method) => method.name.value === 'render'
-  )
-  if (!renderMethod) {
-    throw new Error('`main` must have a render method')
-  }
-
-  const mainExpressions = renderMethod.body.statements
-  const lastExpression = mainExpressions[mainExpressions.length - 1]
-  if (!isStringNode(lastExpression)) {
-    throw new Error('Only string literals are implemented')
-  }
-  return {
-    html: `
+const generateHtmlDocument = (body: string) =>
+  `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,9 +12,23 @@ export const compileProgram = (program: ProgramNode) => {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  ${lastExpression.value}
+  ${body}
 </body>
 </html>
-    `.trim(),
+    `.trim()
+
+export const compileProgram = (
+  config: CompilerConfig,
+  program: ProgramNode
+): CompilerOutput => {
+  const result = renderStaticEntryHtmlPass(program)
+
+  const htmlModules: HTMLModule[] = []
+  if (result !== null) {
+    htmlModules.push(result)
+  }
+  return {
+    html: htmlModules,
+    frontendJs: [],
   }
 }

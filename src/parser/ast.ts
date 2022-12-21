@@ -208,8 +208,6 @@ export const createStringNode = (value: string): StringNode => ({
   __type: 'String',
   value,
 })
-export const isStringNode = (value: unknown): value is StringNode =>
-  isNodeType('String')(value)
 
 export interface VariableAccessNode {
   __type: 'VariableAccess'
