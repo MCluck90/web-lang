@@ -8,6 +8,7 @@ import {
   createBinaryExpressionNode,
   createFloatingPointNode,
   createFunctionCallNode,
+  createHTMLNode,
   createIntegerNode,
   createObjectLiteralNode,
   createObjectPropertyNode,
@@ -37,6 +38,11 @@ const _propertyAccessOperator = token(/\./y) as Parser<'.'>
 const _integer = separatedInteger.map(createIntegerNode)
 const _floatingPoint = separatedFloatingPoint.map(createFloatingPointNode)
 const _string = singleQuoteString.or(doubleQuoteString).map(createStringNode)
+const _html = seq([
+  token(/[a-z][a-z0-9\-]*/y),
+  token(/#/y),
+  between(_parens, trailingCommaList(lazy(() => _expression))),
+]).map(([tag, _, children]) => createHTMLNode(tag, children))
 
 const foldBinaryExpression = ([left, rights]: [
   ExpressionNode,
@@ -62,6 +68,7 @@ const _primaryExpression = between(
   lazy(() => _expression)
 )
   .or(_literalValue)
+  .or(_html)
   .or(_identifier.map(createVariableAccessNode))
 
 const _propertyAccess = seq([

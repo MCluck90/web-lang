@@ -18,7 +18,14 @@ const [, , subcommand, filePath] = process.argv
 const testConfig: CompilerConfig = {
   projectName: 'Test',
 }
+
+const outputDirectory = path.join(process.cwd(), '_build')
 switch (subcommand) {
+  case 'rebuild':
+    if (fs.existsSync(outputDirectory)) {
+      fs.rmSync(outputDirectory, { recursive: true })
+    }
+
   case 'compile':
   case 'parse': {
     const fullFilePath = path.join(process.cwd(), filePath)
@@ -42,7 +49,6 @@ switch (subcommand) {
 
     const compileResult = compileProgram(testConfig, parseResult)
 
-    const outputDirectory = path.join(process.cwd(), '_build')
     if (!fs.existsSync(outputDirectory)) {
       fs.mkdirSync(outputDirectory)
     }

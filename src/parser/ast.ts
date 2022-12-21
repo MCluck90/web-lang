@@ -209,6 +209,16 @@ export const createStringNode = (value: string): StringNode => ({
   value,
 })
 
+export interface HTMLNode {
+  __type: 'HTML'
+  tag: string
+  children: ExpressionNode[]
+}
+export const createHTMLNode = (
+  tag: string,
+  children: ExpressionNode[]
+): HTMLNode => ({ __type: 'HTML', tag, children })
+
 export interface VariableAccessNode {
   __type: 'VariableAccess'
   name: IdentifierNode
@@ -306,12 +316,28 @@ export type ExpressionNode =
   | BinaryExpressionNode
   | FloatingPointNode
   | FunctionCallNode
+  | HTMLNode
   | IntegerNode
   | ObjectLiteralNode
   | PropertyAccessNode
   | StringNode
   | UnaryExpressionNode
   | VariableAccessNode
+export const isAnExpressionNode = (value: Node): value is ExpressionNode => {
+  const expressionTypes: Record<ExpressionNode['__type'], boolean> = {
+    UnaryExpression: true,
+    BinaryExpression: true,
+    FunctionCall: true,
+    ObjectLiteral: true,
+    FloatingPoint: true,
+    HTML: true,
+    Integer: true,
+    PropertyAccess: true,
+    String: true,
+    VariableAccess: true,
+  }
+  return value.__type in expressionTypes
+}
 
 export interface VariableDeclarationNode {
   __type: 'VariableDeclaration'

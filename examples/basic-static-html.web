@@ -1,0 +1,8 @@
+main {
+  render() {
+    main#(
+      h1#('Hello world'),
+      p#('The compiler will determine the initial state of the HTML and render that directly to the file.')
+    )
+  }
+}

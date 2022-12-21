@@ -1,6 +1,26 @@
-import { isNodeType } from '../../parser/ast'
+import {
+  ExpressionNode,
+  isAnExpressionNode,
+  isNodeType,
+} from '../../parser/ast'
 import { HTMLModule } from '../index.types'
 import { Input, Output } from './render-static-entry-html.types'
+
+const toStaticHtml = (expression: ExpressionNode): string => {
+  switch (expression.__type) {
+    case 'FloatingPoint':
+    case 'Integer':
+    case 'String':
+      return expression.value.toString()
+
+    case 'HTML':
+      return `<${expression.tag}>${expression.children
+        .map(toStaticHtml)
+        .join('')}</${expression.tag}>`
+  }
+
+  throw new Error(`Unhandled expression type: ${expression.__type}`)
+}
 
 const generateHtmlDocument = (body: string) =>
   `
@@ -29,15 +49,19 @@ export const renderStaticEntryHtmlPass = (program: Input): Output => {
     return null
   }
 
-  const mainExpressions = renderMethod.body.statements
-  const lastExpression = mainExpressions[mainExpressions.length - 1]
-  if (!isNodeType('String')(lastExpression)) {
-    console.info(
-      'Pass: render-static-entry-html:',
-      'Only string literals are implemented'
-    )
-    return null
+  const statements = renderMethod.body.statements
+  if (statements.length === 0) {
+    return new HTMLModule('index', '')
   }
 
-  return new HTMLModule('index', generateHtmlDocument(lastExpression.value))
+  const lastStatement = statements[statements.length - 1]
+  if (!isAnExpressionNode(lastStatement)) {
+    return new HTMLModule('index', '')
+  }
+
+  console.log(lastStatement)
+  return new HTMLModule(
+    'index',
+    generateHtmlDocument(toStaticHtml(lastStatement))
+  )
 }
