@@ -1,3 +1,1 @@
-%js-asm% (* 
-  console.log('Hello world')
-*)
+%js-asm% (* console.log('Hello world') *)

@@ -45,9 +45,7 @@ remote UpdateTodo {
   }
 }
 
-let todos: Remote<Todo[]>
-
-this.todos = call GetAllTodos();
+let todos: Remote<Todo[]> = call GetAllTodos()
 
 render {
   main#(
