@@ -1,23 +1,24 @@
-import { constant, zeroOrMore } from 'parsnip-ts'
+import { maybe, zeroOrMore } from 'parsnip-ts'
 import { seq } from 'parsnip-ts/seq'
 import { ws } from 'parsnip-ts/whitespace'
-import { createMainNode, createProgramNode, isNodeType } from './ast'
+import { createRenderNode, createProgramNode, isNodeType } from './ast'
+import { _block } from './block'
 import { between, _braces } from './common'
-import { _mainKeyword } from './keywords'
+import { _renderKeyword } from './keywords'
 import { _methodDefinition } from './methods'
 import { _remoteDefinition } from './remote'
+import { _statement } from './statement'
 import { _typeDefinition } from './types'
 
-const _mainBody = between(_braces, zeroOrMore(_methodDefinition))
-const _main = _mainKeyword.and(_mainBody).map(createMainNode)
+export const _render = _renderKeyword.and(_block).map(createRenderNode)
 
 export const _program = seq([
-  zeroOrMore(between([ws, ws], _typeDefinition.or(_remoteDefinition))),
-  _main,
-]).map(([typesAndRemotes, main]) => {
-  const typeDefinitions = typesAndRemotes.filter(isNodeType('TypeDefinition'))
-  const remoteDefinitions = typesAndRemotes.filter(
-    isNodeType('RemoteDefinition')
-  )
-  return createProgramNode(typeDefinitions, remoteDefinitions, main)
+  zeroOrMore(
+    between([ws, ws], _typeDefinition.or(_remoteDefinition).or(_statement))
+  ).map((statements) =>
+    statements.filter((s): s is Exclude<typeof s, null> => s !== null)
+  ),
+  ws.and(maybe(_render.skip(ws))),
+]).map(([statements, render]) => {
+  return createProgramNode(statements, render)
 })

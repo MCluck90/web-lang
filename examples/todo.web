@@ -45,30 +45,26 @@ remote UpdateTodo {
   }
 }
 
-main {
-  let todos: Remote<Todo[]>
+let todos: Remote<Todo[]>
 
-  setup() {
-    this.todos = call GetAllTodos();
-  }
+this.todos = call GetAllTodos();
 
-  render() {
-    (
-      #h1("Todos"),
-      if todos.loading {
-        #p("Loading...")
-      },
-      #ul(
-        todos.data
-        .mapEach(=> #li(
-          #input(
-            type: "checkbox",
-            checked: it.done,
-            onChange: () => call UpdateTodo({ ...it, done: !it.done })
-          )
-        ))
-        .mapError(#p)
-      )
+render {
+  main#(
+    h1#("Todos"),
+    if todos.loading {
+      #p("Loading...")
+    },
+    ul#(
+      todos.data
+      .mapEach(=> #li(
+        #input(
+          type: "checkbox",
+          checked: it.done,
+          onChange: () => call UpdateTodo({ ...it, done: !it.done })
+        )
+      ))
+      .mapError(#p)
     )
-  }
+  )
 }

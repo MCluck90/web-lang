@@ -51,10 +51,8 @@ const generateHtmlDocument = (body: string) =>
     `.trim()
 
 export const renderStaticEntryHtmlPass = (program: Input): Output => {
-  const renderMethod = program.main.methods.find(
-    (method) => method.name.value === 'render'
-  )
-  if (!renderMethod) {
+  const renderBlock = program.render
+  if (!renderBlock) {
     console.info(
       'Pass: render-static-entry-html:',
       '`main` must have a render method'
@@ -62,7 +60,7 @@ export const renderStaticEntryHtmlPass = (program: Input): Output => {
     return null
   }
 
-  const statements = renderMethod.body.statements
+  const statements = renderBlock.body.statements
   if (statements.length === 0) {
     return new HTMLModule('index', '')
   }

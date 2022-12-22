@@ -171,13 +171,13 @@ export const createParameterNode = (
 // Ex: Add(x: int, y: int) = x + y
 export type MethodBodyNode = BlockNode
 
+export type Statement = ExpressionNode | VariableDeclarationNode
+
 export interface BlockNode {
   __type: 'Block'
-  statements: (ExpressionNode | VariableDeclarationNode)[]
+  statements: Statement[]
 }
-export const createBlockNode = (
-  expressions: (ExpressionNode | VariableDeclarationNode)[]
-): BlockNode => ({
+export const createBlockNode = (expressions: Statement[]): BlockNode => ({
   __type: 'Block',
   statements: expressions,
 })
@@ -323,6 +323,7 @@ export type ExpressionNode =
   | StringNode
   | UnaryExpressionNode
   | VariableAccessNode
+
 export const isAnExpressionNode = (value: Node): value is ExpressionNode => {
   const expressionTypes: Record<ExpressionNode['__type'], boolean> = {
     UnaryExpression: true,
@@ -359,30 +360,27 @@ export const createVariableDeclarationNode = (
   initializer,
 })
 
-export interface MainNode {
-  __type: 'Main'
-  methods: MethodDefinitionNode[]
+export interface RenderNode {
+  __type: 'Render'
+  body: BlockNode
 }
-export const createMainNode = (methods: MethodDefinitionNode[]): MainNode => ({
-  __type: 'Main',
-  methods,
+export const createRenderNode = (body: BlockNode): RenderNode => ({
+  __type: 'Render',
+  body,
 })
 
 export interface ProgramNode {
   __type: 'Program'
-  typeDefinitions: TypeDefinitionNode[]
-  remoteDefinitions: RemoteDefinitionNode[]
-  main: MainNode
+  statements: (TypeDefinitionNode | RemoteDefinitionNode | Statement)[]
+  render: RenderNode | null
 }
 export const createProgramNode = (
-  typeDefinitions: TypeDefinitionNode[],
-  remoteDefinitions: RemoteDefinitionNode[],
-  main: MainNode
+  statements: (TypeDefinitionNode | RemoteDefinitionNode | Statement)[],
+  render: RenderNode | null
 ): ProgramNode => ({
   __type: 'Program',
-  typeDefinitions,
-  remoteDefinitions,
-  main,
+  statements,
+  render: render,
 })
 
 export type Node =
@@ -399,6 +397,7 @@ export type Node =
   | ParameterNode
   | ProgramNode
   | PropertyKeyNode
+  | RenderNode
   | RemoteDefinitionNode
   | RemoteParameterNode
   | RemoteUrlNode

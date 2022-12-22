@@ -1,0 +1,21 @@
+main {
+  state: {
+    count: int = 0
+  }
+
+  mutations: {
+    addOne() {
+      state.count += 1
+    }
+  }
+
+  render() {
+    main#(
+      count,
+      button#(
+        { onClick: addOne },
+        'Add 1'
+      )
+    )
+  }
+}

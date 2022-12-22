@@ -2,13 +2,13 @@ import { parseProgram } from '.'
 import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
 
 describe('parseProgram', () => {
-  test('can parse program with only a main block', () => {
-    const source = 'main {}'
+  test('can parse program with only a render block', () => {
+    const source = 'render {}'
     const program = parseProgram(source)
     assertSuccessfulParse(program)
     assertNodeType(program, 'Program')
-    expect(program.typeDefinitions).toHaveLength(0)
-    expect(program.remoteDefinitions).toHaveLength(0)
+    expect(program.statements).toHaveLength(0)
+    expect(program.render).not.toBe(null)
   })
 
   test('can parse a program with a type definition and a remote', () => {
@@ -20,14 +20,11 @@ describe('parseProgram', () => {
 
         response: Todo
       }
-
-      main {}
     `
     const program = parseProgram(source)
     assertSuccessfulParse(program)
     assertNodeType(program, 'Program')
-    expect(program.typeDefinitions).toHaveLength(1)
-    expect(program.remoteDefinitions).toHaveLength(1)
+    expect(program.statements).toHaveLength(2)
   })
 
   test('can parse a program with mixed type definitions and remotes', () => {
@@ -50,12 +47,22 @@ describe('parseProgram', () => {
         body: Person
       }
 
-      main {}
+      render {}
     `
     const program = parseProgram(source)
     assertSuccessfulParse(program)
     assertNodeType(program, 'Program')
-    expect(program.typeDefinitions).toHaveLength(2)
-    expect(program.remoteDefinitions).toHaveLength(2)
+    expect(program.statements).toHaveLength(4)
+  })
+
+  test('can parse arbitrary expressions', () => {
+    const source = `
+      x + 2
+      Stdout.writeLn("Hello")
+    `
+    const program = parseProgram(source)
+    assertSuccessfulParse(program)
+    assertNodeType(program, 'Program')
+    expect(program.statements).toHaveLength(2)
   })
 })
