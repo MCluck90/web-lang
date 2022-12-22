@@ -1,0 +1,12 @@
+%js-asm% (*
+  const countEl = document.getElementById('count')
+  setTimeout(function loop() {
+    const count = Number(countEl.innerHTML)
+    countEl.innerHTML = count + 1
+    setTimeout(loop, 1000)
+  }, 1000)
+*)
+
+render {
+  h1#({ id: 'count' }, 0)
+}
