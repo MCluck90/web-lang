@@ -1,5 +1,5 @@
 import { ProgramNode } from '../../parser/ast'
-import { HTMLModule } from '../index.types'
+import { HTMLModule, JSModule } from '../index.types'
 
-export type Input = ProgramNode
+export type Input = { program: ProgramNode; startupJsModules: JSModule[] }
 export type Output = HTMLModule | null

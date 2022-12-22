@@ -68,7 +68,10 @@ switch (subcommand) {
       fs.mkdirSync(frontendJsDirectory)
     }
     for (const jsModule of compileResult.frontendJs) {
-      const htmlPath = path.join(outputDirectory, `${jsModule.moduleName}.js`)
+      const htmlPath = path.join(
+        frontendJsDirectory,
+        `${jsModule.moduleName}.js`
+      )
       fs.writeFileSync(htmlPath, jsModule.contents)
     }
     console.log('Compilation succeeded')

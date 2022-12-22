@@ -3,7 +3,7 @@ import {
   isAnExpressionNode,
   isNodeType,
 } from '../../parser/ast'
-import { HTMLModule } from '../index.types'
+import { HTMLModule, JSModule } from '../index.types'
 import { Input, Output } from './render-static-entry-html.types'
 
 const toStaticHtml = (expression: ExpressionNode): string => {
@@ -35,7 +35,7 @@ const toStaticHtml = (expression: ExpressionNode): string => {
   throw new Error(`Unhandled expression type: ${expression.__type}`)
 }
 
-const generateHtmlDocument = (body: string) =>
+const generateHtmlDocument = (body: string, jsModules: JSModule[]) =>
   `
 <!DOCTYPE html>
 <html lang="en">
@@ -46,30 +46,34 @@ const generateHtmlDocument = (body: string) =>
 </head>
 <body>
   ${body}
+  ${jsModules.map(
+    (mod) => `<script src="frontend-js/${mod.moduleName}.js"></script>`
+  )}
 </body>
 </html>
     `.trim()
 
-export const renderStaticEntryHtmlPass = (program: Input): Output => {
+export const renderStaticEntryHtmlPass = ({
+  program,
+  startupJsModules: jsModules,
+}: Input): Output => {
   const renderBlock = program.render
-  if (!renderBlock) {
-    console.info('[INFO] Pass: render-static-entry-html')
-    console.info('Skipping. Did not find a render block')
-    return null
+  if (renderBlock) {
+    const statements = renderBlock.body.statements
+    if (statements.length === 0) {
+      return new HTMLModule('index', '')
+    }
+
+    const lastStatement = statements[statements.length - 1]
+    if (!isAnExpressionNode(lastStatement)) {
+      return new HTMLModule('index', generateHtmlDocument('', jsModules))
+    }
+
+    return new HTMLModule(
+      'index',
+      generateHtmlDocument(toStaticHtml(lastStatement), jsModules)
+    )
   }
 
-  const statements = renderBlock.body.statements
-  if (statements.length === 0) {
-    return new HTMLModule('index', '')
-  }
-
-  const lastStatement = statements[statements.length - 1]
-  if (!isAnExpressionNode(lastStatement)) {
-    return new HTMLModule('index', '')
-  }
-
-  return new HTMLModule(
-    'index',
-    generateHtmlDocument(toStaticHtml(lastStatement))
-  )
+  return new HTMLModule('index', generateHtmlDocument('', jsModules))
 }

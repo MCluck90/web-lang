@@ -1,5 +1,11 @@
 import { ProgramNode } from '../parser/ast'
-import { CompilerConfig, CompilerOutput, HTMLModule } from './index.types'
+import {
+  CompilerConfig,
+  CompilerOutput,
+  HTMLModule,
+  JSModule,
+} from './index.types'
+import { generateRootJsFromAssemblyBlocks } from './passes/generate-root-js'
 import { renderStaticEntryHtmlPass } from './passes/render-static-entry-html'
 
 const generateHtmlDocument = (body: string) =>
@@ -21,14 +27,23 @@ export const compileProgram = (
   config: CompilerConfig,
   program: ProgramNode
 ): CompilerOutput => {
-  const result = renderStaticEntryHtmlPass(program)
+  const jsModules: JSModule[] = []
+  const rootJsModule = generateRootJsFromAssemblyBlocks(program)
+  if (rootJsModule !== null) {
+    jsModules.push(rootJsModule)
+  }
 
   const htmlModules: HTMLModule[] = []
-  if (result !== null) {
-    htmlModules.push(result)
+
+  const staticHtml = renderStaticEntryHtmlPass({
+    program,
+    startupJsModules: jsModules,
+  })
+  if (staticHtml !== null) {
+    htmlModules.push(staticHtml)
   }
   return {
     html: htmlModules,
-    frontendJs: [],
+    frontendJs: jsModules,
   }
 }

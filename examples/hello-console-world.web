@@ -1,9 +1,0 @@
-module Stdout {
-  writeLine() {
-    %js-asm% {
-      console.log(...arguments)
-    }
-  }
-}
-
-Stdout.writeLine('Hello world')
