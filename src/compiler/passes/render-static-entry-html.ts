@@ -53,10 +53,8 @@ const generateHtmlDocument = (body: string) =>
 export const renderStaticEntryHtmlPass = (program: Input): Output => {
   const renderBlock = program.render
   if (!renderBlock) {
-    console.info(
-      'Pass: render-static-entry-html:',
-      '`main` must have a render method'
-    )
+    console.info('[INFO] Pass: render-static-entry-html')
+    console.info('Skipping. Did not find a render block')
     return null
   }
 

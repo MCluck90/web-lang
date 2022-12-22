@@ -312,12 +312,22 @@ export const createObjectPropertyNode = (
   value: ExpressionNode
 ): ObjectPropertyNode => ({ __type: 'ObjectProperty', key, value })
 
+export interface JsAsmNode {
+  __type: 'JsAsm'
+  code: string
+}
+export const createJsAsmNode = (code: string): JsAsmNode => ({
+  __type: 'JsAsm',
+  code,
+})
+
 export type ExpressionNode =
   | BinaryExpressionNode
   | FloatingPointNode
   | FunctionCallNode
   | HTMLNode
   | IntegerNode
+  | JsAsmNode
   | ObjectLiteralNode
   | PropertyAccessNode
   | StringNode
@@ -333,6 +343,7 @@ export const isAnExpressionNode = (value: Node): value is ExpressionNode => {
     FloatingPoint: true,
     HTML: true,
     Integer: true,
+    JsAsm: true,
     PropertyAccess: true,
     String: true,
     VariableAccess: true,
