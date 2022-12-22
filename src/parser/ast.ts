@@ -403,6 +403,7 @@ export type Node =
   | MethodBodyNode
   | MethodDefinitionNode
   | NamedTypeNode
+  | ObjectPropertyNode
   | ObjectTypeNode
   | ParameterListNode
   | ParameterNode
