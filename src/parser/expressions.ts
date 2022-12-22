@@ -27,6 +27,7 @@ import {
   _parens,
 } from './common'
 import { _identifier } from './identifier'
+import { _jsAsm } from './js-asm'
 
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
 
@@ -61,7 +62,11 @@ const _objectLiteral = between(_braces, trailingCommaList(_objectProperty)).map(
   createObjectLiteralNode
 )
 
-const _literalValue = _floatingPoint.or(_integer).or(_string).or(_objectLiteral)
+const _literalValue = _floatingPoint
+  .or(_integer)
+  .or(_string)
+  .or(_objectLiteral)
+  .or(_jsAsm)
 
 const _primaryExpression = between(
   _parens,
