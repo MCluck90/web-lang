@@ -175,12 +175,19 @@ export class DepthFirstVisitor implements AstVisitor {
     return (specificResult ?? genericResult) as T | void
   }
 
+  private descendIntoNode<T extends ASTNode>(
+    node: T,
+    path: ASTNode[]
+  ): T | void {
+    return (this[`visit${node.__type}`] as any)(node, path)
+  }
+
   visitAnonymousType(
     node: AnonymousTypeNode,
     path: ASTNode[]
   ): AnonymousTypeNode | void {
     node.type =
-      this.visitObjectType(node.type, buildPath(node, path)) ?? node.type
+      this.descendIntoNode(node.type, buildPath(node, path)) ?? node.type
     return this.visitNode(node, path)
   }
 
@@ -191,7 +198,7 @@ export class DepthFirstVisitor implements AstVisitor {
     let hasModifiedArguments = false
     const args: ExpressionNode[] = []
     for (const arg of node.arguments) {
-      const result = this.visitNode(arg, buildPath(node, path))
+      const result = this.descendIntoNode(arg, buildPath(node, path))
       if (result) {
         args.push(result)
         hasModifiedArguments = true
@@ -210,7 +217,7 @@ export class DepthFirstVisitor implements AstVisitor {
     const statements: Statement[] = []
 
     for (const statement of statements) {
-      const result = this.visitNode(statement, buildPath(node, path))
+      const result = this.descendIntoNode(statement, buildPath(node, path))
       if (result) {
         hasModifiedStatements = true
         statements.push(result)
@@ -229,8 +236,10 @@ export class DepthFirstVisitor implements AstVisitor {
     node: BinaryExpressionNode,
     path: ASTNode[]
   ): ExpressionNode | void {
-    node.left = this.visitNode(node.left, buildPath(node, path)) ?? node.left
-    node.right = this.visitNode(node.right, buildPath(node, path)) ?? node.right
+    node.left =
+      this.descendIntoNode(node.left, buildPath(node, path)) ?? node.left
+    node.right =
+      this.descendIntoNode(node.right, buildPath(node, path)) ?? node.right
     return this.visitNode(node, path)
   }
 
@@ -246,9 +255,9 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): FunctionCallNode | void {
     node.callee =
-      this.visitNode(node.callee, buildPath(node, path)) ?? node.callee
+      this.descendIntoNode(node.callee, buildPath(node, path)) ?? node.callee
     node.argumentList =
-      this.visitArgumentList(node.argumentList, buildPath(node, path)) ??
+      this.descendIntoNode(node.argumentList, buildPath(node, path)) ??
       node.argumentList
     return this.visitNode(node, path)
   }
@@ -258,9 +267,10 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): FunctionExpressionNode | void {
     node.parameterList =
-      this.visitNode(node.parameterList, buildPath(node, path)) ??
+      this.descendIntoNode(node.parameterList, buildPath(node, path)) ??
       node.parameterList
-    node.body = this.visitNode(node.body, buildPath(node, path)) ?? node.body
+    node.body =
+      this.descendIntoNode(node.body, buildPath(node, path)) ?? node.body
     return this.visitNode(node, path)
   }
 
@@ -268,7 +278,7 @@ export class DepthFirstVisitor implements AstVisitor {
     let hasModifiedChildren = false
     const children: ExpressionNode[] = []
     for (const child of node.children) {
-      const result = this.visitNode(child, buildPath(node, path))
+      const result = this.descendIntoNode(child, buildPath(node, path))
       if (result) {
         hasModifiedChildren = true
         children.push(result)
@@ -298,7 +308,7 @@ export class DepthFirstVisitor implements AstVisitor {
     let hasModifiedProperties = false
     const properties: ObjectPropertyNode[] = []
     for (const property of node.properties) {
-      const result = this.visitObjectProperty(property, buildPath(node, path))
+      const result = this.descendIntoNode(property, buildPath(node, path))
       if (result) {
         hasModifiedProperties = true
         properties.push(result)
@@ -316,12 +326,13 @@ export class DepthFirstVisitor implements AstVisitor {
     node: PropertyAccessNode,
     path: ASTNode[]
   ): PropertyAccessNode | void {
-    node.left = this.visitNode(node.left, buildPath(node, path)) ?? node.left
+    node.left =
+      this.descendIntoNode(node.left, buildPath(node, path)) ?? node.left
 
     let hasModifiedRights = false
     const rights: IdentifierNode[] = []
     for (const right of node.rights) {
-      const result = this.visitIdentifier(right, buildPath(node, path))
+      const result = this.descendIntoNode(right, buildPath(node, path))
       if (result) {
         hasModifiedRights = true
         rights.push(result)
@@ -346,7 +357,8 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): UnaryExpressionNode | void {
     node.expression =
-      this.visitNode(node.expression, buildPath(node, path)) ?? node.expression
+      this.descendIntoNode(node.expression, buildPath(node, path)) ??
+      node.expression
     return this.visitNode(node, path)
   }
 
@@ -355,7 +367,7 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): VariableAccessNode | void {
     node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
+      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
     return this.visitNode(node, path)
   }
 
@@ -371,15 +383,16 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): MethodDefinitionNode | void {
     node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
+      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
     node.parameterList =
-      this.visitParameterList(node.parameterList, buildPath(node, path)) ??
+      this.descendIntoNode(node.parameterList, buildPath(node, path)) ??
       node.parameterList
     node.returnType = node.returnType
-      ? this.visitNode(node.returnType, buildPath(node, path)) ??
+      ? this.descendIntoNode(node.returnType, buildPath(node, path)) ??
         node.returnType
       : null
-    node.body = this.visitBlock(node.body, buildPath(node, path)) ?? node.body
+    node.body =
+      this.descendIntoNode(node.body, buildPath(node, path)) ?? node.body
     return this.visitNode(node, path)
   }
 
@@ -387,7 +400,10 @@ export class DepthFirstVisitor implements AstVisitor {
     let hasModifiedGenerics = false
     const genericArguments: TypeNode[] = []
     for (const genericArgument of node.genericArguments) {
-      const result = this.visitNode(genericArgument, buildPath(node, path))
+      const result = this.descendIntoNode(
+        genericArgument,
+        buildPath(node, path)
+      )
       if (result) {
         hasModifiedGenerics = true
         genericArguments.push(result)
@@ -407,10 +423,9 @@ export class DepthFirstVisitor implements AstVisitor {
     node: ObjectPropertyNode,
     path: ASTNode[]
   ): ObjectPropertyNode | void {
-    node.key =
-      this.visitors.visitIdentifier?.(node.key, buildPath(node, path)) ??
-      node.key
-    node.value = this.visitNode(node.value, buildPath(node, path)) ?? node.value
+    node.key = this.descendIntoNode(node.key, buildPath(node, path)) ?? node.key
+    node.value =
+      this.descendIntoNode(node.value, buildPath(node, path)) ?? node.value
     return this.visitNode(node, path)
   }
 
@@ -422,7 +437,7 @@ export class DepthFirstVisitor implements AstVisitor {
     const properties: TypePropertyNode[] = []
 
     for (const property of node.properties) {
-      const result = this.visitTypeProperty(property, buildPath(node, path))
+      const result = this.descendIntoNode(property, buildPath(node, path))
       if (result) {
         hasModifiedProperties = true
         properties.push(result)
@@ -446,7 +461,7 @@ export class DepthFirstVisitor implements AstVisitor {
     const parameters: ParameterNode[] = []
 
     for (const parameter of node.parameters) {
-      const result = this.visitParameter(parameter, buildPath(node, path))
+      const result = this.descendIntoNode(parameter, buildPath(node, path))
       if (result) {
         hasModifiedParameters = true
         parameters.push(result)
@@ -464,9 +479,9 @@ export class DepthFirstVisitor implements AstVisitor {
 
   visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | void {
     node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
+      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
     node.type = node.type
-      ? this.visitNode(node.type, buildPath(node, path)) ?? node.type
+      ? this.descendIntoNode(node.type, buildPath(node, path)) ?? node.type
       : node.type
     return this.visitNode(node, path)
   }
@@ -480,15 +495,7 @@ export class DepthFirstVisitor implements AstVisitor {
     )[] = []
 
     for (const statement of node.statements) {
-      let result: RemoteDefinitionNode | TypeDefinitionNode | Statement | void =
-        undefined
-      if (isNodeType('RemoteDefinition')(statement)) {
-        result = this.visitRemoteDefinition(statement, [node])
-      } else if (isNodeType('TypeDefinition')(statement)) {
-        result = this.visitTypeDefinition(statement, [node])
-      } else {
-        result = this.visitNode(statement, [node])
-      }
+      let result = this.descendIntoNode(statement, [node])
       if (result) {
         hasModifiedStatements = true
         statements.push(result)
@@ -509,12 +516,13 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): PropertyKeyNode | void {
     node.value =
-      this.visitIdentifier(node.value, buildPath(node, path)) ?? node.value
+      this.descendIntoNode(node.value, buildPath(node, path)) ?? node.value
     return this.visitNode(node, path)
   }
 
   visitRender(node: RenderNode, path: ASTNode[]): RenderNode | void {
-    node.body = this.visitBlock(node.body, buildPath(node, path)) ?? node.body
+    node.body =
+      this.descendIntoNode(node.body, buildPath(node, path)) ?? node.body
     return this.visitNode(node, path)
   }
 
@@ -523,13 +531,13 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): RemoteDefinitionNode | void {
     node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    node.url = this.visitRemoteUrl(node.url, buildPath(node, path)) ?? node.url
+      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
+    node.url = this.descendIntoNode(node.url, buildPath(node, path)) ?? node.url
 
     let hasModifiedProperties = false
     const properties: TypePropertyNode[] = []
     for (const property of node.properties) {
-      const result = this.visitTypeProperty(property, buildPath(node, path))
+      const result = this.descendIntoNode(property, buildPath(node, path))
       if (result) {
         hasModifiedProperties = true
         properties.push(result)
@@ -545,7 +553,7 @@ export class DepthFirstVisitor implements AstVisitor {
     let hasModifiedMethods = false
     const methods: MethodDefinitionNode[] = []
     for (const method of node.methods) {
-      const result = this.visitMethodDefinition(method, buildPath(node, path))
+      const result = this.descendIntoNode(method, buildPath(node, path))
       if (result) {
         hasModifiedMethods = true
         methods.push(result)
@@ -566,7 +574,7 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): RemoteParameterNode | void {
     node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
+      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
     return this.visitNode(node, path)
   }
 
@@ -574,7 +582,7 @@ export class DepthFirstVisitor implements AstVisitor {
     let hasModifiedParameters = false
     const parameters: RemoteParameterNode[] = []
     for (const parameter of node.parameters) {
-      const result = this.visitRemoteParameter(parameter, buildPath(node, path))
+      const result = this.descendIntoNode(parameter, buildPath(node, path))
       if (result) {
         hasModifiedParameters = true
         parameters.push(result)
@@ -595,8 +603,9 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): TypeDefinitionNode | void {
     node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    node.type = this.visitNode(node.type, buildPath(node, path)) ?? node.type
+      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
+    node.type =
+      this.descendIntoNode(node.type, buildPath(node, path)) ?? node.type
     return this.visitNode(node, path)
   }
 
@@ -605,8 +614,9 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): TypePropertyNode | void {
     node.name =
-      this.visitPropertyKey(node.name, buildPath(node, path)) ?? node.name
-    node.type = this.visitNode(node.type, buildPath(node, path)) ?? node.type
+      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
+    node.type =
+      this.descendIntoNode(node.type, buildPath(node, path)) ?? node.type
     return this.visitNode(node, path)
   }
 
@@ -615,13 +625,13 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): VariableDeclarationNode | void {
     node.identifier =
-      this.visitIdentifier(node.identifier, buildPath(node, path)) ??
+      this.descendIntoNode(node.identifier, buildPath(node, path)) ??
       node.identifier
     node.type = node.type
-      ? this.visitNode(node.type, buildPath(node, path)) ?? node.type
+      ? this.descendIntoNode(node.type, buildPath(node, path)) ?? node.type
       : node.type
     node.initializer =
-      this.visitNode(node.initializer, buildPath(node, path)) ??
+      this.descendIntoNode(node.initializer, buildPath(node, path)) ??
       node.initializer
     return this.visitNode(node, path)
   }
