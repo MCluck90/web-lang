@@ -48,6 +48,6 @@ export const compileProgram = (
   }
   return {
     html: htmlModules,
-    frontendJs: jsModules,
+    isomorphicJs: jsModules,
   }
 }

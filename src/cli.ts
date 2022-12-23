@@ -54,16 +54,16 @@ switch (subcommand) {
       fs.writeFileSync(htmlPath, htmlModule.contents)
     }
 
-    const frontendJsDirectory = path.join(outputDirectory, 'frontend-js')
+    const isomorphicJsDirectory = path.join(outputDirectory, 'isomorphic-js')
     if (
-      compileResult.frontendJs.length > 0 &&
-      !fs.existsSync(frontendJsDirectory)
+      compileResult.isomorphicJs.length > 0 &&
+      !fs.existsSync(isomorphicJsDirectory)
     ) {
-      fs.mkdirSync(frontendJsDirectory)
+      fs.mkdirSync(isomorphicJsDirectory)
     }
-    for (const jsModule of compileResult.frontendJs) {
+    for (const jsModule of compileResult.isomorphicJs) {
       const htmlPath = path.join(
-        frontendJsDirectory,
+        isomorphicJsDirectory,
         `${jsModule.moduleName}.js`
       )
       fs.writeFileSync(htmlPath, jsModule.contents)

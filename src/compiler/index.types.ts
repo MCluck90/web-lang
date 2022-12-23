@@ -18,6 +18,6 @@ export interface CompilerConfig {
 
 export interface CompilerOutput {
   html: HTMLModule[]
-  frontendJs: JSModule[]
+  isomorphicJs: JSModule[]
 }
 export type Output = CompilerOutput

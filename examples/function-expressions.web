@@ -1,0 +1,6 @@
+let add = fn (x: int, y: int) {
+  console.log('Adding together', x, 'and', y)
+  x + y
+}
+
+console.log(add(23, 27))
