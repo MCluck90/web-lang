@@ -37,6 +37,7 @@ import {
 } from '../parser/ast'
 
 export interface ASTVisitor {
+  visitNode(node: ASTNode, path: ASTNode[]): ASTNode | void
   visitProgram(node: ProgramNode): ProgramNode | void
   visitAnonymousType(
     node: AnonymousTypeNode,
@@ -133,7 +134,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     path: ASTNode[]
   ): T | void {
     // This is safe. TypeScript just doesn't understand it
-    return this[`visit${node.__type}`](node as never, path) as T | void | void
+    return this[`visit${node.__type}`](node as never, path) as T | void
   }
 
   private visitStatement<T extends Statement>(
@@ -141,12 +142,21 @@ export class DepthFirstVisitor implements ASTVisitor {
     path: ASTNode[]
   ): T | void {
     // This is safe. TypeScript just doesn't understand it
-    return this[`visit${node.__type}`](node as never, path) as T | void | void
+    return this[`visit${node.__type}`](node as never, path) as T | void
   }
 
   private visitType<T extends TypeNode>(node: T, path: ASTNode[]): T | void {
     // This is safe. TypeScript just doesn't understand it
-    return this[`visit${node.__type}`](node as never, path) as T | void | void
+    return this[`visit${node.__type}`](node as never, path) as T | void
+  }
+
+  visitNode<T extends ASTNode>(node: T, path: ASTNode[]): T | void {
+    const specificResult = this.visitors[`visit${node.__type}`]?.(
+      node as never,
+      path
+    )
+    const genericResult = this.visitors.visitNode?.(node, path)
+    return (specificResult ?? genericResult) as T | void
   }
 
   visitAnonymousType(
@@ -155,7 +165,7 @@ export class DepthFirstVisitor implements ASTVisitor {
   ): AnonymousTypeNode | void {
     node.type =
       this.visitObjectType(node.type, buildPath(node, path)) ?? node.type
-    return this.visitors.visitAnonymousType?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitArgumentList(
@@ -176,7 +186,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     if (hasModifiedArguments) {
       node.arguments = args
     }
-    return this.visitors.visitArgumentList?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitBlock(node: BlockNode, path: ASTNode[]): BlockNode | void {
@@ -196,7 +206,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     if (hasModifiedStatements) {
       node.statements = statements
     }
-    return this.visitors.visitBlock?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitBinaryExpression(
@@ -207,14 +217,14 @@ export class DepthFirstVisitor implements ASTVisitor {
       this.visitExpression(node.left, buildPath(node, path)) ?? node.left
     node.right =
       this.visitExpression(node.right, buildPath(node, path)) ?? node.right
-    return this.visitors.visitBinaryExpression?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitFloatingPoint(
     node: FloatingPointNode,
     path: ASTNode[]
   ): FloatingPointNode | void {
-    return this.visitors.visitFloatingPoint?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitFunctionCall(
@@ -226,7 +236,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     node.argumentList =
       this.visitArgumentList(node.argumentList, buildPath(node, path)) ??
       node.argumentList
-    return this.visitors.visitFunctionCall?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitHTML(node: HTMLNode, path: ASTNode[]): HTMLNode | void {
@@ -245,15 +255,15 @@ export class DepthFirstVisitor implements ASTVisitor {
     if (hasModifiedChildren) {
       node.children = children
     }
-    return this.visitors.visitHTML?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | void {
-    return this.visitors.visitInteger?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | void {
-    return this.visitors.visitJsAsm?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitObjectLiteral(
@@ -274,7 +284,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     if (hasModifiedProperties) {
       node.properties = properties
     }
-    return this.visitors.visitObjectLiteral?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitPropertyAccess(
@@ -300,11 +310,11 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.rights = rights
     }
 
-    return this.visitors.visitPropertyAccess?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitString(node: StringNode, path: ASTNode[]): StringNode | void {
-    return this.visitors.visitString?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitUnaryExpression(
@@ -314,7 +324,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     node.expression =
       this.visitExpression(node.expression, buildPath(node, path)) ??
       node.expression
-    return this.visitors.visitUnaryExpression?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitVariableAccess(
@@ -323,14 +333,14 @@ export class DepthFirstVisitor implements ASTVisitor {
   ): VariableAccessNode | void {
     node.name =
       this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    return this.visitors.visitVariableAccess?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitIdentifier(
     node: IdentifierNode,
     path: ASTNode[]
   ): IdentifierNode | void {
-    return this.visitors.visitIdentifier?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitMethodDefinition(
@@ -347,7 +357,7 @@ export class DepthFirstVisitor implements ASTVisitor {
         node.returnType
       : null
     node.body = this.visitBlock(node.body, buildPath(node, path)) ?? node.body
-    return this.visitors.visitMethodDefinition?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitNamedType(node: NamedTypeNode, path: ASTNode[]): NamedTypeNode | void {
@@ -367,7 +377,7 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.genericArguments = genericArguments
     }
 
-    return this.visitors.visitNamedType?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitObjectProperty(
@@ -379,7 +389,7 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.key
     node.value =
       this.visitExpression(node.value, buildPath(node, path)) ?? node.value
-    return this.visitors.visitObjectProperty?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitObjectType(
@@ -403,7 +413,7 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.properties = properties
     }
 
-    return this.visitors.visitObjectType?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitParameterList(
@@ -427,7 +437,7 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.parameters = parameters
     }
 
-    return this.visitors.visitParameterList?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | void {
@@ -436,7 +446,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     node.type = node.type
       ? this.visitType(node.type, buildPath(node, path)) ?? node.type
       : node.type
-    return this.visitors.visitParameter?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitProgram(node: ProgramNode): ProgramNode | void {
@@ -469,7 +479,7 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.statements = statements
     }
 
-    return this.visitors.visitProgram?.(node)
+    return this.visitNode(node, [])
   }
 
   visitPropertyKey(
@@ -478,12 +488,12 @@ export class DepthFirstVisitor implements ASTVisitor {
   ): PropertyKeyNode | void {
     node.value =
       this.visitIdentifier(node.value, buildPath(node, path)) ?? node.value
-    return this.visitors.visitPropertyKey?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitRender(node: RenderNode, path: ASTNode[]): RenderNode | void {
     node.body = this.visitBlock(node.body, buildPath(node, path)) ?? node.body
-    return this.visitors.visitRender?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitRemoteDefinition(
@@ -526,7 +536,7 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.methods = methods
     }
 
-    return this.visitors.visitRemoteDefinition?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitRemoteParameter(
@@ -535,7 +545,7 @@ export class DepthFirstVisitor implements ASTVisitor {
   ): RemoteParameterNode | void {
     node.name =
       this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    return this.visitors.visitRemoteParameter?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): RemoteUrlNode | void {
@@ -555,7 +565,7 @@ export class DepthFirstVisitor implements ASTVisitor {
       node.parameters = parameters
     }
 
-    return this.visitors.visitRemoteUrl?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitTypeDefinition(
@@ -565,7 +575,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     node.name =
       this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
     node.type = this.visitType(node.type, buildPath(node, path)) ?? node.type
-    return this.visitors.visitTypeDefinition?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitTypeProperty(
@@ -575,7 +585,7 @@ export class DepthFirstVisitor implements ASTVisitor {
     node.name =
       this.visitPropertyKey(node.name, buildPath(node, path)) ?? node.name
     node.type = this.visitType(node.type, buildPath(node, path)) ?? node.type
-    return this.visitors.visitTypeProperty?.(node, path)
+    return this.visitNode(node, path)
   }
 
   visitVariableDeclaration(
@@ -591,6 +601,6 @@ export class DepthFirstVisitor implements ASTVisitor {
     node.initializer =
       this.visitExpression(node.initializer, buildPath(node, path)) ??
       node.initializer
-    return this.visitors.visitVariableDeclaration?.(node, path)
+    return this.visitNode(node, path)
   }
 }
