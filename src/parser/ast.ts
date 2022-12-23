@@ -334,7 +334,7 @@ export type ExpressionNode =
   | UnaryExpressionNode
   | VariableAccessNode
 
-export const isAnExpressionNode = (value: Node): value is ExpressionNode => {
+export const isAnExpressionNode = (value: ASTNode): value is ExpressionNode => {
   const expressionTypes: Record<ExpressionNode['__type'], boolean> = {
     UnaryExpression: true,
     BinaryExpression: true,
@@ -394,7 +394,7 @@ export const createProgramNode = (
   render: render,
 })
 
-export type Node =
+export type ASTNode =
   | AnonymousTypeNode
   | ArgumentListNode
   | BlockNode
@@ -417,15 +417,15 @@ export type Node =
   | TypePropertyNode
   | VariableDeclarationNode
 
-export type NodeType = Node['__type']
+export type NodeType = ASTNode['__type']
 
 export const isNodeType =
-  <T extends Node['__type']>(type: T) =>
-  (value: unknown): value is Node & { __type: T } => {
+  <T extends ASTNode['__type']>(type: T) =>
+  (value: unknown): value is ASTNode & { __type: T } => {
     if (value === undefined || value === null) {
       return false
     }
 
-    const node = value as Node
+    const node = value as ASTNode
     return node.__type === type
   }

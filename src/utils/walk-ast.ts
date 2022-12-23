@@ -12,7 +12,7 @@ import {
   JsAsmNode,
   MethodDefinitionNode,
   NamedTypeNode,
-  Node,
+  ASTNode,
   NodeType,
   ObjectLiteralNode,
   ObjectPropertyNode,
@@ -36,14 +36,14 @@ import {
 
 type VisitorLookup<TReturn = void> = {
   [K in NodeType]: (
-    node: Node & { __type: K },
-    path: Node[],
+    node: ASTNode & { __type: K },
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ) => TReturn
 } & {
   everyNode?: (
-    node: Node,
-    path: Node[],
+    node: ASTNode,
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ) => TReturn
 }
@@ -51,21 +51,21 @@ type VisitorLookup<TReturn = void> = {
 const essentialVisitors: VisitorLookup = {
   AnonymousType: function (
     node: AnonymousTypeNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.type, [...path, node], visitors)
   },
   ArgumentList: function (
     node: ArgumentListNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.arguments.forEach((n) => depthFirstVisit(n, [...path, node], visitors))
   },
   Block: function (
     node: BlockNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.statements.forEach((n) =>
@@ -74,7 +74,7 @@ const essentialVisitors: VisitorLookup = {
   },
   BinaryExpression: function (
     node: BinaryExpressionNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     if (isNodeType('BinaryExpression')(node.left)) {
@@ -87,12 +87,12 @@ const essentialVisitors: VisitorLookup = {
   },
   FloatingPoint: function (
     node: FloatingPointNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {},
   FunctionCall: function (
     node: FunctionCallNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.callee, [...path, node], visitors)
@@ -100,24 +100,24 @@ const essentialVisitors: VisitorLookup = {
   },
   HTML: function (
     node: HTMLNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.children.forEach((n) => depthFirstVisit(n, [...path, node], visitors))
   },
   Integer: function (
     node: IntegerNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {},
   JsAsm: function (
     node: JsAsmNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {},
   ObjectLiteral: function (
     node: ObjectLiteralNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.properties.forEach((n) =>
@@ -126,7 +126,7 @@ const essentialVisitors: VisitorLookup = {
   },
   PropertyAccess: function (
     node: PropertyAccessNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.left, [...path, node], visitors)
@@ -134,31 +134,31 @@ const essentialVisitors: VisitorLookup = {
   },
   String: function (
     node: StringNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {},
   UnaryExpression: function (
     node: UnaryExpressionNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.expression, [...path, node], visitors)
   },
   VariableAccess: function (
     node: VariableAccessNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.name, [...path, node], visitors)
   },
   Identifier: function (
     node: IdentifierNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {},
   MethodDefinition: function (
     node: MethodDefinitionNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.name, [...path, node], visitors)
@@ -170,7 +170,7 @@ const essentialVisitors: VisitorLookup = {
   },
   NamedType: function (
     node: NamedTypeNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.genericArguments.forEach((n) =>
@@ -179,7 +179,7 @@ const essentialVisitors: VisitorLookup = {
   },
   ObjectProperty: function (
     node: ObjectPropertyNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.key, [...path, node], visitors)
@@ -187,7 +187,7 @@ const essentialVisitors: VisitorLookup = {
   },
   ObjectType: function (
     node: ObjectTypeNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.properties.forEach((n) =>
@@ -196,7 +196,7 @@ const essentialVisitors: VisitorLookup = {
   },
   ParameterList: function (
     node: ParameterListNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.parameters.forEach((n) =>
@@ -205,7 +205,7 @@ const essentialVisitors: VisitorLookup = {
   },
   Parameter: function (
     node: ParameterNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.name, [...path, node], visitors)
@@ -215,7 +215,7 @@ const essentialVisitors: VisitorLookup = {
   },
   Program: function (
     node: ProgramNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.statements.forEach((n) =>
@@ -227,21 +227,21 @@ const essentialVisitors: VisitorLookup = {
   },
   PropertyKey: function (
     node: PropertyKeyNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.value, [...path, node], visitors)
   },
   Render: function (
     node: RenderNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.body, [...path, node], visitors)
   },
   RemoteDefinition: function (
     node: RemoteDefinitionNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.name, [...path, node], visitors)
@@ -253,14 +253,14 @@ const essentialVisitors: VisitorLookup = {
   },
   RemoteParameter: function (
     node: RemoteParameterNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.name, [...path, node], visitors)
   },
   RemoteUrl: function (
     node: RemoteUrlNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     node.parameters.forEach((n) =>
@@ -269,7 +269,7 @@ const essentialVisitors: VisitorLookup = {
   },
   TypeDefinition: function (
     node: TypeDefinitionNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.name, [...path, node], visitors)
@@ -277,7 +277,7 @@ const essentialVisitors: VisitorLookup = {
   },
   TypeProperty: function (
     node: TypePropertyNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.name, [...path, node], visitors)
@@ -285,7 +285,7 @@ const essentialVisitors: VisitorLookup = {
   },
   VariableDeclaration: function (
     node: VariableDeclarationNode,
-    path: Node[],
+    path: ASTNode[],
     visitors: Partial<VisitorLookup>
   ): void {
     depthFirstVisit(node.identifier, [...path, node], visitors)
@@ -297,8 +297,8 @@ const essentialVisitors: VisitorLookup = {
 }
 
 function depthFirstVisit(
-  node: Node,
-  path: Node[],
+  node: ASTNode,
+  path: ASTNode[],
   visitors: Partial<VisitorLookup>
 ) {
   ;(essentialVisitors[node.__type] as any)(node, path, visitors)

@@ -11,7 +11,7 @@ import {
   createPropertyAccessNode,
   createStringNode,
   createVariableAccessNode,
-  Node,
+  ASTNode,
 } from './ast'
 import { _expression } from './expressions'
 
