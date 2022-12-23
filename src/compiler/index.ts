@@ -6,6 +6,7 @@ import {
   JSModule,
 } from './index.types'
 import { constantFolding } from './passes/constant-folding'
+import { directToJs } from './passes/direct-to-js'
 import { generateRootJsFromAssemblyBlocks } from './passes/generate-root-js'
 import { renderStaticEntryHtmlPass } from './passes/render-static-entry-html'
 
@@ -31,7 +32,7 @@ export const compileProgram = (
   program = constantFolding(program)
 
   const jsModules: JSModule[] = []
-  const rootJsModule = generateRootJsFromAssemblyBlocks(program)
+  const rootJsModule = directToJs(program)
   if (rootJsModule !== null) {
     jsModules.push(rootJsModule)
   }

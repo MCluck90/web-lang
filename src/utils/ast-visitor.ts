@@ -36,92 +36,123 @@ import {
   isNodeType,
 } from '../parser/ast'
 
-export interface AstVisitor {
-  visitNode(node: ASTNode, path: ASTNode[]): ASTNode | void
-  visitProgram(node: ProgramNode): ProgramNode | void
+export interface AstMapper<T> {
+  visitNode(node: ASTNode, path: ASTNode[]): T
+  visitProgram(node: ProgramNode): T
+  visitAnonymousType(node: AnonymousTypeNode, path: ASTNode[]): T
+  visitArgumentList(node: ArgumentListNode, path: ASTNode[]): T
+  visitBlock(node: BlockNode, path: ASTNode[]): T
+  visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]): T
+  visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]): T
+  visitFunctionCall(node: FunctionCallNode, path: ASTNode[]): T
+  visitHTML(node: HTMLNode, path: ASTNode[]): T
+  visitInteger(node: IntegerNode, path: ASTNode[]): T
+  visitJsAsm(node: JsAsmNode, path: ASTNode[]): T
+  visitObjectLiteral(node: ObjectLiteralNode, path: ASTNode[]): T
+  visitPropertyAccess(node: PropertyAccessNode, path: ASTNode[]): T
+  visitString(node: StringNode, path: ASTNode[]): T
+  visitUnaryExpression(node: UnaryExpressionNode, path: ASTNode[]): T
+  visitVariableAccess(node: VariableAccessNode, path: ASTNode[]): T
+  visitIdentifier(node: IdentifierNode, path: ASTNode[]): T
+  visitMethodDefinition(node: MethodDefinitionNode, path: ASTNode[]): T
+  visitNamedType(node: NamedTypeNode, path: ASTNode[]): T
+  visitObjectProperty(node: ObjectPropertyNode, path: ASTNode[]): T
+  visitObjectType(node: ObjectTypeNode, path: ASTNode[]): T
+  visitParameterList(node: ParameterListNode, path: ASTNode[]): T
+  visitParameter(node: ParameterNode, path: ASTNode[]): T
+  visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]): T
+  visitRender(node: RenderNode, path: ASTNode[]): T
+  visitRemoteDefinition(node: RemoteDefinitionNode, path: ASTNode[]): T
+  visitRemoteParameter(node: RemoteParameterNode, path: ASTNode[]): T
+  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): T
+  visitTypeDefinition(node: TypeDefinitionNode, path: ASTNode[]): T
+  visitTypeProperty(node: TypePropertyNode, path: ASTNode[]): T
+  visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]): T
+}
+
+export interface AstVisitor<T = void> {
+  visitNode(node: ASTNode, path: ASTNode[]): ASTNode | T
+  visitProgram(node: ProgramNode): ProgramNode | T
   visitAnonymousType(
     node: AnonymousTypeNode,
     path: ASTNode[]
-  ): AnonymousTypeNode | void
+  ): AnonymousTypeNode | T
   visitArgumentList(
     node: ArgumentListNode,
     path: ASTNode[]
-  ): ArgumentListNode | void
-  visitBlock(node: BlockNode, path: ASTNode[]): BlockNode | void
+  ): ArgumentListNode | T
+  visitBlock(node: BlockNode, path: ASTNode[]): BlockNode | T
   visitBinaryExpression(
     node: BinaryExpressionNode,
     path: ASTNode[]
-  ): ExpressionNode | void
+  ): ExpressionNode | T
   visitFloatingPoint(
     node: FloatingPointNode,
     path: ASTNode[]
-  ): FloatingPointNode | void
+  ): FloatingPointNode | T
   visitFunctionCall(
     node: FunctionCallNode,
     path: ASTNode[]
-  ): FunctionCallNode | void
-  visitHTML(node: HTMLNode, path: ASTNode[]): HTMLNode | void
-  visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | void
-  visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | void
+  ): FunctionCallNode | T
+  visitHTML(node: HTMLNode, path: ASTNode[]): HTMLNode | T
+  visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | T
+  visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | T
   visitObjectLiteral(
     node: ObjectLiteralNode,
     path: ASTNode[]
-  ): ObjectLiteralNode | void
+  ): ObjectLiteralNode | T
   visitPropertyAccess(
     node: PropertyAccessNode,
     path: ASTNode[]
-  ): PropertyAccessNode | void
-  visitString(node: StringNode, path: ASTNode[]): StringNode | void
+  ): PropertyAccessNode | T
+  visitString(node: StringNode, path: ASTNode[]): StringNode | T
   visitUnaryExpression(
     node: UnaryExpressionNode,
     path: ASTNode[]
-  ): UnaryExpressionNode | void
+  ): UnaryExpressionNode | T
   visitVariableAccess(
     node: VariableAccessNode,
     path: ASTNode[]
-  ): VariableAccessNode | void
-  visitIdentifier(node: IdentifierNode, path: ASTNode[]): IdentifierNode | void
+  ): VariableAccessNode | T
+  visitIdentifier(node: IdentifierNode, path: ASTNode[]): IdentifierNode | T
   visitMethodDefinition(
     node: MethodDefinitionNode,
     path: ASTNode[]
-  ): MethodDefinitionNode | void
-  visitNamedType(node: NamedTypeNode, path: ASTNode[]): NamedTypeNode | void
+  ): MethodDefinitionNode | T
+  visitNamedType(node: NamedTypeNode, path: ASTNode[]): NamedTypeNode | T
   visitObjectProperty(
     node: ObjectPropertyNode,
     path: ASTNode[]
-  ): ObjectPropertyNode | void
-  visitObjectType(node: ObjectTypeNode, path: ASTNode[]): ObjectTypeNode | void
+  ): ObjectPropertyNode | T
+  visitObjectType(node: ObjectTypeNode, path: ASTNode[]): ObjectTypeNode | T
   visitParameterList(
     node: ParameterListNode,
     path: ASTNode[]
-  ): ParameterListNode | void
-  visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | void
-  visitPropertyKey(
-    node: PropertyKeyNode,
-    path: ASTNode[]
-  ): PropertyKeyNode | void
-  visitRender(node: RenderNode, path: ASTNode[]): RenderNode | void
+  ): ParameterListNode | T
+  visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | T
+  visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]): PropertyKeyNode | T
+  visitRender(node: RenderNode, path: ASTNode[]): RenderNode | T
   visitRemoteDefinition(
     node: RemoteDefinitionNode,
     path: ASTNode[]
-  ): RemoteDefinitionNode | void
+  ): RemoteDefinitionNode | T
   visitRemoteParameter(
     node: RemoteParameterNode,
     path: ASTNode[]
-  ): RemoteParameterNode | void
-  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): RemoteUrlNode | void
+  ): RemoteParameterNode | T
+  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): RemoteUrlNode | T
   visitTypeDefinition(
     node: TypeDefinitionNode,
     path: ASTNode[]
-  ): TypeDefinitionNode | void
+  ): TypeDefinitionNode | T
   visitTypeProperty(
     node: TypePropertyNode,
     path: ASTNode[]
-  ): TypePropertyNode | void
+  ): TypePropertyNode | T
   visitVariableDeclaration(
     node: VariableDeclarationNode,
     path: ASTNode[]
-  ): VariableDeclarationNode | void
+  ): VariableDeclarationNode | T
 }
 
 const buildPath = (node: ASTNode, path: ASTNode[]) => [...path, node]

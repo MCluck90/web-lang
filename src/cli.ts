@@ -4,6 +4,7 @@ import * as path from 'path'
 import { compileProgram } from './compiler'
 import { CompilerConfig } from './compiler/index.types'
 import { parseProgram } from './parser'
+import { DepthFirstVisitor } from './utils/ast-visitor'
 
 const usage = () => {
   process.stderr.write('Usage: yarn start [parse] <file>\n')
@@ -30,25 +31,18 @@ switch (subcommand) {
   case 'parse': {
     const fullFilePath = path.join(process.cwd(), filePath)
     const source = fs.readFileSync(fullFilePath).toString()
-    const result = parseProgram(source)
-    if (result instanceof ParseError) {
-      console.error(result)
+    const program = parseProgram(source)
+    if (program instanceof ParseError) {
+      console.error(program)
       process.exit(1)
     }
 
     if (subcommand === 'parse') {
-      console.log(JSON.stringify(result, null, 2))
+      console.log(JSON.stringify(program, null, 2))
       break
     }
 
-    const parseResult = parseProgram(source)
-    if (parseResult instanceof ParseError) {
-      console.error(parseResult)
-      process.exit(1)
-    }
-
-    const compileResult = compileProgram(testConfig, parseResult)
-
+    const compileResult = compileProgram(testConfig, program)
     if (!fs.existsSync(outputDirectory)) {
       fs.mkdirSync(outputDirectory)
     }
