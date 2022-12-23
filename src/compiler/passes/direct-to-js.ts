@@ -64,8 +64,8 @@ const buildJsVisitor: AstMapper<string> = {
     )
     const lastStatement = node.statements[node.statements.length - 1]
     return `{\n${nonReturnedStatements
-      .map((n) => this.visitNode(n, path))
-      .join('\n')}\nreturn ${this.visitNode(lastStatement, path)}\n}`
+      .map((n) => `${this.visitNode(n, path)};`)
+      .join('\n')}\nreturn ${this.visitNode(lastStatement, path)};\n}`
   },
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]) {
     return `${this.visitNode(node.left, path)} ${
