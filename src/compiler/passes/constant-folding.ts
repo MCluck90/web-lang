@@ -1,4 +1,9 @@
-import { createIntegerNode, isNodeType, ProgramNode } from '../../parser/ast'
+import {
+  createFloatingPointNode,
+  createIntegerNode,
+  isNodeType,
+  ProgramNode,
+} from '../../parser/ast'
 import { DepthFirstVisitor } from '../../utils/ast-visitor'
 
 export type Input = ProgramNode
@@ -19,6 +24,20 @@ export const constantFolding = (program: Input): Output => {
             return createIntegerNode(left.value - right.value)
           case '/':
             return createIntegerNode(left.value / right.value)
+        }
+      } else if (
+        isNodeType('FloatingPoint')(left) &&
+        isNodeType('FloatingPoint')(right)
+      ) {
+        switch (node.operator) {
+          case '*':
+            return createFloatingPointNode(left.value * right.value)
+          case '+':
+            return createFloatingPointNode(left.value + right.value)
+          case '-':
+            return createFloatingPointNode(left.value - right.value)
+          case '/':
+            return createFloatingPointNode(left.value / right.value)
         }
       }
     },
