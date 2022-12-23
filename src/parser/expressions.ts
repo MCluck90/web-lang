@@ -8,10 +8,12 @@ import {
   createArgumentListNode,
   createBinaryExpressionNode,
   createBlockNode,
+  createElseNode,
   createFloatingPointNode,
   createFunctionCallNode,
   createFunctionExpressionNode,
   createHTMLNode,
+  createIfNode,
   createIntegerNode,
   createObjectLiteralNode,
   createObjectPropertyNode,
@@ -34,7 +36,13 @@ import {
 } from './common'
 import { _identifier } from './identifier'
 import { _jsAsm } from './js-asm'
-import { _fnKeyword, _letKeyword, _mutKeyword } from './keywords'
+import {
+  _elseKeyword,
+  _fnKeyword,
+  _ifKeyword,
+  _letKeyword,
+  _mutKeyword,
+} from './keywords'
 import { _type } from './types'
 
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
@@ -113,6 +121,16 @@ const _functionExpression = _fnKeyword
     createFunctionExpressionNode(parameterList, body)
   )
 
+const _ifExpression = _ifKeyword
+  .and(
+    seq([
+      lazy(() => _expression),
+      _block,
+      maybe(_elseKeyword.and(_block).map(createElseNode)),
+    ])
+  )
+  .map((args) => createIfNode(...args))
+
 const _literalValue = _floatingPoint
   .or(_integer)
   .or(_string)
@@ -125,6 +143,7 @@ const _primaryExpression = between(
   lazy(() => _expression)
 )
   .or(_literalValue)
+  .or(_ifExpression)
   .or(_html)
   .or(_identifier.map(createVariableAccessNode))
 

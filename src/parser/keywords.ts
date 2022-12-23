@@ -2,6 +2,8 @@ import { token } from './common'
 
 export const _boolKeyword = token(/bool/y)
 export const _fnKeyword = token(/fn/y)
+export const _ifKeyword = token(/if/y)
+export const _elseKeyword = token(/else/y)
 export const _intKeyword = token(/int/y)
 export const _jsAsmKeyword = token(/%js-asm%/y)
 export const _letKeyword = token(/let/y)

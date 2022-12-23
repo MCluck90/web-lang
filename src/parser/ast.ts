@@ -335,12 +335,34 @@ export const createFunctionExpressionNode = (
   body,
 })
 
+export interface IfNode {
+  __type: 'If'
+  condition: ExpressionNode
+  body: BlockNode
+  else_: ElseNode | null
+}
+export const createIfNode = (
+  condition: ExpressionNode,
+  body: BlockNode,
+  else_: ElseNode | null
+): IfNode => ({ __type: 'If', condition, body, else_ })
+
+export interface ElseNode {
+  __type: 'Else'
+  body: BlockNode
+}
+export const createElseNode = (body: BlockNode): ElseNode => ({
+  __type: 'Else',
+  body,
+})
+
 export type ExpressionNode =
   | BinaryExpressionNode
   | FloatingPointNode
   | FunctionCallNode
   | FunctionExpressionNode
   | HTMLNode
+  | IfNode
   | IntegerNode
   | JsAsmNode
   | ObjectLiteralNode
@@ -358,6 +380,7 @@ export const isAnExpressionNode = (value: ASTNode): value is ExpressionNode => {
     ObjectLiteral: true,
     FloatingPoint: true,
     HTML: true,
+    If: true,
     Integer: true,
     JsAsm: true,
     PropertyAccess: true,
@@ -414,6 +437,7 @@ export type ASTNode =
   | AnonymousTypeNode
   | ArgumentListNode
   | BlockNode
+  | ElseNode
   | ExpressionNode
   | IdentifierNode
   | MethodBodyNode

@@ -35,6 +35,8 @@ import {
   TypeNode,
   isNodeType,
   FunctionExpressionNode,
+  IfNode,
+  ElseNode,
 } from '../parser/ast'
 
 export interface AstMapper<T> {
@@ -44,11 +46,13 @@ export interface AstMapper<T> {
   visitArgumentList(node: ArgumentListNode, path: ASTNode[]): T
   visitBlock(node: BlockNode, path: ASTNode[]): T
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]): T
+  visitElse(node: ElseNode, path: ASTNode[]): T
   visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]): T
   visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]): T
   visitFunctionCall(node: FunctionCallNode, path: ASTNode[]): T
   visitHTML(node: HTMLNode, path: ASTNode[]): T
   visitInteger(node: IntegerNode, path: ASTNode[]): T
+  visitIf(node: IfNode, path: ASTNode[]): T
   visitJsAsm(node: JsAsmNode, path: ASTNode[]): T
   visitObjectLiteral(node: ObjectLiteralNode, path: ASTNode[]): T
   visitPropertyAccess(node: PropertyAccessNode, path: ASTNode[]): T
@@ -88,6 +92,7 @@ export interface AstVisitor<T = void> {
     node: BinaryExpressionNode,
     path: ASTNode[]
   ): ExpressionNode | T
+  visitElse(node: ElseNode, path: ASTNode[]): ElseNode | T
   visitFloatingPoint(
     node: FloatingPointNode,
     path: ASTNode[]
@@ -102,6 +107,7 @@ export interface AstVisitor<T = void> {
   ): FunctionExpressionNode | T
   visitHTML(node: HTMLNode, path: ASTNode[]): HTMLNode | T
   visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | T
+  visitIf(node: IfNode, path: ASTNode[]): IfNode | T
   visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | T
   visitObjectLiteral(
     node: ObjectLiteralNode,
@@ -243,6 +249,12 @@ export class DepthFirstVisitor implements AstVisitor {
     return this.visitNode(node, path)
   }
 
+  visitElse(node: ElseNode, path: ASTNode[]): ElseNode | void {
+    node.body =
+      this.descendIntoNode(node.body, buildPath(node, path)) ?? node.body
+    return this.visitNode(node, path)
+  }
+
   visitFloatingPoint(
     node: FloatingPointNode,
     path: ASTNode[]
@@ -294,6 +306,18 @@ export class DepthFirstVisitor implements AstVisitor {
   }
 
   visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | void {
+    return this.visitNode(node, path)
+  }
+
+  visitIf(node: IfNode, path: ASTNode[]): IfNode | void {
+    node.condition =
+      this.descendIntoNode(node.condition, buildPath(node, path)) ??
+      node.condition
+    node.body =
+      this.descendIntoNode(node.body, buildPath(node, path)) ?? node.body
+    node.else_ = node.else_
+      ? this.descendIntoNode(node.else_, buildPath(node, path)) ?? node.else_
+      : node.else_
     return this.visitNode(node, path)
   }
 
@@ -634,495 +658,5 @@ export class DepthFirstVisitor implements AstVisitor {
       this.descendIntoNode(node.initializer, buildPath(node, path)) ??
       node.initializer
     return this.visitNode(node, path)
-  }
-}
-
-export class InOrderAstVisitor implements AstVisitor {
-  constructor(private readonly visitors: Partial<AstVisitor>) {}
-
-  visitNode<T extends ASTNode>(node: T, path: ASTNode[]): T | void {
-    const specificResult = (this.visitors[`visit${node.__type}`] as any)?.(
-      node as never,
-      path
-    )
-    const genericResult = this.visitors.visitNode?.(node, path)
-    return (specificResult ?? genericResult) as T | void
-  }
-
-  visitAnonymousType(
-    node: AnonymousTypeNode,
-    path: ASTNode[]
-  ): AnonymousTypeNode | void {
-    const result = this.visitNode(node, path)
-    node.type =
-      this.visitObjectType(node.type, buildPath(node, path)) ?? node.type
-    return result
-  }
-
-  visitArgumentList(
-    node: ArgumentListNode,
-    path: ASTNode[]
-  ): ArgumentListNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedArguments = false
-    const args: ExpressionNode[] = []
-    for (const arg of node.arguments) {
-      const result = this.visitNode(arg, buildPath(node, path))
-      if (result) {
-        args.push(result)
-        hasModifiedArguments = true
-      } else {
-        args.push(arg)
-      }
-    }
-    if (hasModifiedArguments) {
-      node.arguments = args
-    }
-    return result
-  }
-
-  visitBlock(node: BlockNode, path: ASTNode[]): BlockNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedStatements = false
-    const statements: Statement[] = []
-
-    for (const statement of statements) {
-      const result = this.visitNode(statement, buildPath(node, path))
-      if (result) {
-        hasModifiedStatements = true
-        statements.push(result)
-      } else {
-        statements.push(statement)
-      }
-    }
-
-    if (hasModifiedStatements) {
-      node.statements = statements
-    }
-    return result
-  }
-
-  visitBinaryExpression(
-    node: BinaryExpressionNode,
-    path: ASTNode[]
-  ): ExpressionNode | void {
-    const result = this.visitNode(node, path)
-    node.left = this.visitNode(node.left, buildPath(node, path)) ?? node.left
-    node.right = this.visitNode(node.right, buildPath(node, path)) ?? node.right
-    return result
-  }
-
-  visitFloatingPoint(
-    node: FloatingPointNode,
-    path: ASTNode[]
-  ): FloatingPointNode | void {
-    return this.visitNode(node, path)
-  }
-
-  visitFunctionCall(
-    node: FunctionCallNode,
-    path: ASTNode[]
-  ): FunctionCallNode | void {
-    const result = this.visitNode(node, path)
-    node.callee =
-      this.visitNode(node.callee, buildPath(node, path)) ?? node.callee
-    node.argumentList =
-      this.visitArgumentList(node.argumentList, buildPath(node, path)) ??
-      node.argumentList
-    return result
-  }
-
-  visitFunctionExpression(
-    node: FunctionExpressionNode,
-    path: ASTNode[]
-  ): FunctionExpressionNode | void {
-    const result = this.visitNode(node, path)
-    node.parameterList =
-      this.visitNode(node.parameterList, buildPath(node, path)) ??
-      node.parameterList
-    node.body = this.visitNode(node.body, buildPath(node, path)) ?? node.body
-    return result
-  }
-
-  visitHTML(node: HTMLNode, path: ASTNode[]): HTMLNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedChildren = false
-    const children: ExpressionNode[] = []
-    for (const child of node.children) {
-      const result = this.visitNode(child, buildPath(node, path))
-      if (result) {
-        hasModifiedChildren = true
-        children.push(result)
-      } else {
-        children.push(child)
-      }
-    }
-
-    if (hasModifiedChildren) {
-      node.children = children
-    }
-    return result
-  }
-
-  visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | void {
-    return this.visitNode(node, path)
-  }
-
-  visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | void {
-    return this.visitNode(node, path)
-  }
-
-  visitObjectLiteral(
-    node: ObjectLiteralNode,
-    path: ASTNode[]
-  ): ObjectLiteralNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedProperties = false
-    const properties: ObjectPropertyNode[] = []
-    for (const property of node.properties) {
-      const result = this.visitObjectProperty(property, buildPath(node, path))
-      if (result) {
-        hasModifiedProperties = true
-        properties.push(result)
-      } else {
-        properties.push(property)
-      }
-    }
-    if (hasModifiedProperties) {
-      node.properties = properties
-    }
-    return result
-  }
-
-  visitPropertyAccess(
-    node: PropertyAccessNode,
-    path: ASTNode[]
-  ): PropertyAccessNode | void {
-    const result = this.visitNode(node, path)
-    node.left = this.visitNode(node.left, buildPath(node, path)) ?? node.left
-
-    let hasModifiedRights = false
-    const rights: IdentifierNode[] = []
-    for (const right of node.rights) {
-      const result = this.visitIdentifier(right, buildPath(node, path))
-      if (result) {
-        hasModifiedRights = true
-        rights.push(result)
-      } else {
-        rights.push(right)
-      }
-    }
-
-    if (hasModifiedRights) {
-      node.rights = rights
-    }
-
-    return result
-  }
-
-  visitString(node: StringNode, path: ASTNode[]): StringNode | void {
-    return this.visitNode(node, path)
-  }
-
-  visitUnaryExpression(
-    node: UnaryExpressionNode,
-    path: ASTNode[]
-  ): UnaryExpressionNode | void {
-    const result = this.visitNode(node, path)
-    node.expression =
-      this.visitNode(node.expression, buildPath(node, path)) ?? node.expression
-    return result
-  }
-
-  visitVariableAccess(
-    node: VariableAccessNode,
-    path: ASTNode[]
-  ): VariableAccessNode | void {
-    const result = this.visitNode(node, path)
-    node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    return result
-  }
-
-  visitIdentifier(
-    node: IdentifierNode,
-    path: ASTNode[]
-  ): IdentifierNode | void {
-    return this.visitNode(node, path)
-  }
-
-  visitMethodDefinition(
-    node: MethodDefinitionNode,
-    path: ASTNode[]
-  ): MethodDefinitionNode | void {
-    const result = this.visitNode(node, path)
-    node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    node.parameterList =
-      this.visitParameterList(node.parameterList, buildPath(node, path)) ??
-      node.parameterList
-    node.returnType = node.returnType
-      ? this.visitNode(node.returnType, buildPath(node, path)) ??
-        node.returnType
-      : null
-    node.body = this.visitBlock(node.body, buildPath(node, path)) ?? node.body
-    return result
-  }
-
-  visitNamedType(node: NamedTypeNode, path: ASTNode[]): NamedTypeNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedGenerics = false
-    const genericArguments: TypeNode[] = []
-    for (const genericArgument of node.genericArguments) {
-      const result = this.visitNode(genericArgument, buildPath(node, path))
-      if (result) {
-        hasModifiedGenerics = true
-        genericArguments.push(result)
-      } else {
-        genericArguments.push(genericArgument)
-      }
-    }
-
-    if (hasModifiedGenerics) {
-      node.genericArguments = genericArguments
-    }
-
-    return result
-  }
-
-  visitObjectProperty(
-    node: ObjectPropertyNode,
-    path: ASTNode[]
-  ): ObjectPropertyNode | void {
-    const result = this.visitNode(node, path)
-    node.key =
-      this.visitors.visitIdentifier?.(node.key, buildPath(node, path)) ??
-      node.key
-    node.value = this.visitNode(node.value, buildPath(node, path)) ?? node.value
-    return result
-  }
-
-  visitObjectType(
-    node: ObjectTypeNode,
-    path: ASTNode[]
-  ): ObjectTypeNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedProperties = false
-    const properties: TypePropertyNode[] = []
-
-    for (const property of node.properties) {
-      const result = this.visitTypeProperty(property, buildPath(node, path))
-      if (result) {
-        hasModifiedProperties = true
-        properties.push(result)
-      } else {
-        properties.push(property)
-      }
-    }
-
-    if (hasModifiedProperties) {
-      node.properties = properties
-    }
-
-    return result
-  }
-
-  visitParameterList(
-    node: ParameterListNode,
-    path: ASTNode[]
-  ): ParameterListNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedParameters = false
-    const parameters: ParameterNode[] = []
-
-    for (const parameter of node.parameters) {
-      const result = this.visitParameter(parameter, buildPath(node, path))
-      if (result) {
-        hasModifiedParameters = true
-        parameters.push(result)
-      } else {
-        parameters.push(parameter)
-      }
-    }
-
-    if (hasModifiedParameters) {
-      node.parameters = parameters
-    }
-
-    return result
-  }
-
-  visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | void {
-    const result = this.visitNode(node, path)
-    node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    node.type = node.type
-      ? this.visitNode(node.type, buildPath(node, path)) ?? node.type
-      : node.type
-    return result
-  }
-
-  visitProgram(node: ProgramNode): ProgramNode | void {
-    const result = this.visitNode(node, [])
-    let hasModifiedStatements = false
-    const statements: (
-      | RemoteDefinitionNode
-      | TypeDefinitionNode
-      | Statement
-    )[] = []
-
-    for (const statement of node.statements) {
-      let result: RemoteDefinitionNode | TypeDefinitionNode | Statement | void =
-        undefined
-      if (isNodeType('RemoteDefinition')(statement)) {
-        result = this.visitRemoteDefinition(statement, [node])
-      } else if (isNodeType('TypeDefinition')(statement)) {
-        result = this.visitTypeDefinition(statement, [node])
-      } else {
-        result = this.visitNode(statement, [node])
-      }
-      if (result) {
-        hasModifiedStatements = true
-        statements.push(result)
-      } else {
-        statements.push(statement)
-      }
-    }
-
-    if (hasModifiedStatements) {
-      node.statements = statements
-    }
-
-    return result
-  }
-
-  visitPropertyKey(
-    node: PropertyKeyNode,
-    path: ASTNode[]
-  ): PropertyKeyNode | void {
-    const result = this.visitNode(node, path)
-    node.value =
-      this.visitIdentifier(node.value, buildPath(node, path)) ?? node.value
-    return result
-  }
-
-  visitRender(node: RenderNode, path: ASTNode[]): RenderNode | void {
-    const result = this.visitNode(node, path)
-    node.body = this.visitBlock(node.body, buildPath(node, path)) ?? node.body
-    return result
-  }
-
-  visitRemoteDefinition(
-    node: RemoteDefinitionNode,
-    path: ASTNode[]
-  ): RemoteDefinitionNode | void {
-    const result = this.visitNode(node, path)
-    node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    node.url = this.visitRemoteUrl(node.url, buildPath(node, path)) ?? node.url
-
-    let hasModifiedProperties = false
-    const properties: TypePropertyNode[] = []
-    for (const property of node.properties) {
-      const result = this.visitTypeProperty(property, buildPath(node, path))
-      if (result) {
-        hasModifiedProperties = true
-        properties.push(result)
-      } else {
-        properties.push(property)
-      }
-    }
-
-    if (hasModifiedProperties) {
-      node.properties = properties
-    }
-
-    let hasModifiedMethods = false
-    const methods: MethodDefinitionNode[] = []
-    for (const method of node.methods) {
-      const result = this.visitMethodDefinition(method, buildPath(node, path))
-      if (result) {
-        hasModifiedMethods = true
-        methods.push(result)
-      } else {
-        methods.push(method)
-      }
-    }
-
-    if (hasModifiedMethods) {
-      node.methods = methods
-    }
-
-    return result
-  }
-
-  visitRemoteParameter(
-    node: RemoteParameterNode,
-    path: ASTNode[]
-  ): RemoteParameterNode | void {
-    const result = this.visitNode(node, path)
-    node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    return result
-  }
-
-  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): RemoteUrlNode | void {
-    const result = this.visitNode(node, path)
-    let hasModifiedParameters = false
-    const parameters: RemoteParameterNode[] = []
-    for (const parameter of node.parameters) {
-      const result = this.visitRemoteParameter(parameter, buildPath(node, path))
-      if (result) {
-        hasModifiedParameters = true
-        parameters.push(result)
-      } else {
-        parameters.push(parameter)
-      }
-    }
-
-    if (hasModifiedParameters) {
-      node.parameters = parameters
-    }
-
-    return result
-  }
-
-  visitTypeDefinition(
-    node: TypeDefinitionNode,
-    path: ASTNode[]
-  ): TypeDefinitionNode | void {
-    const result = this.visitNode(node, path)
-    node.name =
-      this.visitIdentifier(node.name, buildPath(node, path)) ?? node.name
-    node.type = this.visitNode(node.type, buildPath(node, path)) ?? node.type
-    return result
-  }
-
-  visitTypeProperty(
-    node: TypePropertyNode,
-    path: ASTNode[]
-  ): TypePropertyNode | void {
-    const result = this.visitNode(node, path)
-    node.name =
-      this.visitPropertyKey(node.name, buildPath(node, path)) ?? node.name
-    node.type = this.visitNode(node.type, buildPath(node, path)) ?? node.type
-    return result
-  }
-
-  visitVariableDeclaration(
-    node: VariableDeclarationNode,
-    path: ASTNode[]
-  ): VariableDeclarationNode | void {
-    const result = this.visitNode(node, path)
-    node.identifier =
-      this.visitIdentifier(node.identifier, buildPath(node, path)) ??
-      node.identifier
-    node.type = node.type
-      ? this.visitNode(node.type, buildPath(node, path)) ?? node.type
-      : node.type
-    node.initializer =
-      this.visitNode(node.initializer, buildPath(node, path)) ??
-      node.initializer
-    return result
   }
 }

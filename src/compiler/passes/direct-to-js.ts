@@ -72,6 +72,9 @@ const buildJsVisitor: AstMapper<string> = {
       node.operator
     } ${this.visitNode(node.right, path)}`
   },
+  visitElse(node, path) {
+    return `else ${this.visitNode(node.body, path)}`
+  },
   visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]) {
     return node.value.toString()
   },
@@ -89,6 +92,14 @@ const buildJsVisitor: AstMapper<string> = {
   },
   visitHTML(node: HTMLNode, path: ASTNode[]) {
     throw new Error('HTML not yet implemented.')
+  },
+  visitIf(node, path) {
+    return `(function() {if (${this.visitNode(
+      node.condition,
+      path
+    )}) ${this.visitNode(node.body, path)} ${
+      node.else_ ? this.visitNode(node.else_, path) : ''
+    }})();`
   },
   visitInteger(node: IntegerNode, path: ASTNode[]) {
     return node.value.toString()
