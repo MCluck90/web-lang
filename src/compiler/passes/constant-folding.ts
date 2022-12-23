@@ -23,7 +23,7 @@ export const constantFolding = (program: Input): Output => {
           case '-':
             return createIntegerNode(left.value - right.value)
           case '/':
-            return createIntegerNode(left.value / right.value)
+            return createIntegerNode(Math.floor(left.value / right.value))
         }
       } else if (
         isNodeType('FloatingPoint')(left) &&
