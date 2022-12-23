@@ -4,7 +4,9 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "start": "ts-node src/cli.ts",
+    "start": "ts-node src/cli.ts run",
+    "parse": "ts-node src/cli.ts parse",
+    "compile": "ts-node src/cli.ts compile",
     "test": "jest"
   },
   "dependencies": {

@@ -1,3 +1,4 @@
+import { execSync, spawn, spawnSync } from 'child_process'
 import * as fs from 'fs'
 import { ParseError } from 'parsnip-ts/error'
 import * as path from 'path'
@@ -28,6 +29,7 @@ switch (subcommand) {
     }
 
   case 'compile':
+  case 'run':
   case 'parse': {
     const fullFilePath = path.join(process.cwd(), filePath)
     const source = fs.readFileSync(fullFilePath).toString()
@@ -75,4 +77,12 @@ switch (subcommand) {
   default:
     usage()
     process.exit(1)
+}
+
+if (subcommand === 'run') {
+  console.log('==================\n\n')
+  const node = spawn('node', ['_build/isomorphic-js/main.js'])
+  node.stdout.on('data', (data) => process.stdout.write(data))
+  node.stderr.on('data', (data) => process.stderr.write(data))
+  node.on('error', (error) => console.error(error))
 }
