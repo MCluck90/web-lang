@@ -34,6 +34,7 @@ import {
   Statement,
   TypeNode,
   isNodeType,
+  FunctionExpressionNode,
 } from '../parser/ast'
 
 export interface AstMapper<T> {
@@ -44,6 +45,7 @@ export interface AstMapper<T> {
   visitBlock(node: BlockNode, path: ASTNode[]): T
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]): T
   visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]): T
+  visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]): T
   visitFunctionCall(node: FunctionCallNode, path: ASTNode[]): T
   visitHTML(node: HTMLNode, path: ASTNode[]): T
   visitInteger(node: IntegerNode, path: ASTNode[]): T
@@ -94,6 +96,10 @@ export interface AstVisitor<T = void> {
     node: FunctionCallNode,
     path: ASTNode[]
   ): FunctionCallNode | T
+  visitFunctionExpression(
+    node: FunctionExpressionNode,
+    path: ASTNode[]
+  ): FunctionExpressionNode | T
   visitHTML(node: HTMLNode, path: ASTNode[]): HTMLNode | T
   visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | T
   visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | T
@@ -244,6 +250,17 @@ export class DepthFirstVisitor implements AstVisitor {
     node.argumentList =
       this.visitArgumentList(node.argumentList, buildPath(node, path)) ??
       node.argumentList
+    return this.visitNode(node, path)
+  }
+
+  visitFunctionExpression(
+    node: FunctionExpressionNode,
+    path: ASTNode[]
+  ): FunctionExpressionNode | void {
+    node.parameterList =
+      this.visitNode(node.parameterList, buildPath(node, path)) ??
+      node.parameterList
+    node.body = this.visitNode(node.body, buildPath(node, path)) ?? node.body
     return this.visitNode(node, path)
   }
 
@@ -702,6 +719,18 @@ export class InOrderAstVisitor implements AstVisitor {
     node.argumentList =
       this.visitArgumentList(node.argumentList, buildPath(node, path)) ??
       node.argumentList
+    return result
+  }
+
+  visitFunctionExpression(
+    node: FunctionExpressionNode,
+    path: ASTNode[]
+  ): FunctionExpressionNode | void {
+    const result = this.visitNode(node, path)
+    node.parameterList =
+      this.visitNode(node.parameterList, buildPath(node, path)) ??
+      node.parameterList
+    node.body = this.visitNode(node.body, buildPath(node, path)) ?? node.body
     return result
   }
 

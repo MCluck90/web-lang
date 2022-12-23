@@ -2,20 +2,26 @@ import { error, lazy, list, maybe, pair, Parser, zeroOrMore } from 'parsnip-ts'
 import { separatedFloatingPoint, separatedInteger } from 'parsnip-ts/numbers'
 import { seq } from 'parsnip-ts/seq'
 import { singleQuoteString, doubleQuoteString } from 'parsnip-ts/strings'
+import { ws } from 'parsnip-ts/whitespace'
 import {
   BinaryOperator,
   createArgumentListNode,
   createBinaryExpressionNode,
+  createBlockNode,
   createFloatingPointNode,
   createFunctionCallNode,
+  createFunctionExpressionNode,
   createHTMLNode,
   createIntegerNode,
   createObjectLiteralNode,
   createObjectPropertyNode,
+  createParameterListNode,
+  createParameterNode,
   createPropertyAccessNode,
   createStringNode,
   createUnaryExpression,
   createVariableAccessNode,
+  createVariableDeclarationNode,
   ExpressionNode,
 } from './ast'
 import {
@@ -28,6 +34,8 @@ import {
 } from './common'
 import { _identifier } from './identifier'
 import { _jsAsm } from './js-asm'
+import { _fnKeyword, _letKeyword, _mutKeyword } from './keywords'
+import { _type } from './types'
 
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
 
@@ -54,6 +62,25 @@ const foldBinaryExpression = ([left, rights]: [
     left as ExpressionNode
   )
 
+export const _variableDeclaration = _letKeyword
+  .and(
+    seq([
+      maybe(_mutKeyword),
+      _identifier,
+      maybe(_colon.and(_type)),
+      token(/=/y),
+      lazy(() => _expression),
+    ])
+  )
+  .map(([mut, identifier, type, , initializer]) =>
+    createVariableDeclarationNode(identifier, mut !== null, type, initializer)
+  )
+
+export const _statement = _variableDeclaration
+  .or(lazy(() => _expression))
+  .or(_jsAsm)
+  .or(token(/;/y).map(() => null))
+
 const _objectProperty = pair(
   _identifier,
   _colon.and(lazy(() => _expression))
@@ -62,11 +89,36 @@ const _objectLiteral = between(_braces, trailingCommaList(_objectProperty)).map(
   createObjectLiteralNode
 )
 
+export const _block = between(
+  _braces,
+  zeroOrMore(
+    between(
+      [ws, ws],
+      lazy(() => _statement)
+    )
+  ).map((statements) =>
+    statements.filter((s): s is Exclude<typeof s, null> => s !== null)
+  )
+).map(createBlockNode)
+
+const _parameter = seq([_identifier, maybe(_colon.and(_type))]).map(
+  ([name, type]) => createParameterNode(name, type)
+)
+const _parameterList = between(_parens, trailingCommaList(_parameter)).map(
+  createParameterListNode
+)
+const _functionExpression = _fnKeyword
+  .and(pair(_parameterList, _block))
+  .map(([parameterList, body]) =>
+    createFunctionExpressionNode(parameterList, body)
+  )
+
 const _literalValue = _floatingPoint
   .or(_integer)
   .or(_string)
-  .or(_objectLiteral)
+  .or(_functionExpression)
   .or(_jsAsm)
+  .or(_objectLiteral)
 
 const _primaryExpression = between(
   _parens,

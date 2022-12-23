@@ -321,10 +321,25 @@ export const createJsAsmNode = (code: string): JsAsmNode => ({
   code,
 })
 
+export interface FunctionExpressionNode {
+  __type: 'FunctionExpression'
+  parameterList: ParameterListNode
+  body: BlockNode
+}
+export const createFunctionExpressionNode = (
+  parameterList: ParameterListNode,
+  body: BlockNode
+): FunctionExpressionNode => ({
+  __type: 'FunctionExpression',
+  parameterList,
+  body,
+})
+
 export type ExpressionNode =
   | BinaryExpressionNode
   | FloatingPointNode
   | FunctionCallNode
+  | FunctionExpressionNode
   | HTMLNode
   | IntegerNode
   | JsAsmNode
@@ -339,6 +354,7 @@ export const isAnExpressionNode = (value: ASTNode): value is ExpressionNode => {
     UnaryExpression: true,
     BinaryExpression: true,
     FunctionCall: true,
+    FunctionExpression: true,
     ObjectLiteral: true,
     FloatingPoint: true,
     HTML: true,

@@ -6,6 +6,7 @@ import {
   BlockNode,
   FloatingPointNode,
   FunctionCallNode,
+  FunctionExpressionNode,
   HTMLNode,
   IdentifierNode,
   IntegerNode,
@@ -53,9 +54,18 @@ const buildJsVisitor: AstMapper<string> = {
     return `(${node.arguments.map((n) => this.visitNode(n, path)).join(', ')})`
   },
   visitBlock(node: BlockNode, path: ASTNode[]) {
-    return `{\n${node.statements
+    if (node.statements.length === 0) {
+      return ''
+    }
+
+    const nonReturnedStatements = node.statements.slice(
+      0,
+      node.statements.length - 1
+    )
+    const lastStatement = node.statements[node.statements.length - 1]
+    return `{\n${nonReturnedStatements
       .map((n) => this.visitNode(n, path))
-      .join('\n')}\n}`
+      .join('\n')}\nreturn ${this.visitNode(lastStatement, path)}\n}`
   },
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]) {
     return `${this.visitNode(node.left, path)} ${
@@ -68,6 +78,12 @@ const buildJsVisitor: AstMapper<string> = {
   visitFunctionCall(node: FunctionCallNode, path: ASTNode[]) {
     return `${this.visitNode(node.callee, path)}${this.visitNode(
       node.argumentList,
+      path
+    )}`
+  },
+  visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]) {
+    return `${this.visitNode(node.parameterList, path)} => ${this.visitNode(
+      node.body,
       path
     )}`
   },

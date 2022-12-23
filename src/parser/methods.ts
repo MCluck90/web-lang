@@ -5,8 +5,8 @@ import {
   createParameterListNode,
   createParameterNode,
 } from './ast'
-import { _block } from './block'
 import { between, trailingCommaList, _colon, _parens } from './common'
+import { _block } from './expressions'
 import { _identifier } from './identifier'
 import { _type } from './types'
 
