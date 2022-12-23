@@ -5,6 +5,7 @@ import {
   HTMLModule,
   JSModule,
 } from './index.types'
+import { constantFolding } from './passes/constant-folding'
 import { generateRootJsFromAssemblyBlocks } from './passes/generate-root-js'
 import { renderStaticEntryHtmlPass } from './passes/render-static-entry-html'
 
@@ -27,6 +28,8 @@ export const compileProgram = (
   config: CompilerConfig,
   program: ProgramNode
 ): CompilerOutput => {
+  program = constantFolding(program)
+
   const jsModules: JSModule[] = []
   const rootJsModule = generateRootJsFromAssemblyBlocks(program)
   if (rootJsModule !== null) {
