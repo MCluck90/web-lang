@@ -79,52 +79,6 @@ export const createIdentifierNode = (value: string): IdentifierNode => ({
   value,
 })
 
-export interface RemoteDefinitionNode {
-  __type: 'RemoteDefinition'
-  name: IdentifierNode
-  type: RemoteType
-  url: RemoteUrlNode
-  properties: TypePropertyNode[]
-  methods: MethodDefinitionNode[]
-}
-export const createRemoteDefinitionNode = (
-  name: IdentifierNode,
-  type: RemoteType,
-  url: RemoteUrlNode,
-  properties: TypePropertyNode[],
-  methods: MethodDefinitionNode[]
-): RemoteDefinitionNode => ({
-  __type: 'RemoteDefinition',
-  name,
-  type,
-  url,
-  properties,
-  methods,
-})
-
-export type RemoteType = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-
-export interface RemoteUrlNode {
-  __type: 'RemoteUrl'
-  path: string
-  parameters: RemoteParameterNode[]
-}
-export const createRemoteUrlNode = (
-  path: string,
-  parameters: RemoteParameterNode[]
-): RemoteUrlNode => ({ __type: 'RemoteUrl', path, parameters })
-
-export interface RemoteParameterNode {
-  __type: 'RemoteParameter'
-  name: IdentifierNode
-}
-export const createRemoteParameterNode = (
-  name: IdentifierNode
-): RemoteParameterNode => ({
-  __type: 'RemoteParameter',
-  name,
-})
-
 export interface MethodDefinitionNode {
   __type: 'MethodDefinition'
   name: IdentifierNode
@@ -421,11 +375,11 @@ export const createRenderNode = (body: BlockNode): RenderNode => ({
 
 export interface ProgramNode {
   __type: 'Program'
-  statements: (TypeDefinitionNode | RemoteDefinitionNode | Statement)[]
+  statements: (TypeDefinitionNode | Statement)[]
   render: RenderNode | null
 }
 export const createProgramNode = (
-  statements: (TypeDefinitionNode | RemoteDefinitionNode | Statement)[],
+  statements: (TypeDefinitionNode | Statement)[],
   render: RenderNode | null
 ): ProgramNode => ({
   __type: 'Program',
@@ -450,9 +404,6 @@ export type ASTNode =
   | ProgramNode
   | PropertyKeyNode
   | RenderNode
-  | RemoteDefinitionNode
-  | RemoteParameterNode
-  | RemoteUrlNode
   | TypeDefinitionNode
   | TypePropertyNode
   | VariableDeclarationNode

@@ -11,48 +11,27 @@ describe('parseProgram', () => {
     expect(program.render).not.toBe(null)
   })
 
-  test('can parse a program with a type definition and a remote', () => {
+  test('can parse a program with a type definition', () => {
     const source = `
       type Todo { title: string }
-
-      remote GetTodo {
-        GET /todo
-
-        response: Todo
-      }
     `
     const program = parseProgram(source)
     assertSuccessfulParse(program)
     assertNodeType(program, 'Program')
-    expect(program.statements).toHaveLength(2)
+    expect(program.statements).toHaveLength(1)
   })
 
-  test('can parse a program with mixed type definitions and remotes', () => {
+  test('can parse a program with a type definition and a render block', () => {
     const source = `
       type Todo { title: string }
-
-      remote GetTodo {
-        GET /todo
-
-        response: Todo
-      }
-
-      type Person {
-        name: string,
-        age: int,
-      }
-
-      remote PostPerson {
-        POST /person
-        body: Person
-      }
 
       render {}
     `
     const program = parseProgram(source)
     assertSuccessfulParse(program)
     assertNodeType(program, 'Program')
-    expect(program.statements).toHaveLength(4)
+    expect(program.statements).toHaveLength(1)
+    expect(program.render).not.toBeNull()
   })
 
   test('can parse arbitrary expressions', () => {
