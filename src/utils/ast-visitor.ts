@@ -24,9 +24,6 @@ import {
   ProgramNode,
   PropertyKeyNode,
   RenderNode,
-  RemoteDefinitionNode,
-  RemoteParameterNode,
-  RemoteUrlNode,
   TypeDefinitionNode,
   TypePropertyNode,
   VariableDeclarationNode,
@@ -68,9 +65,6 @@ export interface AstMapper<T> {
   visitParameter(node: ParameterNode, path: ASTNode[]): T
   visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]): T
   visitRender(node: RenderNode, path: ASTNode[]): T
-  visitRemoteDefinition(node: RemoteDefinitionNode, path: ASTNode[]): T
-  visitRemoteParameter(node: RemoteParameterNode, path: ASTNode[]): T
-  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): T
   visitTypeDefinition(node: TypeDefinitionNode, path: ASTNode[]): T
   visitTypeProperty(node: TypePropertyNode, path: ASTNode[]): T
   visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]): T
@@ -144,15 +138,6 @@ export interface AstVisitor<T = void> {
   visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | T
   visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]): PropertyKeyNode | T
   visitRender(node: RenderNode, path: ASTNode[]): RenderNode | T
-  visitRemoteDefinition(
-    node: RemoteDefinitionNode,
-    path: ASTNode[]
-  ): RemoteDefinitionNode | T
-  visitRemoteParameter(
-    node: RemoteParameterNode,
-    path: ASTNode[]
-  ): RemoteParameterNode | T
-  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): RemoteUrlNode | T
   visitTypeDefinition(
     node: TypeDefinitionNode,
     path: ASTNode[]
@@ -512,11 +497,7 @@ export class DepthFirstVisitor implements AstVisitor {
 
   visitProgram(node: ProgramNode): ProgramNode | void {
     let hasModifiedStatements = false
-    const statements: (
-      | RemoteDefinitionNode
-      | TypeDefinitionNode
-      | Statement
-    )[] = []
+    const statements: (TypeDefinitionNode | Statement)[] = []
 
     for (const statement of node.statements) {
       let result = this.descendIntoNode(statement, [node])
@@ -547,78 +528,6 @@ export class DepthFirstVisitor implements AstVisitor {
   visitRender(node: RenderNode, path: ASTNode[]): RenderNode | void {
     node.body =
       this.descendIntoNode(node.body, buildPath(node, path)) ?? node.body
-    return this.visitNode(node, path)
-  }
-
-  visitRemoteDefinition(
-    node: RemoteDefinitionNode,
-    path: ASTNode[]
-  ): RemoteDefinitionNode | void {
-    node.name =
-      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
-    node.url = this.descendIntoNode(node.url, buildPath(node, path)) ?? node.url
-
-    let hasModifiedProperties = false
-    const properties: TypePropertyNode[] = []
-    for (const property of node.properties) {
-      const result = this.descendIntoNode(property, buildPath(node, path))
-      if (result) {
-        hasModifiedProperties = true
-        properties.push(result)
-      } else {
-        properties.push(property)
-      }
-    }
-
-    if (hasModifiedProperties) {
-      node.properties = properties
-    }
-
-    let hasModifiedMethods = false
-    const methods: MethodDefinitionNode[] = []
-    for (const method of node.methods) {
-      const result = this.descendIntoNode(method, buildPath(node, path))
-      if (result) {
-        hasModifiedMethods = true
-        methods.push(result)
-      } else {
-        methods.push(method)
-      }
-    }
-
-    if (hasModifiedMethods) {
-      node.methods = methods
-    }
-
-    return this.visitNode(node, path)
-  }
-
-  visitRemoteParameter(
-    node: RemoteParameterNode,
-    path: ASTNode[]
-  ): RemoteParameterNode | void {
-    node.name =
-      this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
-    return this.visitNode(node, path)
-  }
-
-  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]): RemoteUrlNode | void {
-    let hasModifiedParameters = false
-    const parameters: RemoteParameterNode[] = []
-    for (const parameter of node.parameters) {
-      const result = this.descendIntoNode(parameter, buildPath(node, path))
-      if (result) {
-        hasModifiedParameters = true
-        parameters.push(result)
-      } else {
-        parameters.push(parameter)
-      }
-    }
-
-    if (hasModifiedParameters) {
-      node.parameters = parameters
-    }
-
     return this.visitNode(node, path)
   }
 

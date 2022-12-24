@@ -21,9 +21,6 @@ import {
   ProgramNode,
   PropertyAccessNode,
   PropertyKeyNode,
-  RemoteDefinitionNode,
-  RemoteParameterNode,
-  RemoteUrlNode,
   RenderNode,
   StringNode,
   TypeDefinitionNode,
@@ -160,15 +157,6 @@ const buildJsVisitor: AstMapper<string> = {
   },
   visitRender(node: RenderNode, path: ASTNode[]) {
     throw new Error('Render not yet implemented.')
-  },
-  visitRemoteDefinition(node: RemoteDefinitionNode, path: ASTNode[]) {
-    throw new Error('RemoteDefinition not yet implemented.')
-  },
-  visitRemoteParameter(node: RemoteParameterNode, path: ASTNode[]) {
-    throw new Error('RemoteParameter not yet implemented.')
-  },
-  visitRemoteUrl(node: RemoteUrlNode, path: ASTNode[]) {
-    throw new Error('RemoteUrl not yet implemented.')
   },
   visitTypeDefinition(node: TypeDefinitionNode, path: ASTNode[]) {
     // Types are not emitted
