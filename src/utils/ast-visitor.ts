@@ -30,15 +30,16 @@ import {
   ExpressionNode,
   Statement,
   TypeNode,
-  isNodeType,
   FunctionExpressionNode,
   IfNode,
   ElseNode,
+  AssignmentNode,
 } from '../parser/ast'
 
 export interface AstMapper<T> {
   visitNode(node: ASTNode, path: ASTNode[]): T
   visitProgram(node: ProgramNode): T
+  visitAssignment(node: AssignmentNode, path: ASTNode[]): T
   visitAnonymousType(node: AnonymousTypeNode, path: ASTNode[]): T
   visitArgumentList(node: ArgumentListNode, path: ASTNode[]): T
   visitBlock(node: BlockNode, path: ASTNode[]): T
@@ -73,6 +74,7 @@ export interface AstMapper<T> {
 export interface AstVisitor<T = void> {
   visitNode(node: ASTNode, path: ASTNode[]): ASTNode | T
   visitProgram(node: ProgramNode): ProgramNode | T
+  visitAssignment(node: AssignmentNode, path: ASTNode[]): AssignmentNode | T
   visitAnonymousType(
     node: AnonymousTypeNode,
     path: ASTNode[]
@@ -171,6 +173,17 @@ export class DepthFirstVisitor implements AstVisitor {
     path: ASTNode[]
   ): T | void {
     return (this[`visit${node.__type}`] as any)(node, path)
+  }
+
+  visitAssignment(
+    node: AssignmentNode,
+    path: ASTNode[]
+  ): AssignmentNode | void {
+    node.left =
+      this.descendIntoNode(node.left, buildPath(node, path)) ?? node.left
+    node.right =
+      this.descendIntoNode(node.right, buildPath(node, path)) ?? node.right
+    return this.visitNode(node, path)
   }
 
   visitAnonymousType(

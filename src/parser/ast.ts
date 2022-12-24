@@ -195,6 +195,20 @@ export const createPropertyAccessNode = (
   rights,
 })
 
+export interface AssignmentNode {
+  __type: 'Assignment'
+  left: IdentifierNode
+  right: ExpressionNode
+}
+export const createAssignmentNode = (
+  left: IdentifierNode,
+  right: ExpressionNode
+): AssignmentNode => ({
+  __type: 'Assignment',
+  left,
+  right,
+})
+
 export type UnaryOperator = '-'
 
 export interface UnaryExpressionNode {
@@ -311,6 +325,7 @@ export const createElseNode = (body: BlockNode): ElseNode => ({
 })
 
 export type ExpressionNode =
+  | AssignmentNode
   | BinaryExpressionNode
   | FloatingPointNode
   | FunctionCallNode
@@ -327,6 +342,7 @@ export type ExpressionNode =
 
 export const isAnExpressionNode = (value: ASTNode): value is ExpressionNode => {
   const expressionTypes: Record<ExpressionNode['__type'], boolean> = {
+    Assignment: true,
     UnaryExpression: true,
     BinaryExpression: true,
     FunctionCall: true,

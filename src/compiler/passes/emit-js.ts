@@ -43,6 +43,12 @@ const jsEmitterVisitor: AstMapper<string> = {
       ''
     )
   },
+  visitAssignment(node, path) {
+    return `${this.visitNode(node.left, path)} = ${this.visitNode(
+      node.right,
+      path
+    )};\n`
+  },
   visitAnonymousType(node: AnonymousTypeNode, path: ASTNode[]) {
     // Types do not emit code
     return ''
