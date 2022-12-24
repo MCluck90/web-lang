@@ -214,9 +214,9 @@ const jsEmitterVisitor: AstMapper<string> = {
             node.path.length > 1 ? node.path : '/index.mjs'
           }'`
         } else {
-          return `import ${selectors} from '${node.scope}/${
-            node.package
-          }${node.path.replace(/'/g, "\\'")}`
+          return `import ${selectors} from '${node.scope}/${node.package}${
+            node.path.length > 1 ? node.path.replace(/'/g, "\\'") : ''
+          }'`
         }
     }
   },
