@@ -53,7 +53,10 @@ const _subtractionOperator = token(/\-/y) as Parser<'-'>
 const _multiplicationOperator = token(/\*/y) as Parser<'*'>
 const _divisionOperator = token(/\//y) as Parser<'/'>
 const _propertyAccessOperator = token(/\./y) as Parser<'.'>
-const _assignmentOperator = token(/=/y) as Parser<'.'>
+const _equalityOperator = token(/==/y) as Parser<'=='>
+const _notEqualOperator = token(/!=/y) as Parser<'!='>
+const _assignmentOperator = token(/=/y) as Parser<'='>
+
 const _integer = separatedInteger.map(createIntegerNode)
 const _floatingPoint = separatedFloatingPoint.map(createFloatingPointNode)
 const _string = singleQuoteString.or(doubleQuoteString).map(createStringNode)
@@ -184,12 +187,17 @@ const _term = seq([
   zeroOrMore(pair(_additionOperator.or(_subtractionOperator), _factor)),
 ]).map(foldBinaryExpression)
 
+const _equality = seq([
+  _term,
+  zeroOrMore(pair(_equalityOperator.or(_notEqualOperator), _term)),
+]).map(foldBinaryExpression)
+
 const _assignment = seq([
   _identifier,
   _assignmentOperator,
   lazy(() => _expression),
 ])
   .map(([left, , right]) => createAssignmentNode(left, right))
-  .or(_term)
+  .or(_equality)
 
 _expression = _assignment

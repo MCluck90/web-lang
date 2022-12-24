@@ -225,7 +225,7 @@ export const createUnaryExpression = (
   expression,
 })
 
-export type BinaryOperator = '+' | '-' | '*' | '/'
+export type BinaryOperator = '+' | '-' | '*' | '/' | '==' | '!='
 
 export interface BinaryExpressionNode {
   __type: 'BinaryExpression'

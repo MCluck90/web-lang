@@ -72,7 +72,11 @@ const jsEmitterVisitor: AstMapper<string> = {
   },
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]) {
     return `${this.visitNode(node.left, path)} ${
-      node.operator
+      node.operator === '=='
+        ? '==='
+        : node.operator === '!='
+        ? '!=='
+        : node.operator
     } ${this.visitNode(node.right, path)}`
   },
   visitElse(node, path) {
