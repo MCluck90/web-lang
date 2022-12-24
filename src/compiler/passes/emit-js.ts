@@ -32,14 +32,14 @@ import {
 import { AstMapper } from '../../utils/ast-visitor'
 import { JSModule } from '../index.types'
 
-const buildJsVisitor: AstMapper<string> = {
+const jsEmitterVisitor: AstMapper<string> = {
   visitNode<T extends ASTNode>(node: T, path: ASTNode[]) {
-    return (buildJsVisitor[`visit${node.__type}`] as any)(node as never, path)
+    return (jsEmitterVisitor[`visit${node.__type}`] as any)(node as never, path)
   },
   visitProgram(node: ProgramNode) {
     // TODO: Handle `render` section
     return node.statements.reduce(
-      (acc, statement) => acc + buildJsVisitor.visitNode(statement, [node]),
+      (acc, statement) => acc + jsEmitterVisitor.visitNode(statement, [node]),
       ''
     )
   },
@@ -174,8 +174,8 @@ const buildJsVisitor: AstMapper<string> = {
   },
 }
 
-export const directToJs = (program: ProgramNode): JSModule | null => {
-  const contents = buildJsVisitor.visitProgram(program)
+export const emitJs = (program: ProgramNode): JSModule | null => {
+  const contents = jsEmitterVisitor.visitProgram(program)
   if (typeof contents !== 'string' || contents.length === 0) {
     return null
   }
