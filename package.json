@@ -7,6 +7,7 @@
     "start": "ts-node src/cli.ts run",
     "parse": "ts-node src/cli.ts parse",
     "compile": "ts-node src/cli.ts compile",
+    "type-check": "tsc --noEmit",
     "test": "jest"
   },
   "dependencies": {

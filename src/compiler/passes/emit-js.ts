@@ -38,10 +38,18 @@ const jsEmitterVisitor: AstMapper<string> = {
   },
   visitProgram(node: ProgramNode) {
     // TODO: Handle `render` section
-    return node.statements.reduce(
+    const useStatements = node.useStatements.reduce(
       (acc, statement) =>
         acc + `${jsEmitterVisitor.visitNode(statement, [node])}\n`,
       ''
+    )
+    return (
+      useStatements +
+      node.statements.reduce(
+        (acc, statement) =>
+          acc + `${jsEmitterVisitor.visitNode(statement, [node])}\n`,
+        ''
+      )
     )
   },
   visitAssignment(node, path) {
@@ -182,6 +190,39 @@ const jsEmitterVisitor: AstMapper<string> = {
       node.initializer,
       path
     )};`
+  },
+  visitUse(node, path) {
+    const selectors = `{ ${node.selectors
+      .map((s) => this.visitNode(s, path))
+      .join(',\n')} }`
+    switch (node.type) {
+      case 'Absolute':
+        throw new Error('Absolute importing is not yet implemented')
+
+      case 'Relative':
+        return `import ${selectors} from './${node.path.replace(/'/g, "\\'")}'`
+
+      case 'Package':
+        if (node.scope === 'std') {
+          return `import ${selectors} from '../../std/${node.package}${
+            node.path.length > 1 ? node.path : '/index.mjs'
+          }'`
+        } else {
+          return `import ${selectors} from '${node.scope}/${
+            node.package
+          }${node.path.replace(/'/g, "\\'")}`
+        }
+    }
+  },
+  visitUseSelector(node, path) {
+    const alias = node.alias ? this.visitNode(node.alias, path) : null
+    if (alias) {
+      return `${node.name} as ${alias}`
+    }
+    if (typeof node.name === 'string') {
+      return node.name
+    }
+    return this.visitNode(node.name, path)
   },
 }
 

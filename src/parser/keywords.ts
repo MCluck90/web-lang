@@ -11,6 +11,7 @@ export const _mutKeyword = token(/mut/y)
 export const _renderKeyword = token(/render/y)
 export const _stringKeyword = token(/string/y)
 export const _typeKeyword = token(/type/y)
+export const _useKeyword = token(/use/y)
 export const _keyword = _boolKeyword
   .or(_boolKeyword)
   .or(_fnKeyword)
@@ -21,6 +22,7 @@ export const _keyword = _boolKeyword
   .or(_renderKeyword)
   .or(_stringKeyword)
   .or(_typeKeyword)
+  .or(_useKeyword)
 
 export const _builtInTypeKeyword = _intKeyword
   .or(_stringKeyword)

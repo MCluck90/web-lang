@@ -121,11 +121,75 @@ export const createParameterNode = (
   type,
 })
 
-// TODO: Add support for shorthand methods
-// Ex: Add(x: int, y: int) = x + y
 export type MethodBodyNode = BlockNode
 
 export type Statement = ExpressionNode | VariableDeclarationNode
+
+export interface UseSelectorNode {
+  __type: 'UseSelector'
+  name: IdentifierNode | '*'
+  alias: IdentifierNode | null
+}
+export const createUseSelectorNode = (
+  name: IdentifierNode | '*',
+  alias: IdentifierNode | null
+): UseSelectorNode => ({
+  __type: 'UseSelector',
+  name,
+  alias,
+})
+
+export type UseNode =
+  | {
+      __type: 'Use'
+      selectors: UseSelectorNode[]
+    } & (
+      | {
+          type: 'Package'
+          scope: string
+          package: string
+          path: string
+        }
+      | {
+          type: 'Absolute'
+          path: string
+        }
+      | {
+          type: 'Relative'
+          path: string
+        }
+    )
+export const createUsePackageNode = (
+  scope: string,
+  package_: string,
+  path: string,
+  selectors: UseSelectorNode[]
+): UseNode & { type: 'Package' } => ({
+  __type: 'Use',
+  type: 'Package',
+  scope,
+  package: package_,
+  path,
+  selectors,
+})
+export const createUseAbsoluteNode = (
+  path: string,
+  selectors: UseSelectorNode[]
+): UseNode & { type: 'Absolute' } => ({
+  __type: 'Use',
+  type: 'Absolute',
+  path,
+  selectors,
+})
+export const createUseRelativeNode = (
+  path: string,
+  selectors: UseSelectorNode[]
+): UseNode & { type: 'Relative' } => ({
+  __type: 'Use',
+  type: 'Relative',
+  path,
+  selectors,
+})
 
 export interface BlockNode {
   __type: 'Block'
@@ -401,14 +465,17 @@ export const createRenderNode = (body: BlockNode): RenderNode => ({
 
 export interface ProgramNode {
   __type: 'Program'
+  useStatements: UseNode[]
   statements: (TypeDefinitionNode | Statement)[]
   render: RenderNode | null
 }
 export const createProgramNode = (
+  useStatements: UseNode[],
   statements: (TypeDefinitionNode | Statement)[],
   render: RenderNode | null
 ): ProgramNode => ({
   __type: 'Program',
+  useStatements,
   statements,
   render: render,
 })
@@ -432,6 +499,8 @@ export type ASTNode =
   | RenderNode
   | TypeDefinitionNode
   | TypePropertyNode
+  | UseNode
+  | UseSelectorNode
   | VariableDeclarationNode
 
 export type NodeType = ASTNode['__type']

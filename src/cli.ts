@@ -66,7 +66,7 @@ switch (subcommand) {
     for (const jsModule of compileResult.isomorphicJs) {
       const htmlPath = path.join(
         isomorphicJsDirectory,
-        `${jsModule.moduleName}.js`
+        `${jsModule.moduleName}.mjs`
       )
       fs.writeFileSync(htmlPath, jsModule.contents)
     }
@@ -81,7 +81,7 @@ switch (subcommand) {
 
 if (subcommand === 'run') {
   console.log('==================\n\n')
-  const node = spawn('node', ['_build/isomorphic-js/main.js'])
+  const node = spawn('node', ['_build/isomorphic-js/main.mjs'])
   node.stdout.on('data', (data) => process.stdout.write(data))
   node.stderr.on('data', (data) => process.stderr.write(data))
   node.on('error', (error) => console.error(error))

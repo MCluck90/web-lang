@@ -34,6 +34,9 @@ import {
   IfNode,
   ElseNode,
   AssignmentNode,
+  UseNode,
+  UseSelectorNode,
+  isNodeType,
 } from '../parser/ast'
 
 export interface AstMapper<T> {
@@ -68,6 +71,8 @@ export interface AstMapper<T> {
   visitRender(node: RenderNode, path: ASTNode[]): T
   visitTypeDefinition(node: TypeDefinitionNode, path: ASTNode[]): T
   visitTypeProperty(node: TypePropertyNode, path: ASTNode[]): T
+  visitUse(node: UseNode, path: ASTNode[]): T
+  visitUseSelector(node: UseSelectorNode, path: ASTNode[]): T
   visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]): T
 }
 
@@ -148,6 +153,8 @@ export interface AstVisitor<T = void> {
     node: TypePropertyNode,
     path: ASTNode[]
   ): TypePropertyNode | T
+  visitUse(node: UseNode, path: ASTNode[]): UseNode | T
+  visitUseSelector(node: UseSelectorNode, path: ASTNode[]): UseSelectorNode | T
   visitVariableDeclaration(
     node: VariableDeclarationNode,
     path: ASTNode[]
@@ -563,6 +570,38 @@ export class DepthFirstVisitor implements AstVisitor {
       this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
     node.type =
       this.descendIntoNode(node.type, buildPath(node, path)) ?? node.type
+    return this.visitNode(node, path)
+  }
+
+  visitUse(node: UseNode, path: ASTNode[]): UseNode | void {
+    let hasModifiedSelectors = false
+    const selectors: UseSelectorNode[] = []
+    for (const selector of node.selectors) {
+      const result = this.descendIntoNode(selector, buildPath(node, path))
+      if (result) {
+        hasModifiedSelectors = true
+        selectors.push(result)
+      } else {
+        selectors.push(selector)
+      }
+    }
+
+    if (hasModifiedSelectors) {
+      node.selectors = selectors
+    }
+    return this.visitNode(node, path)
+  }
+
+  visitUseSelector(
+    node: UseSelectorNode,
+    path: ASTNode[]
+  ): UseSelectorNode | void {
+    node.name = isNodeType('Identifier')(node.name)
+      ? this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
+      : node.name
+    node.alias = node.alias
+      ? this.descendIntoNode(node.alias, buildPath(node, path)) ?? node.alias
+      : node.alias
     return this.visitNode(node, path)
   }
 
