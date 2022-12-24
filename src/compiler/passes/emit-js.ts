@@ -134,7 +134,13 @@ const jsEmitterVisitor: AstMapper<string> = {
       .join(',')}`
   },
   visitString(node: StringNode, path: ASTNode[]) {
-    return `"${node.value.replace(/"/g, '\\"')}"`
+    const result = node.value
+      .replace(/"/g, '\\"')
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n')
+      .replace(/\t/g, '\\t')
+      .replace(/\0/g, '\\0')
+    return `"${result}"`
   },
   visitUnaryExpression(node: UnaryExpressionNode, path: ASTNode[]) {
     return `${node.operator}${this.visitNode(node.expression, path)}`
