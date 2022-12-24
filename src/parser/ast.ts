@@ -209,7 +209,7 @@ export const createAssignmentNode = (
   right,
 })
 
-export type UnaryOperator = '-'
+export type UnaryOperator = '-' | '!'
 
 export interface UnaryExpressionNode {
   __type: 'UnaryExpression'

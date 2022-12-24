@@ -60,6 +60,7 @@ const _greaterThanOperator = token(/>/y) as Parser<'>'>
 const _greaterThanOrEqualOperator = token(/>=/y) as Parser<'>='>
 const _notEqualOperator = token(/!=/y) as Parser<'!='>
 const _assignmentOperator = token(/=/y) as Parser<'='>
+const _notOperator = token(/!/y) as Parser<'!'>
 
 const _integer = separatedInteger.map(createIntegerNode)
 const _floatingPoint = separatedFloatingPoint.map(createFloatingPointNode)
@@ -176,9 +177,11 @@ const _functionCall = seq([
     : createFunctionCallNode(left, createArgumentListNode(right))
 )
 
-const _unary = seq([maybe(_subtractionOperator), _functionCall]).map(
-  ([op, expression]) =>
-    op !== null ? createUnaryExpression(op, expression) : expression
+const _unary = seq([
+  maybe(_subtractionOperator.or(_notOperator)),
+  _functionCall,
+]).map(([op, expression]) =>
+  op !== null ? createUnaryExpression(op, expression) : expression
 )
 
 const _factor = seq([
