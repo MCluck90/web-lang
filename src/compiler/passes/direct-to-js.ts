@@ -94,7 +94,7 @@ const buildJsVisitor: AstMapper<string> = {
     throw new Error('HTML not yet implemented.')
   },
   visitIf(node, path) {
-    return `(function() {if (${this.visitNode(
+    return `(() => {if (${this.visitNode(
       node.condition,
       path
     )}) ${this.visitNode(node.body, path)} ${
