@@ -39,7 +39,8 @@ const jsEmitterVisitor: AstMapper<string> = {
   visitProgram(node: ProgramNode) {
     // TODO: Handle `render` section
     return node.statements.reduce(
-      (acc, statement) => acc + jsEmitterVisitor.visitNode(statement, [node]),
+      (acc, statement) =>
+        acc + `${jsEmitterVisitor.visitNode(statement, [node])}\n`,
       ''
     )
   },

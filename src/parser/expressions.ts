@@ -54,6 +54,10 @@ const _multiplicationOperator = token(/\*/y) as Parser<'*'>
 const _divisionOperator = token(/\//y) as Parser<'/'>
 const _propertyAccessOperator = token(/\./y) as Parser<'.'>
 const _equalityOperator = token(/==/y) as Parser<'=='>
+const _lessThanOperator = token(/</y) as Parser<'<'>
+const _lessThanOrEqualOperator = token(/<=/y) as Parser<'<='>
+const _greaterThanOperator = token(/>/y) as Parser<'>'>
+const _greaterThanOrEqualOperator = token(/>=/y) as Parser<'>='>
 const _notEqualOperator = token(/!=/y) as Parser<'!='>
 const _assignmentOperator = token(/=/y) as Parser<'='>
 
@@ -187,9 +191,22 @@ const _term = seq([
   zeroOrMore(pair(_additionOperator.or(_subtractionOperator), _factor)),
 ]).map(foldBinaryExpression)
 
-const _equality = seq([
+const _comparison = seq([
   _term,
-  zeroOrMore(pair(_equalityOperator.or(_notEqualOperator), _term)),
+  zeroOrMore(
+    pair(
+      _lessThanOrEqualOperator
+        .or(_greaterThanOrEqualOperator)
+        .or(_lessThanOperator)
+        .or(_greaterThanOperator),
+      _term
+    )
+  ),
+]).map(foldBinaryExpression)
+
+const _equality = seq([
+  _comparison,
+  zeroOrMore(pair(_equalityOperator.or(_notEqualOperator), _comparison)),
 ]).map(foldBinaryExpression)
 
 const _assignment = seq([
