@@ -89,6 +89,9 @@ const jsEmitterVisitor: AstMapper<string> = {
         : node.operator
     } ${this.visitNode(node.right, path)}`
   },
+  visitBoolean(node, path) {
+    return ` ${node.value} `
+  },
   visitElse(node, path) {
     return `else ${this.visitNode(node.body, path)}`
   },

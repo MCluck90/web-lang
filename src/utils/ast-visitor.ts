@@ -37,6 +37,7 @@ import {
   UseNode,
   UseSelectorNode,
   isNodeType,
+  BooleanNode,
 } from '../parser/ast'
 
 export interface AstMapper<T> {
@@ -47,6 +48,7 @@ export interface AstMapper<T> {
   visitArgumentList(node: ArgumentListNode, path: ASTNode[]): T
   visitBlock(node: BlockNode, path: ASTNode[]): T
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]): T
+  visitBoolean(node: BooleanNode, path: ASTNode[]): T
   visitElse(node: ElseNode, path: ASTNode[]): T
   visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]): T
   visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]): T
@@ -93,6 +95,7 @@ export interface AstVisitor<T = void> {
     node: BinaryExpressionNode,
     path: ASTNode[]
   ): ExpressionNode | T
+  visitBoolean(node: BooleanNode, path: ASTNode[]): BooleanNode | T
   visitElse(node: ElseNode, path: ASTNode[]): ElseNode | T
   visitFloatingPoint(
     node: FloatingPointNode,
@@ -255,6 +258,10 @@ export class DepthFirstVisitor implements AstVisitor {
       this.descendIntoNode(node.left, buildPath(node, path)) ?? node.left
     node.right =
       this.descendIntoNode(node.right, buildPath(node, path)) ?? node.right
+    return this.visitNode(node, path)
+  }
+
+  visitBoolean(node: BooleanNode, path: ASTNode[]): BooleanNode | void {
     return this.visitNode(node, path)
   }
 
