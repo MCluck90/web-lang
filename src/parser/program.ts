@@ -16,6 +16,7 @@ import {
   createUsePackageNode,
   UseNode,
   UseSelectorNode,
+  createUseAbsoluteNode,
 } from './ast'
 import { between, token, trailingCommaList, _braces } from './common'
 import { _block, _statement } from './expressions'
@@ -38,6 +39,23 @@ const _useSelector: Parser<UseSelectorNode> = seq([
 })
 const _useSelectors = between(_braces, trailingCommaList(_useSelector))
 
+const _useAbsolute = token(/~/y)
+  .and(
+    seq([
+      text('/'),
+      maybe(seq([list(_identifier, _pathSeperator), _pathSeperator])),
+      _useSelectors,
+    ])
+  )
+  .map(([, pathPieces, selectors]) =>
+    createUseAbsoluteNode(
+      pathPieces === null
+        ? ''
+        : '/' + pathPieces[0].map((identifier) => identifier.value).join('/'),
+      selectors
+    )
+  )
+
 const _usePackage = token(/@/y)
   .and(
     seq([
@@ -49,8 +67,8 @@ const _usePackage = token(/@/y)
       _useSelectors,
     ])
   )
-  .map(([scope, , package_, , pathPieces, selectors]) => {
-    return createUsePackageNode(
+  .map(([scope, , package_, , pathPieces, selectors]) =>
+    createUsePackageNode(
       scope.value,
       package_.value,
       pathPieces === null
@@ -58,9 +76,11 @@ const _usePackage = token(/@/y)
         : '/' + pathPieces[0].map((identifier) => identifier.value).join('/'),
       selectors
     )
-  })
+  )
 
-export const _use: Parser<UseNode> = _useKeyword.and(_usePackage)
+export const _use: Parser<UseNode> = _useKeyword.and(
+  _useAbsolute.or(_usePackage)
+)
 
 export const _render = _renderKeyword.and(_block).map(createRenderNode)
 

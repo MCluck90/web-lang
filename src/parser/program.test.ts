@@ -1,6 +1,7 @@
 import { assertFailedParse, assertSuccessfulParse } from '../test/parser-utils'
 import {
   createIdentifierNode,
+  createUseAbsoluteNode,
   createUsePackageNode,
   createUseSelectorNode,
 } from './ast'
@@ -68,6 +69,78 @@ describe('Use Statements', () => {
     test('wildcard imports must have an alias', () => {
       const source = 'use @scope:package/{ * }'
       assertFailedParse(_use.parseToEnd(source))
+    })
+  })
+
+  describe('Absolute Imports', () => {
+    test('can parse absolute imports', () => {
+      const source = 'use ~/{}'
+      const useStatement = _use.parseToEnd(source)
+      assertSuccessfulParse(useStatement)
+      expect(useStatement).toEqual(createUseAbsoluteNode('', []))
+    })
+
+    test('will fails if no selectors are specified', () => {
+      const source = 'use ~/'
+      const useStatement = _use.parseToEnd(source)
+      assertFailedParse(useStatement)
+    })
+
+    test('can select a list of items', () => {
+      const source = 'use ~/{itemA, itemB, itemC,}'
+      const useStatement = _use.parseToEnd(source)
+      assertSuccessfulParse(useStatement)
+      expect(useStatement).toEqual(
+        createUseAbsoluteNode('', [
+          createUseSelectorNode(createIdentifierNode('itemA'), null),
+          createUseSelectorNode(createIdentifierNode('itemB'), null),
+          createUseSelectorNode(createIdentifierNode('itemC'), null),
+        ])
+      )
+    })
+
+    test('can drill down to a deeper path', () => {
+      const source = 'use ~/path/to/items/{itemA, itemB, itemC,}'
+      const useStatement = _use.parseToEnd(source)
+      assertSuccessfulParse(useStatement)
+      expect(useStatement).toEqual(
+        createUseAbsoluteNode('/path/to/items', [
+          createUseSelectorNode(createIdentifierNode('itemA'), null),
+          createUseSelectorNode(createIdentifierNode('itemB'), null),
+          createUseSelectorNode(createIdentifierNode('itemC'), null),
+        ])
+      )
+    })
+
+    test('can specify aliases for imports', () => {
+      const source = 'use ~/{itemA as other}'
+      const useStatement = _use.parseToEnd(source)
+      assertSuccessfulParse(useStatement)
+      expect(useStatement).toEqual(
+        createUseAbsoluteNode('', [
+          createUseSelectorNode(
+            createIdentifierNode('itemA'),
+            createIdentifierNode('other')
+          ),
+        ])
+      )
+    })
+
+    test('supports wildcard imports', () => {
+      const source = 'use ~/{ * as items }'
+      const useStatement = _use.parseToEnd(source)
+      assertSuccessfulParse(useStatement)
+      expect(useStatement).toEqual(
+        createUseAbsoluteNode('', [
+          createUseSelectorNode('*', createIdentifierNode('items')),
+        ])
+      )
+    })
+
+    test('fails if wildcard does not include an alias', () => {
+      const source = 'use ~/{ * }'
+      const useStatement = _use.parseToEnd(source)
+      assertFailedParse(useStatement)
     })
   })
 })
