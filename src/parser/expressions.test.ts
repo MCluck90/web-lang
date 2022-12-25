@@ -15,6 +15,18 @@ import {
 } from './ast'
 import { _block, _expression, _variableDeclaration } from './expressions'
 
+describe('Booleans', () => {
+  test.each([
+    ['true', true],
+    ['false', false],
+  ])('can parse booleans', (source, value) => {
+    const bool = _expression.parseToEnd(source)
+    assertSuccessfulParse(bool)
+    assertNodeType(bool, 'Boolean')
+    expect(bool.value).toBe(value)
+  })
+})
+
 describe('Numbers', () => {
   test.each([['1', 1] as const, ['9_001', 9001] as const])(
     'can parse positive integers',
@@ -566,5 +578,38 @@ describe('Blocks', () => {
     assertNodeType(block.statements[2], 'Integer')
     assertNodeType(block.statements[3], 'VariableDeclaration')
     assertNodeType(block.statements[4], 'Integer')
+  })
+})
+
+describe('If Expressions', () => {
+  test('can parse if expressions', () => {
+    const source = 'if (true) {}'
+    const ifExpr = _expression.parseToEnd(source)
+    assertSuccessfulParse(ifExpr)
+    assertNodeType(ifExpr, 'If')
+    assertNodeType(ifExpr.condition, 'Boolean')
+    expect(ifExpr.body.statements).toHaveLength(0)
+    expect(ifExpr.else_).toBe(null)
+  })
+
+  test('can parse if expressions with bodies', () => {
+    const source = 'if (true) { "test"; 1; id }'
+    const ifExpr = _expression.parseToEnd(source)
+    assertSuccessfulParse(ifExpr)
+    assertNodeType(ifExpr, 'If')
+    assertNodeType(ifExpr.condition, 'Boolean')
+    expect(ifExpr.body.statements).toHaveLength(3)
+    expect(ifExpr.else_).toBe(null)
+  })
+
+  test('can parse if expressions with else blocks', () => {
+    const source = 'if (true) { } else { "test"; 1; id }'
+    const ifExpr = _expression.parseToEnd(source)
+    assertSuccessfulParse(ifExpr)
+    assertNodeType(ifExpr, 'If')
+    assertNodeType(ifExpr.condition, 'Boolean')
+    expect(ifExpr.body.statements).toHaveLength(0)
+    expect(ifExpr.else_).not.toBe(null)
+    expect(ifExpr.else_?.body.statements).toHaveLength(3)
   })
 })

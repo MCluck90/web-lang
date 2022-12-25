@@ -1,4 +1,13 @@
-import { error, lazy, list, maybe, pair, Parser, zeroOrMore } from 'parsnip-ts'
+import {
+  constant,
+  error,
+  lazy,
+  list,
+  maybe,
+  pair,
+  Parser,
+  zeroOrMore,
+} from 'parsnip-ts'
 import { separatedFloatingPoint, separatedInteger } from 'parsnip-ts/numbers'
 import { seq } from 'parsnip-ts/seq'
 import { singleQuoteString, doubleQuoteString } from 'parsnip-ts/strings'
@@ -9,6 +18,7 @@ import {
   createAssignmentNode,
   createBinaryExpressionNode,
   createBlockNode,
+  createBooleanNode,
   createElseNode,
   createFloatingPointNode,
   createFunctionCallNode,
@@ -39,10 +49,12 @@ import { _identifier } from './identifier'
 import { _jsAsm } from './js-asm'
 import {
   _elseKeyword,
+  _falseKeyword,
   _fnKeyword,
   _ifKeyword,
   _letKeyword,
   _mutKeyword,
+  _trueKeyword,
 } from './keywords'
 import { _type } from './types'
 
@@ -64,6 +76,10 @@ const _notOperator = token(/!/y) as Parser<'!'>
 
 const _integer = separatedInteger.map(createIntegerNode)
 const _floatingPoint = separatedFloatingPoint.map(createFloatingPointNode)
+const _boolean = _trueKeyword
+  .and(constant(true))
+  .or(_falseKeyword.and(constant(false)))
+  .map(createBooleanNode)
 const _string = singleQuoteString.or(doubleQuoteString).map(createStringNode)
 const _html = seq([
   token(/[a-z][a-z0-9-]*/y),
@@ -143,6 +159,7 @@ const _ifExpression = _ifKeyword
 
 const _literalValue = _floatingPoint
   .or(_integer)
+  .or(_boolean)
   .or(_string)
   .or(_functionExpression)
   .or(_jsAsm)

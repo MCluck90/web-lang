@@ -200,6 +200,15 @@ export const createBlockNode = (expressions: Statement[]): BlockNode => ({
   statements: expressions,
 })
 
+export interface BooleanNode {
+  __type: 'Boolean'
+  value: boolean
+}
+export const createBooleanNode = (value: boolean): BooleanNode => ({
+  __type: 'Boolean',
+  value,
+})
+
 export interface IntegerNode {
   __type: 'Integer'
   value: number
@@ -401,6 +410,7 @@ export const createElseNode = (body: BlockNode): ElseNode => ({
 export type ExpressionNode =
   | AssignmentNode
   | BinaryExpressionNode
+  | BooleanNode
   | FloatingPointNode
   | FunctionCallNode
   | FunctionExpressionNode
@@ -417,18 +427,19 @@ export type ExpressionNode =
 export const isAnExpressionNode = (value: ASTNode): value is ExpressionNode => {
   const expressionTypes: Record<ExpressionNode['__type'], boolean> = {
     Assignment: true,
-    UnaryExpression: true,
     BinaryExpression: true,
+    Boolean: true,
+    FloatingPoint: true,
     FunctionCall: true,
     FunctionExpression: true,
-    ObjectLiteral: true,
-    FloatingPoint: true,
     HTML: true,
     If: true,
     Integer: true,
     JsAsm: true,
+    ObjectLiteral: true,
     PropertyAccess: true,
     String: true,
+    UnaryExpression: true,
     VariableAccess: true,
   }
   return value.__type in expressionTypes
