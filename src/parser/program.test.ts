@@ -3,6 +3,7 @@ import {
   createIdentifierNode,
   createUseAbsoluteNode,
   createUsePackageNode,
+  createUseRelativeNode,
   createUseSelectorNode,
 } from './ast'
 import { _use } from './program'
@@ -139,6 +140,32 @@ describe('Use Statements', () => {
 
     test('fails if wildcard does not include an alias', () => {
       const source = 'use ~/{ * }'
+      const useStatement = _use.parseToEnd(source)
+      assertFailedParse(useStatement)
+    })
+  })
+
+  describe('Relative Imports', () => {
+    test('can parse relative imports', () => {
+      const source = 'use folder/{ }'
+      const useStatement = _use.parseToEnd(source)
+      assertSuccessfulParse(useStatement)
+      expect(useStatement).toEqual(createUseRelativeNode('folder', []))
+    })
+
+    test('supports wildcard imports', () => {
+      const source = 'use a/b/c/{ * as items }'
+      const useStatement = _use.parseToEnd(source)
+      assertSuccessfulParse(useStatement)
+      expect(useStatement).toEqual(
+        createUseRelativeNode('a/b/c', [
+          createUseSelectorNode('*', createIdentifierNode('items')),
+        ])
+      )
+    })
+
+    test('fails if wildcard does not include an alias', () => {
+      const source = 'use a/b/c/{ * }'
       const useStatement = _use.parseToEnd(source)
       assertFailedParse(useStatement)
     })

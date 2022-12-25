@@ -17,6 +17,7 @@ import {
   UseNode,
   UseSelectorNode,
   createUseAbsoluteNode,
+  createUseRelativeNode,
 } from './ast'
 import { between, token, trailingCommaList, _braces } from './common'
 import { _block, _statement } from './expressions'
@@ -47,11 +48,11 @@ const _useAbsolute = token(/~/y)
       _useSelectors,
     ])
   )
-  .map(([, pathPieces, selectors]) =>
+  .map(([, pathSegments, selectors]) =>
     createUseAbsoluteNode(
-      pathPieces === null
+      pathSegments === null
         ? ''
-        : '/' + pathPieces[0].map((identifier) => identifier.value).join('/'),
+        : '/' + pathSegments[0].map((identifier) => identifier.value).join('/'),
       selectors
     )
   )
@@ -67,19 +68,30 @@ const _usePackage = token(/@/y)
       _useSelectors,
     ])
   )
-  .map(([scope, , package_, , pathPieces, selectors]) =>
+  .map(([scope, , package_, , pathSegments, selectors]) =>
     createUsePackageNode(
       scope.value,
       package_.value,
-      pathPieces === null
+      pathSegments === null
         ? ''
-        : '/' + pathPieces[0].map((identifier) => identifier.value).join('/'),
+        : '/' + pathSegments[0].map((identifier) => identifier.value).join('/'),
       selectors
     )
   )
 
+const _useRelative = seq([
+  list(_identifier, _pathSeperator),
+  _pathSeperator,
+  _useSelectors,
+]).map(([pathSegments, , selectors]) =>
+  createUseRelativeNode(
+    pathSegments.map((identifier) => identifier.value).join('/'),
+    selectors
+  )
+)
+
 export const _use: Parser<UseNode> = _useKeyword.and(
-  _useAbsolute.or(_usePackage)
+  _useAbsolute.or(_usePackage).or(_useRelative)
 )
 
 export const _render = _renderKeyword.and(_block).map(createRenderNode)
