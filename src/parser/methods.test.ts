@@ -2,7 +2,7 @@ import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
 import { assertNotNull } from '../test/utils'
 import { _methodDefinition } from './methods'
 
-describe('_methodDefinition', () => {
+describe('Method Definitions', () => {
   test('can parse an empty method', () => {
     const source = 'hello() { }'
     const methodDefinition = _methodDefinition.parseToEnd(source)

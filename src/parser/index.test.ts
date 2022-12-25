@@ -1,7 +1,7 @@
 import { parseProgram } from '.'
 import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
 
-describe('parseProgram', () => {
+describe('Programs', () => {
   test('can parse program with only a render block', () => {
     const source = 'render {}'
     const program = parseProgram(source)

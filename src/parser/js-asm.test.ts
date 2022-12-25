@@ -1,7 +1,7 @@
 import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
 import { _jsAsm } from './js-asm'
 
-describe('_jsAsm', () => {
+describe('JS Assembly Blocks', () => {
   test('can extract a chunk of JavaScript code', () => {
     const source = `
       %js-asm% (*

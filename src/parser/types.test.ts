@@ -7,7 +7,7 @@ import {
 } from './ast'
 import { _typeDefinition, _namedType, _objectType } from './types'
 
-describe('_objectType', () => {
+describe('Object Types', () => {
   test.each(['{}', '{ /* this is a comment */ }', '{ // line comment\n }'])(
     'can parse an empty type block',
     (source) => {
@@ -107,7 +107,7 @@ describe('_objectType', () => {
   })
 })
 
-describe('_typeDefinition', () => {
+describe('Type Definitions', () => {
   test.each([
     'type Person { age: int }',
     'type /* comment */ Person { age: int }',
@@ -135,7 +135,7 @@ describe('_typeDefinition', () => {
   })
 })
 
-describe('_namedType', () => {
+describe('Named Types', () => {
   test('can parse built-in types', () => {
     const source = 'int'
     const type = _namedType.parseToEnd(source)
