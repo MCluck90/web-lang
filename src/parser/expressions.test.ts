@@ -613,3 +613,15 @@ describe('If Expressions', () => {
     expect(ifExpr.else_?.body.statements).toHaveLength(3)
   })
 })
+
+describe('Assignment', () => {
+  test('can parse assignments', () => {
+    const source = 'hello = "world"'
+    const assignment = _expression.parseToEnd(source)
+    assertSuccessfulParse(assignment)
+    assertNodeType(assignment, 'Assignment')
+    expect(assignment.left.value).toBe('hello')
+    assertNodeType(assignment.right, 'String')
+    expect(assignment.right.value).toBe('world')
+  })
+})
