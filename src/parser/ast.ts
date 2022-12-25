@@ -139,26 +139,30 @@ export const createUseSelectorNode = (
   alias,
 })
 
-export type UseNode =
-  | {
-      __type: 'Use'
-      selectors: UseSelectorNode[]
-    } & (
-      | {
-          type: 'Package'
-          scope: string
-          package: string
-          path: string
-        }
-      | {
-          type: 'Absolute'
-          path: string
-        }
-      | {
-          type: 'Relative'
-          path: string
-        }
-    )
+export interface UsePackageNode {
+  __type: 'Use'
+  selectors: UseSelectorNode[]
+  type: 'Package'
+  scope: string
+  package: string
+  path: string
+}
+
+export interface UseAbsoluteNode {
+  __type: 'Use'
+  selectors: UseSelectorNode[]
+  type: 'Absolute'
+  path: string
+}
+
+export interface UseRelativeNode {
+  __type: 'Use'
+  selectors: UseSelectorNode[]
+  type: 'Relative'
+  path: string
+}
+
+export type UseNode = UsePackageNode | UseAbsoluteNode | UseRelativeNode
 export const createUsePackageNode = (
   scope: string,
   package_: string,
