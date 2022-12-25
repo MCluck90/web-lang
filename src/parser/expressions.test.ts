@@ -15,7 +15,7 @@ import {
 } from './ast'
 import { _block, _expression, _variableDeclaration } from './expressions'
 
-describe('_expression', () => {
+describe('Numbers', () => {
   test.each([['1', 1] as const, ['9_001', 9001] as const])(
     'can parse positive integers',
     (source, value) => {
@@ -63,7 +63,9 @@ describe('_expression', () => {
       expect(floatingPoint.value).toBe(value)
     }
   )
+})
 
+describe('Strings', () => {
   test.each([
     ['"Hello"', 'Hello'],
     ["'World'", 'World'],
@@ -73,7 +75,9 @@ describe('_expression', () => {
     assertNodeType(string, 'String')
     expect(string.value).toBe(value)
   })
+})
 
+describe('Arithmetic', () => {
   test.each([
     ['1 + 2', 'Integer' as const, 'Integer' as const],
     ['x + 2', 'VariableAccess' as const, 'Integer' as const],
@@ -195,7 +199,9 @@ describe('_expression', () => {
     assertSuccessfulParse(expression)
     expect(expression).toEqual(output)
   })
+})
 
+describe('Property Access', () => {
   test('can parse property access', () => {
     const source = 'x.y'
     const propertyAccess = _expression.parseToEnd(source)
@@ -282,14 +288,16 @@ describe('_expression', () => {
     assertSuccessfulParse(exp)
     expect(expression).toEqual(expected)
   })
+})
 
+describe('Parenthesized Expressions', () => {
   test('can parse expressions surrounded by parentheses', () => {
     const source = '(1 + 2)'
     const expression = _expression.parseToEnd(source)
     assertSuccessfulParse(expression)
   })
 
-  test('can parentheses have higher precedence', () => {
+  test('parentheses have higher precedence', () => {
     const source = '(1 + 2) * 3'
     const expression = _expression.parseToEnd(source)
     assertSuccessfulParse(expression)
@@ -305,7 +313,9 @@ describe('_expression', () => {
       )
     )
   })
+})
 
+describe('Function Calls', () => {
   test.each([
     ['func()', createVariableAccessNode(createIdentifierNode('func')), []],
     [
@@ -355,7 +365,9 @@ describe('_expression', () => {
     assertNodeType(binaryExpression, 'BinaryExpression')
     assertNodeType(binaryExpression.left, 'FunctionCall')
   })
+})
 
+describe('Object Literals', () => {
   test.each([
     ['{}', []],
     [
@@ -419,7 +431,7 @@ describe('_expression', () => {
   })
 })
 
-describe('_variableDeclaration', () => {
+describe('Variable Declarations', () => {
   test('can parse immutable variable declarations', () => {
     const source = 'let hello = "world"'
     const variableDeclaration = _variableDeclaration.parseToEnd(source)
@@ -453,7 +465,7 @@ describe('_variableDeclaration', () => {
   })
 })
 
-describe('_block', () => {
+describe('Blocks', () => {
   test.each(['{}', '{ }', '{\n}'])('can parse empty blocks', (source) => {
     const block = _block.parseToEnd(source)
     assertSuccessfulParse(block)
