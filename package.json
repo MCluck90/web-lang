@@ -8,7 +8,7 @@
     "parse": "ts-node src/cli.ts parse",
     "compile": "ts-node src/cli.ts compile",
     "type-check": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint --max-warnings=0 .",
     "format": "prettier --write .",
     "test": "jest",
     "prepare": "husky install"
@@ -31,6 +31,9 @@
     "prettier": "^2.8.1"
   },
   "lint-staged": {
-    "*.{ts,js,mjs,cjs}": "prettier --write"
+    "*.{ts,js,mjs,cjs}": [
+      "eslint --max-warnings=0 --fix",
+      "prettier --write"
+    ]
   }
 }
