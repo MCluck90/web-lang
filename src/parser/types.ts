@@ -18,12 +18,10 @@ export let _type: Parser<TypeNode> = error('Not yet implemented')
 const _typeName = _builtInTypeKeyword.or(_identifier.map((i) => i.value))
 const _genericArguments = between(
   [token(/</y), token(/>/y)],
-  maybe(
-    list(
-      lazy(() => _type),
-      token(/,/y)
-    )
-  ).map((genericArguments) => genericArguments ?? [])
+  list(
+    lazy(() => _type),
+    token(/,/y)
+  )
 )
 const _isArray = token(/\[]/y).and(constant(true)).or(constant(false))
 export const _namedType = seq([
