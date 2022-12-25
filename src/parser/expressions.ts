@@ -14,6 +14,7 @@ import { singleQuoteString, doubleQuoteString } from 'parsnip-ts/strings'
 import { ws } from 'parsnip-ts/whitespace'
 import {
   BinaryOperator,
+  BlockNode,
   createArgumentListNode,
   createAssignmentNode,
   createBinaryExpressionNode,
@@ -35,6 +36,7 @@ import {
   createUnaryExpressionNode,
   createVariableAccessNode,
   createVariableDeclarationNode,
+  createWhileNode,
   ExpressionNode,
 } from './ast'
 import {
@@ -55,6 +57,7 @@ import {
   _letKeyword,
   _mutKeyword,
   _trueKeyword,
+  _whileKeyword,
 } from './keywords'
 import { _type } from './types'
 
@@ -110,7 +113,14 @@ export const _variableDeclaration = _letKeyword
     createVariableDeclarationNode(identifier, mut !== null, type, initializer)
   )
 
+export let _block: Parser<BlockNode> = error('Not yet implemented')
+
+const _whileStatement = _whileKeyword
+  .and(seq([lazy(() => _expression), lazy(() => _block)]))
+  .map(([condition, block]) => createWhileNode(condition, block))
+
 export const _statement = _variableDeclaration
+  .or(_whileStatement)
   .or(lazy(() => _expression))
   .or(_jsAsm)
   .or(token(/;/y).map(() => null))
@@ -123,7 +133,7 @@ const _objectLiteral = between(_braces, trailingCommaList(_objectProperty)).map(
   createObjectLiteralNode
 )
 
-export const _block = between(
+_block = between(
   _braces,
   zeroOrMore(
     between(

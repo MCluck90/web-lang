@@ -123,7 +123,7 @@ export const createParameterNode = (
 
 export type MethodBodyNode = BlockNode
 
-export type Statement = ExpressionNode | VariableDeclarationNode
+export type Statement = ExpressionNode | VariableDeclarationNode | WhileNode
 
 export interface UseSelectorNode {
   __type: 'UseSelector'
@@ -195,9 +195,9 @@ export interface BlockNode {
   __type: 'Block'
   statements: Statement[]
 }
-export const createBlockNode = (expressions: Statement[]): BlockNode => ({
+export const createBlockNode = (statements: Statement[]): BlockNode => ({
   __type: 'Block',
-  statements: expressions,
+  statements,
 })
 
 export interface BooleanNode {
@@ -445,6 +445,20 @@ export const isAnExpressionNode = (value: ASTNode): value is ExpressionNode => {
   return value.__type in expressionTypes
 }
 
+export interface WhileNode {
+  __type: 'While'
+  condition: ExpressionNode
+  body: BlockNode
+}
+export const createWhileNode = (
+  condition: ExpressionNode,
+  body: BlockNode
+): WhileNode => ({
+  __type: 'While',
+  condition,
+  body,
+})
+
 export interface VariableDeclarationNode {
   __type: 'VariableDeclaration'
   identifier: IdentifierNode
@@ -513,6 +527,7 @@ export type ASTNode =
   | UseNode
   | UseSelectorNode
   | VariableDeclarationNode
+  | WhileNode
 
 export type NodeType = ASTNode['__type']
 

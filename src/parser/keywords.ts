@@ -14,6 +14,7 @@ export const _trueKeyword = token(/true\b/y)
 export const _falseKeyword = token(/false\b/y)
 export const _typeKeyword = token(/type/y)
 export const _useKeyword = token(/use/y)
+export const _whileKeyword = token(/while/y)
 export const _keyword = _boolKeyword
   .or(_boolKeyword)
   .or(_fnKeyword)
@@ -25,6 +26,7 @@ export const _keyword = _boolKeyword
   .or(_stringKeyword)
   .or(_typeKeyword)
   .or(_useKeyword)
+  .or(_whileKeyword)
 
 export const _builtInTypeKeyword = _intKeyword
   .or(_stringKeyword)

@@ -1,87 +1,86 @@
 import {
-  AnonymousTypeNode,
   ASTNode,
+  AnonymousTypeNode,
   ArgumentListNode,
-  BlockNode,
+  AssignmentNode,
   BinaryExpressionNode,
+  BlockNode,
+  BooleanNode,
+  ElseNode,
+  ExpressionNode,
   FloatingPointNode,
   FunctionCallNode,
+  FunctionExpressionNode,
   HTMLNode,
+  IdentifierNode,
+  IfNode,
   IntegerNode,
   JsAsmNode,
-  ObjectLiteralNode,
-  PropertyAccessNode,
-  StringNode,
-  UnaryExpressionNode,
-  VariableAccessNode,
-  IdentifierNode,
   MethodDefinitionNode,
   NamedTypeNode,
+  ObjectLiteralNode,
   ObjectPropertyNode,
   ObjectTypeNode,
   ParameterListNode,
   ParameterNode,
   ProgramNode,
+  PropertyAccessNode,
   PropertyKeyNode,
   RenderNode,
-  TypeDefinitionNode,
-  TypePropertyNode,
-  VariableDeclarationNode,
-  ExpressionNode,
   Statement,
+  StringNode,
+  TypeDefinitionNode,
   TypeNode,
-  FunctionExpressionNode,
-  IfNode,
-  ElseNode,
-  AssignmentNode,
+  TypePropertyNode,
+  UnaryExpressionNode,
   UseNode,
   UseSelectorNode,
+  VariableAccessNode,
+  VariableDeclarationNode,
+  WhileNode,
   isNodeType,
-  BooleanNode,
 } from '../parser/ast'
 
 export interface AstMapper<T> {
   visitNode(node: ASTNode, path: ASTNode[]): T
   visitProgram(node: ProgramNode): T
-  visitAssignment(node: AssignmentNode, path: ASTNode[]): T
   visitAnonymousType(node: AnonymousTypeNode, path: ASTNode[]): T
   visitArgumentList(node: ArgumentListNode, path: ASTNode[]): T
-  visitBlock(node: BlockNode, path: ASTNode[]): T
+  visitAssignment(node: AssignmentNode, path: ASTNode[]): T
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]): T
+  visitBlock(node: BlockNode, path: ASTNode[]): T
   visitBoolean(node: BooleanNode, path: ASTNode[]): T
   visitElse(node: ElseNode, path: ASTNode[]): T
   visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]): T
-  visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]): T
   visitFunctionCall(node: FunctionCallNode, path: ASTNode[]): T
+  visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]): T
   visitHTML(node: HTMLNode, path: ASTNode[]): T
-  visitInteger(node: IntegerNode, path: ASTNode[]): T
-  visitIf(node: IfNode, path: ASTNode[]): T
-  visitJsAsm(node: JsAsmNode, path: ASTNode[]): T
-  visitObjectLiteral(node: ObjectLiteralNode, path: ASTNode[]): T
-  visitPropertyAccess(node: PropertyAccessNode, path: ASTNode[]): T
-  visitString(node: StringNode, path: ASTNode[]): T
-  visitUnaryExpression(node: UnaryExpressionNode, path: ASTNode[]): T
-  visitVariableAccess(node: VariableAccessNode, path: ASTNode[]): T
   visitIdentifier(node: IdentifierNode, path: ASTNode[]): T
+  visitIf(node: IfNode, path: ASTNode[]): T
+  visitInteger(node: IntegerNode, path: ASTNode[]): T
+  visitJsAsm(node: JsAsmNode, path: ASTNode[]): T
   visitMethodDefinition(node: MethodDefinitionNode, path: ASTNode[]): T
   visitNamedType(node: NamedTypeNode, path: ASTNode[]): T
+  visitObjectLiteral(node: ObjectLiteralNode, path: ASTNode[]): T
   visitObjectProperty(node: ObjectPropertyNode, path: ASTNode[]): T
   visitObjectType(node: ObjectTypeNode, path: ASTNode[]): T
-  visitParameterList(node: ParameterListNode, path: ASTNode[]): T
   visitParameter(node: ParameterNode, path: ASTNode[]): T
+  visitParameterList(node: ParameterListNode, path: ASTNode[]): T
+  visitPropertyAccess(node: PropertyAccessNode, path: ASTNode[]): T
   visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]): T
   visitRender(node: RenderNode, path: ASTNode[]): T
+  visitString(node: StringNode, path: ASTNode[]): T
   visitTypeDefinition(node: TypeDefinitionNode, path: ASTNode[]): T
   visitTypeProperty(node: TypePropertyNode, path: ASTNode[]): T
+  visitUnaryExpression(node: UnaryExpressionNode, path: ASTNode[]): T
   visitUse(node: UseNode, path: ASTNode[]): T
   visitUseSelector(node: UseSelectorNode, path: ASTNode[]): T
+  visitVariableAccess(node: VariableAccessNode, path: ASTNode[]): T
   visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]): T
+  visitWhile(node: WhileNode, path: ASTNode[]): T
 }
 
 export interface AstVisitor<T = void> {
-  visitNode(node: ASTNode, path: ASTNode[]): ASTNode | T
-  visitProgram(node: ProgramNode): ProgramNode | T
-  visitAssignment(node: AssignmentNode, path: ASTNode[]): AssignmentNode | T
   visitAnonymousType(
     node: AnonymousTypeNode,
     path: ASTNode[]
@@ -90,11 +89,12 @@ export interface AstVisitor<T = void> {
     node: ArgumentListNode,
     path: ASTNode[]
   ): ArgumentListNode | T
-  visitBlock(node: BlockNode, path: ASTNode[]): BlockNode | T
+  visitAssignment(node: AssignmentNode, path: ASTNode[]): AssignmentNode | T
   visitBinaryExpression(
     node: BinaryExpressionNode,
     path: ASTNode[]
   ): ExpressionNode | T
+  visitBlock(node: BlockNode, path: ASTNode[]): BlockNode | T
   visitBoolean(node: BooleanNode, path: ASTNode[]): BooleanNode | T
   visitElse(node: ElseNode, path: ASTNode[]): ElseNode | T
   visitFloatingPoint(
@@ -110,44 +110,38 @@ export interface AstVisitor<T = void> {
     path: ASTNode[]
   ): FunctionExpressionNode | T
   visitHTML(node: HTMLNode, path: ASTNode[]): HTMLNode | T
-  visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | T
-  visitIf(node: IfNode, path: ASTNode[]): IfNode | T
-  visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | T
-  visitObjectLiteral(
-    node: ObjectLiteralNode,
-    path: ASTNode[]
-  ): ObjectLiteralNode | T
-  visitPropertyAccess(
-    node: PropertyAccessNode,
-    path: ASTNode[]
-  ): PropertyAccessNode | T
-  visitString(node: StringNode, path: ASTNode[]): StringNode | T
-  visitUnaryExpression(
-    node: UnaryExpressionNode,
-    path: ASTNode[]
-  ): UnaryExpressionNode | T
-  visitVariableAccess(
-    node: VariableAccessNode,
-    path: ASTNode[]
-  ): VariableAccessNode | T
   visitIdentifier(node: IdentifierNode, path: ASTNode[]): IdentifierNode | T
+  visitIf(node: IfNode, path: ASTNode[]): IfNode | T
+  visitInteger(node: IntegerNode, path: ASTNode[]): IntegerNode | T
+  visitJsAsm(node: JsAsmNode, path: ASTNode[]): JsAsmNode | T
   visitMethodDefinition(
     node: MethodDefinitionNode,
     path: ASTNode[]
   ): MethodDefinitionNode | T
   visitNamedType(node: NamedTypeNode, path: ASTNode[]): NamedTypeNode | T
+  visitNode(node: ASTNode, path: ASTNode[]): ASTNode | T
+  visitObjectLiteral(
+    node: ObjectLiteralNode,
+    path: ASTNode[]
+  ): ObjectLiteralNode | T
   visitObjectProperty(
     node: ObjectPropertyNode,
     path: ASTNode[]
   ): ObjectPropertyNode | T
   visitObjectType(node: ObjectTypeNode, path: ASTNode[]): ObjectTypeNode | T
+  visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | T
   visitParameterList(
     node: ParameterListNode,
     path: ASTNode[]
   ): ParameterListNode | T
-  visitParameter(node: ParameterNode, path: ASTNode[]): ParameterNode | T
+  visitProgram(node: ProgramNode): ProgramNode | T
+  visitPropertyAccess(
+    node: PropertyAccessNode,
+    path: ASTNode[]
+  ): PropertyAccessNode | T
   visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]): PropertyKeyNode | T
   visitRender(node: RenderNode, path: ASTNode[]): RenderNode | T
+  visitString(node: StringNode, path: ASTNode[]): StringNode | T
   visitTypeDefinition(
     node: TypeDefinitionNode,
     path: ASTNode[]
@@ -156,12 +150,21 @@ export interface AstVisitor<T = void> {
     node: TypePropertyNode,
     path: ASTNode[]
   ): TypePropertyNode | T
+  visitUnaryExpression(
+    node: UnaryExpressionNode,
+    path: ASTNode[]
+  ): UnaryExpressionNode | T
   visitUse(node: UseNode, path: ASTNode[]): UseNode | T
   visitUseSelector(node: UseSelectorNode, path: ASTNode[]): UseSelectorNode | T
+  visitVariableAccess(
+    node: VariableAccessNode,
+    path: ASTNode[]
+  ): VariableAccessNode | T
   visitVariableDeclaration(
     node: VariableDeclarationNode,
     path: ASTNode[]
   ): VariableDeclarationNode | T
+  visitWhile(node: WhileNode, path: ASTNode[]): WhileNode | T
 }
 
 const buildPath = (node: ASTNode, path: ASTNode[]) => [...path, node]
@@ -629,6 +632,15 @@ export class DepthFirstVisitor implements AstVisitor {
     node.initializer =
       this.descendIntoNode(node.initializer, buildPath(node, path)) ??
       node.initializer
+    return this.visitNode(node, path)
+  }
+
+  visitWhile(node: WhileNode, path: ASTNode[]): WhileNode | void {
+    node.condition =
+      this.descendIntoNode(node.condition, buildPath(node, path)) ??
+      node.condition
+    node.body =
+      this.descendIntoNode(node.body, buildPath(node, path)) ?? node.body
     return this.visitNode(node, path)
   }
 }

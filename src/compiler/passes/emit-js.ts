@@ -32,6 +32,8 @@ import {
 import { AstMapper } from '../../utils/ast-visitor'
 import { JSModule } from '../index.types'
 
+const buildPath = (node: ASTNode, path: ASTNode[]) => [...path, node]
+
 const jsEmitterVisitor: AstMapper<string> = {
   visitNode<T extends ASTNode>(node: T, path: ASTNode[]) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,34 +43,42 @@ const jsEmitterVisitor: AstMapper<string> = {
     // TODO: Handle `render` section
     const useStatements = node.useStatements.reduce(
       (acc, statement) =>
-        acc + `${jsEmitterVisitor.visitNode(statement, [node])}\n`,
+        acc + `${jsEmitterVisitor.visitNode(statement, [node])};\n`,
       ''
     )
     return (
       useStatements +
       node.statements.reduce(
         (acc, statement) =>
-          acc + `${jsEmitterVisitor.visitNode(statement, [node])}\n`,
+          acc + `${jsEmitterVisitor.visitNode(statement, [node])};\n`,
         ''
       )
     )
   },
   visitAssignment(node, path) {
-    return `${this.visitNode(node.left, path)} = ${this.visitNode(
-      node.right,
-      path
-    )};\n`
+    return `${this.visitNode(
+      node.left,
+      buildPath(node, path)
+    )} = ${this.visitNode(node.right, path)}`
   },
   visitAnonymousType(_node: AnonymousTypeNode, _path: ASTNode[]) {
     // Types do not emit code
     return ''
   },
   visitArgumentList(node: ArgumentListNode, path: ASTNode[]) {
-    return `(${node.arguments.map((n) => this.visitNode(n, path)).join(', ')})`
+    return `(${node.arguments
+      .map((n) => this.visitNode(n, buildPath(node, path)))
+      .join(', ')})`
   },
   visitBlock(node: BlockNode, path: ASTNode[]) {
     if (node.statements.length === 0) {
       return ''
+    }
+
+    if (path[path.length - 1].__type === 'While') {
+      return `{\n${node.statements
+        .map((n) => `${this.visitNode(n, buildPath(node, path))};`)
+        .join('\n')}\n}`
     }
 
     const nonReturnedStatements = node.statements.slice(
@@ -77,38 +87,41 @@ const jsEmitterVisitor: AstMapper<string> = {
     )
     const lastStatement = node.statements[node.statements.length - 1]
     return `{\n${nonReturnedStatements
-      .map((n) => `${this.visitNode(n, path)};`)
-      .join('\n')}\nreturn ${this.visitNode(lastStatement, path)};\n}`
+      .map((n) => `${this.visitNode(n, buildPath(node, path))};`)
+      .join('\n')}\nreturn ${this.visitNode(
+      lastStatement,
+      buildPath(node, path)
+    )}\n}`
   },
   visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]) {
-    return `${this.visitNode(node.left, path)} ${
+    return `${this.visitNode(node.left, buildPath(node, path))} ${
       node.operator === '=='
         ? '==='
         : node.operator === '!='
         ? '!=='
         : node.operator
-    } ${this.visitNode(node.right, path)}`
+    } ${this.visitNode(node.right, buildPath(node, path))}`
   },
   visitBoolean(node, path) {
     return ` ${node.value} `
   },
   visitElse(node, path) {
-    return `else ${this.visitNode(node.body, path)}`
+    return `else ${this.visitNode(node.body, buildPath(node, path))}`
   },
   visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]) {
     return node.value.toString()
   },
   visitFunctionCall(node: FunctionCallNode, path: ASTNode[]) {
-    return `${this.visitNode(node.callee, path)}${this.visitNode(
-      node.argumentList,
-      path
-    )}`
+    return `${this.visitNode(
+      node.callee,
+      buildPath(node, path)
+    )}${this.visitNode(node.argumentList, path)}`
   },
   visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]) {
-    return `${this.visitNode(node.parameterList, path)} => ${this.visitNode(
-      node.body,
-      path
-    )}`
+    return `${this.visitNode(
+      node.parameterList,
+      buildPath(node, path)
+    )} => ${this.visitNode(node.body, path)}`
   },
   visitHTML(node: HTMLNode, path: ASTNode[]) {
     throw new Error('HTML not yet implemented.')
@@ -117,7 +130,7 @@ const jsEmitterVisitor: AstMapper<string> = {
     return `(() => {if (${this.visitNode(
       node.condition,
       path
-    )}) ${this.visitNode(node.body, path)} ${
+    )}) ${this.visitNode(node.body, buildPath(node, path))} ${
       node.else_ ? this.visitNode(node.else_, path) : ''
     }})();`
   },
@@ -129,12 +142,12 @@ const jsEmitterVisitor: AstMapper<string> = {
   },
   visitObjectLiteral(node: ObjectLiteralNode, path: ASTNode[]) {
     return `{ ${node.properties
-      .map((n) => this.visitNode(n, path))
+      .map((n) => this.visitNode(n, buildPath(node, path)))
       .join(', ')} }`
   },
   visitPropertyAccess(node: PropertyAccessNode, path: ASTNode[]) {
-    return `${this.visitNode(node.left, path)}.${node.rights
-      .map((n) => this.visitNode(n, path))
+    return `${this.visitNode(node.left, buildPath(node, path))}.${node.rights
+      .map((n) => this.visitNode(n, buildPath(node, path)))
       .join(',')}`
   },
   visitString(node: StringNode, path: ASTNode[]) {
@@ -147,10 +160,13 @@ const jsEmitterVisitor: AstMapper<string> = {
     return `"${result}"`
   },
   visitUnaryExpression(node: UnaryExpressionNode, path: ASTNode[]) {
-    return `${node.operator}${this.visitNode(node.expression, path)}`
+    return `${node.operator}${this.visitNode(
+      node.expression,
+      buildPath(node, path)
+    )}`
   },
   visitVariableAccess(node: VariableAccessNode, path: ASTNode[]) {
-    return this.visitNode(node.name, path)
+    return this.visitNode(node.name, buildPath(node, path))
   },
   visitIdentifier(node: IdentifierNode, path: ASTNode[]) {
     return node.value
@@ -159,30 +175,32 @@ const jsEmitterVisitor: AstMapper<string> = {
     return `${node.name}${this.visitNode(
       node.parameterList,
       path
-    )} ${this.visitNode(node.body, path)}`
+    )} ${this.visitNode(node.body, buildPath(node, path))}`
   },
   visitNamedType(node: NamedTypeNode, path: ASTNode[]) {
     // Types are not emitted
     return ''
   },
   visitObjectProperty(node: ObjectPropertyNode, path: ASTNode[]) {
-    return `${this.visitNode(node.key, path)}: ${this.visitNode(
-      node.value,
-      path
-    )},`
+    return `${this.visitNode(
+      node.key,
+      buildPath(node, path)
+    )}: ${this.visitNode(node.value, path)},`
   },
   visitObjectType(node: ObjectTypeNode, path: ASTNode[]) {
     // Types are not emitted
     return ''
   },
   visitParameterList(node: ParameterListNode, path: ASTNode[]) {
-    return `(${node.parameters.map((n) => this.visitNode(n, path)).join(', ')})`
+    return `(${node.parameters
+      .map((n) => this.visitNode(n, buildPath(node, path)))
+      .join(', ')})`
   },
   visitParameter(node: ParameterNode, path: ASTNode[]) {
-    return this.visitNode(node.name, path)
+    return this.visitNode(node.name, buildPath(node, path))
   },
   visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]) {
-    return this.visitNode(node.value, path)
+    return this.visitNode(node.value, buildPath(node, path))
   },
   visitRender(node: RenderNode, path: ASTNode[]) {
     throw new Error('Render not yet implemented.')
@@ -196,14 +214,14 @@ const jsEmitterVisitor: AstMapper<string> = {
     return ''
   },
   visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]) {
-    return `let ${this.visitNode(node.identifier, path)} = ${this.visitNode(
-      node.initializer,
-      path
-    )};`
+    return `let ${this.visitNode(
+      node.identifier,
+      buildPath(node, path)
+    )} = ${this.visitNode(node.initializer, path)}`
   },
   visitUse(node, path) {
     const selectors = `{ ${node.selectors
-      .map((s) => this.visitNode(s, path))
+      .map((s) => this.visitNode(s, buildPath(node, path)))
       .join(',\n')} }`
     switch (node.type) {
       case 'Absolute':
@@ -225,14 +243,22 @@ const jsEmitterVisitor: AstMapper<string> = {
     }
   },
   visitUseSelector(node, path) {
-    const alias = node.alias ? this.visitNode(node.alias, path) : null
+    const alias = node.alias
+      ? this.visitNode(node.alias, buildPath(node, path))
+      : null
     if (alias) {
       return `${node.name} as ${alias}`
     }
     if (typeof node.name === 'string') {
       return node.name
     }
-    return this.visitNode(node.name, path)
+    return this.visitNode(node.name, buildPath(node, path))
+  },
+  visitWhile(node, path) {
+    return `while (${this.visitNode(
+      node.condition,
+      buildPath(node, path)
+    )}) ${this.visitNode(node.body, buildPath(node, path))}\n`
   },
 }
 

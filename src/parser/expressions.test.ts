@@ -1,5 +1,6 @@
 import exp from 'constants'
 import { assertNodeType, assertSuccessfulParse } from '../test/parser-utils'
+import { assertNotNull } from '../test/utils'
 import {
   createArgumentListNode,
   createBinaryExpressionNode,
@@ -13,7 +14,12 @@ import {
   createNamedTypeNode,
   NodeType,
 } from './ast'
-import { _block, _expression, _variableDeclaration } from './expressions'
+import {
+  _block,
+  _expression,
+  _statement,
+  _variableDeclaration,
+} from './expressions'
 
 describe('Booleans', () => {
   test.each([
@@ -623,5 +629,27 @@ describe('Assignment', () => {
     expect(assignment.left.value).toBe('hello')
     assertNodeType(assignment.right, 'String')
     expect(assignment.right.value).toBe('world')
+  })
+})
+
+describe('While Statements', () => {
+  test('can parse while statements', () => {
+    const source = 'while (true) {}'
+    const while_ = _statement.parseToEnd(source)
+    assertSuccessfulParse(while_)
+    assertNotNull(while_)
+    assertNodeType(while_, 'While')
+    assertNodeType(while_.condition, 'Boolean')
+    expect(while_.body.statements).toHaveLength(0)
+  })
+
+  test('can parse while statements with bodies', () => {
+    const source = 'while (true) { "test"; 1; id }'
+    const while_ = _statement.parseToEnd(source)
+    assertSuccessfulParse(while_)
+    assertNotNull(while_)
+    assertNodeType(while_, 'While')
+    assertNodeType(while_.condition, 'Boolean')
+    expect(while_.body.statements).toHaveLength(3)
   })
 })
