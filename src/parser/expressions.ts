@@ -32,7 +32,7 @@ import {
   createParameterNode,
   createPropertyAccessNode,
   createStringNode,
-  createUnaryExpression,
+  createUnaryExpressionNode,
   createVariableAccessNode,
   createVariableDeclarationNode,
   ExpressionNode,
@@ -198,7 +198,7 @@ const _unary = seq([
   maybe(_subtractionOperator.or(_notOperator)),
   _functionCall,
 ]).map(([op, expression]) =>
-  op !== null ? createUnaryExpression(op, expression) : expression
+  op !== null ? createUnaryExpressionNode(op, expression) : expression
 )
 
 const _factor = seq([

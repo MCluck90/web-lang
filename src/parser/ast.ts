@@ -289,7 +289,7 @@ export interface UnaryExpressionNode {
   operator: UnaryOperator
   expression: ExpressionNode
 }
-export const createUnaryExpression = (
+export const createUnaryExpressionNode = (
   operator: UnaryOperator,
   expression: ExpressionNode
 ): UnaryExpressionNode => ({
