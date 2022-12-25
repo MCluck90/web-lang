@@ -34,6 +34,7 @@ import { JSModule } from '../index.types'
 
 const jsEmitterVisitor: AstMapper<string> = {
   visitNode<T extends ASTNode>(node: T, path: ASTNode[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (jsEmitterVisitor[`visit${node.__type}`] as any)(node as never, path)
   },
   visitProgram(node: ProgramNode) {
@@ -58,7 +59,7 @@ const jsEmitterVisitor: AstMapper<string> = {
       path
     )};\n`
   },
-  visitAnonymousType(node: AnonymousTypeNode, path: ASTNode[]) {
+  visitAnonymousType(_node: AnonymousTypeNode, _path: ASTNode[]) {
     // Types do not emit code
     return ''
   },

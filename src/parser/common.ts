@@ -1,16 +1,7 @@
-import {
-  Parser,
-  constant,
-  zeroOrMore,
-  error,
-  pair,
-  maybe,
-  list,
-} from 'parsnip-ts'
+import { Parser, constant, zeroOrMore, pair, maybe, list } from 'parsnip-ts'
 import { cStyleComment } from 'parsnip-ts/comments'
 import { createToken } from 'parsnip-ts/token'
 import { ws } from 'parsnip-ts/whitespace'
-import { IdentifierNode, createIdentifierNode } from './ast'
 
 export const between = <T>(
   [start, end]: readonly [Parser<unknown>, Parser<unknown>],

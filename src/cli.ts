@@ -1,11 +1,11 @@
-import { execSync, spawn, spawnSync } from 'child_process'
+/* eslint-disable no-fallthrough */
+import { spawn } from 'child_process'
 import * as fs from 'fs'
 import { ParseError } from 'parsnip-ts/error'
 import * as path from 'path'
 import { compileProgram } from './compiler'
 import { CompilerConfig } from './compiler/index.types'
 import { parseProgram } from './parser'
-import { DepthFirstVisitor } from './utils/ast-visitor'
 
 const usage = () => {
   process.stderr.write('Usage: yarn start [parse] <file>\n')

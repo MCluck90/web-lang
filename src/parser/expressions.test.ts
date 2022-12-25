@@ -4,14 +4,12 @@ import {
   createArgumentListNode,
   createBinaryExpressionNode,
   createFunctionCallNode,
-  createHTMLNode,
   createIdentifierNode,
   createIntegerNode,
   createObjectPropertyNode,
   createPropertyAccessNode,
   createStringNode,
   createVariableAccessNode,
-  ASTNode,
   createNamedTypeNode,
   NodeType,
 } from './ast'
@@ -419,20 +417,6 @@ describe('_expression', () => {
       createStringNode('MCluck90')
     )
   })
-
-  test.each([
-    ['h1#()', createHTMLNode('h1', [])],
-    [
-      'p#("Hello world")',
-      createHTMLNode('p', [createStringNode('Hello world')]),
-    ],
-    [
-      'main#(h1#("Nested")))',
-      createHTMLNode('main', [
-        createHTMLNode('h1', [createStringNode('Nested')]),
-      ]),
-    ],
-  ])('can parse HTML tags', (source, output) => {})
 })
 
 describe('_variableDeclaration', () => {

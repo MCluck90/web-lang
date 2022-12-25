@@ -11,7 +11,9 @@ export class Option<T> {
     return new Option<T>(true, value as T)
   }
 
-  static None = new Option(false, null as any)
+  static None<T = void>() {
+    return new Option<T>(false, null as T)
+  }
 
   isSome() {
     return this._isSome
@@ -46,7 +48,7 @@ export class Option<T> {
     if (this.isSome()) {
       return Option.Some(f(this._value))
     } else {
-      return Option.None
+      return Option.None()
     }
   }
 }

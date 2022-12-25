@@ -49,7 +49,7 @@ import { _type } from './types'
 export let _expression: Parser<ExpressionNode> = error('Not yet implemented')
 
 const _additionOperator = token(/\+/y) as Parser<'+'>
-const _subtractionOperator = token(/\-/y) as Parser<'-'>
+const _subtractionOperator = token(/-/y) as Parser<'-'>
 const _multiplicationOperator = token(/\*/y) as Parser<'*'>
 const _divisionOperator = token(/\//y) as Parser<'/'>
 const _propertyAccessOperator = token(/\./y) as Parser<'.'>
@@ -66,10 +66,10 @@ const _integer = separatedInteger.map(createIntegerNode)
 const _floatingPoint = separatedFloatingPoint.map(createFloatingPointNode)
 const _string = singleQuoteString.or(doubleQuoteString).map(createStringNode)
 const _html = seq([
-  token(/[a-z][a-z0-9\-]*/y),
+  token(/[a-z][a-z0-9-]*/y),
   token(/#/y),
   between(_parens, trailingCommaList(lazy(() => _expression))),
-]).map(([tag, _, children]) => createHTMLNode(tag, children))
+]).map(([tag, , children]) => createHTMLNode(tag, children))
 
 const foldBinaryExpression = ([left, rights]: [
   ExpressionNode,

@@ -257,7 +257,7 @@ export class Result<T = never, E = never> implements IterableIterator<T> {
     if (this.isOk()) {
       return Option.Some(this._value)
     }
-    return Option.None
+    return Option.None()
   }
 
   /**
@@ -267,7 +267,7 @@ export class Result<T = never, E = never> implements IterableIterator<T> {
     if (this.isErr()) {
       return Option.Some(this._err)
     }
-    return Option.None
+    return Option.None()
   }
 
   /**

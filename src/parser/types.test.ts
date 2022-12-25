@@ -5,12 +5,7 @@ import {
   createTypePropertyNode,
   createNamedTypeNode,
 } from './ast'
-import {
-  _typeDefinition,
-  _typeProperty,
-  _namedType,
-  _objectType,
-} from './types'
+import { _typeDefinition, _namedType, _objectType } from './types'
 
 describe('_objectType', () => {
   test.each(['{}', '{ /* this is a comment */ }', '{ // line comment\n }'])(

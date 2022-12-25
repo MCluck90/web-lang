@@ -5,14 +5,12 @@ import {
   createRenderNode,
   createProgramNode,
   createUseSelectorNode,
-  createUseAbsoluteNode,
   createUsePackageNode,
 } from './ast'
 import { between, token, trailingCommaList, _braces } from './common'
 import { _block, _statement } from './expressions'
 import { _identifier } from './identifier'
 import { _renderKeyword, _useKeyword } from './keywords'
-import { _methodDefinition } from './methods'
 import { _typeDefinition } from './types'
 
 const _pathSeperator = token(/\//y)

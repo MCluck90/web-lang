@@ -167,6 +167,8 @@ export class DepthFirstVisitor implements AstVisitor {
   constructor(private readonly visitors: Partial<AstVisitor>) {}
 
   visitNode<T extends ASTNode>(node: T, path: ASTNode[]): T | void {
+    // This is safe. TypeScript just doesn't understand it
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const specificResult = (this.visitors[`visit${node.__type}`] as any)?.(
       node as never,
       path
@@ -179,6 +181,8 @@ export class DepthFirstVisitor implements AstVisitor {
     node: T,
     path: ASTNode[]
   ): T | void {
+    // This is safe. TypeScript just doesn't understand it
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this[`visit${node.__type}`] as any)(node, path)
   }
 
@@ -520,7 +524,7 @@ export class DepthFirstVisitor implements AstVisitor {
     const statements: (TypeDefinitionNode | Statement)[] = []
 
     for (const statement of node.statements) {
-      let result = this.descendIntoNode(statement, [node])
+      const result = this.descendIntoNode(statement, [node])
       if (result) {
         hasModifiedStatements = true
         statements.push(result)
