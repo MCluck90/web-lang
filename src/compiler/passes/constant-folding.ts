@@ -1,4 +1,5 @@
 import {
+  ASTNode,
   BinaryExpressionNode,
   createFloatingPointNode,
   createIntegerNode,
@@ -46,7 +47,7 @@ export const constantFolding = (program: Input): Output => {
       }
     }
   }
-  const visitor = new DepthFirstVisitor({
+  const visitor = new DepthFirstVisitor<ASTNode>({
     visitBinaryExpression: foldConstants,
   })
 
