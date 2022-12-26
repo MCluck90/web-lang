@@ -27,6 +27,7 @@ import {
   TypePropertyNode,
   UnaryExpressionNode,
   VariableAccessNode,
+  VariableAttributeListNode,
   VariableDeclarationNode,
 } from '../../parser/ast'
 import { AstMapper } from '../../utils/ast-visitor'
@@ -167,6 +168,10 @@ const jsEmitterVisitor: AstMapper<string> = {
   },
   visitVariableAccess(node: VariableAccessNode, path: ASTNode[]) {
     return this.visitNode(node.name, buildPath(node, path))
+  },
+  visitVariableAttributeList(node: VariableAttributeListNode, path: ASTNode[]) {
+    // Attributes are not emitted
+    return ''
   },
   visitIdentifier(node: IdentifierNode, path: ASTNode[]) {
     return node.value

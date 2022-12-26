@@ -33,6 +33,7 @@ import {
   TypedUseNode,
   TypedUseSelectorNode,
   TypedVariableAccessNode,
+  TypedVariableAttributeListNode,
   TypedVariableDeclarationNode,
   TypedWhileNode,
 } from './typed-ast'
@@ -73,6 +74,7 @@ import {
   UseNode,
   UseSelectorNode,
   WhileNode,
+  VariableAttributeListNode,
 } from '../../../parser/ast'
 
 export const inferTypes = <T extends ASTNode>(node: T): T & TypedAstNode => {
@@ -184,6 +186,11 @@ export const inferTypes = <T extends ASTNode>(node: T): T & TypedAstNode => {
       throw new Error('Not yet implemented')
     },
     visitVariableAccess(node: VariableAccessNode): TypedVariableAccessNode {
+      throw new Error('Not yet implemented')
+    },
+    visitVariableAttributeList(
+      node: VariableAttributeListNode
+    ): TypedVariableAttributeListNode {
       throw new Error('Not yet implemented')
     },
     visitVariableDeclaration(

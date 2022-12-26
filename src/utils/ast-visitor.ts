@@ -36,6 +36,7 @@ import {
   UseNode,
   UseSelectorNode,
   VariableAccessNode,
+  VariableAttributeListNode,
   VariableDeclarationNode,
   WhileNode,
   isNodeType,
@@ -76,6 +77,10 @@ export interface AstMapper<T> {
   visitUse(node: UseNode, path: ASTNode[]): T
   visitUseSelector(node: UseSelectorNode, path: ASTNode[]): T
   visitVariableAccess(node: VariableAccessNode, path: ASTNode[]): T
+  visitVariableAttributeList(
+    node: VariableAttributeListNode,
+    path: ASTNode[]
+  ): T
   visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]): T
   visitWhile(node: WhileNode, path: ASTNode[]): T
 }
@@ -160,6 +165,10 @@ export interface AstVisitor<T = void> {
     node: VariableAccessNode,
     path: ASTNode[]
   ): VariableAccessNode | T
+  visitVariableAttributeList(
+    node: VariableAttributeListNode,
+    path: ASTNode[]
+  ): VariableAttributeListNode | T
   visitVariableDeclaration(
     node: VariableDeclarationNode,
     path: ASTNode[]
@@ -411,6 +420,29 @@ export class DepthFirstVisitor implements AstVisitor {
   ): VariableAccessNode | void {
     node.name =
       this.descendIntoNode(node.name, buildPath(node, path)) ?? node.name
+    return this.visitNode(node, path)
+  }
+
+  visitVariableAttributeList(
+    node: VariableAttributeListNode,
+    path: ASTNode[]
+  ): VariableAttributeListNode | void {
+    let hasModifiedAttributes = false
+    const attributes: IdentifierNode[] = []
+    for (const attribute of node.attributes) {
+      const result = this.descendIntoNode(attribute, buildPath(node, path))
+      if (result) {
+        hasModifiedAttributes = true
+        attributes.push(result)
+      } else {
+        attributes.push(attribute)
+      }
+    }
+
+    if (hasModifiedAttributes) {
+      node.attributes = attributes
+    }
+
     return this.visitNode(node, path)
   }
 

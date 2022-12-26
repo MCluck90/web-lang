@@ -496,6 +496,20 @@ describe('Variable Declarations', () => {
       createNamedTypeNode('int', [], false)
     )
   })
+
+  test('can parse variable declarations with attributes', () => {
+    const source = `
+      #[Frontend, Backend]
+      let add = fn (x, y) { x + y }
+    `
+    const variableDeclaration = _variableDeclaration.parseToEnd(source)
+    assertSuccessfulParse(variableDeclaration)
+    expect(variableDeclaration.attributeLists).toHaveLength(1)
+    expect(variableDeclaration.attributeLists[0].attributes).toEqual([
+      createIdentifierNode('Frontend'),
+      createIdentifierNode('Backend'),
+    ])
+  })
 })
 
 describe('Blocks', () => {

@@ -1,42 +1,43 @@
 import {
   AnonymousTypeNode,
   ArgumentListNode,
+  AssignmentNode,
+  BinaryExpressionNode,
   BlockNode,
+  BooleanNode,
   ElseNode,
+  FloatingPointNode,
+  FunctionCallNode,
+  FunctionExpressionNode,
+  HTMLNode,
   IdentifierNode,
+  IfNode,
+  IntegerNode,
+  JsAsmNode,
   MethodBodyNode,
   MethodDefinitionNode,
   NamedTypeNode,
+  ObjectLiteralNode,
   ObjectPropertyNode,
   ObjectTypeNode,
   ParameterListNode,
   ParameterNode,
   ProgramNode,
+  PropertyAccessNode,
   PropertyKeyNode,
   RenderNode,
+  StringNode,
   TypeDefinitionNode,
   TypePropertyNode,
+  UnaryExpressionNode,
+  UseAbsoluteNode,
+  UsePackageNode,
+  UseRelativeNode,
   UseSelectorNode,
+  VariableAccessNode,
+  VariableAttributeListNode,
   VariableDeclarationNode,
   WhileNode,
-  AssignmentNode,
-  BinaryExpressionNode,
-  BooleanNode,
-  FloatingPointNode,
-  FunctionCallNode,
-  FunctionExpressionNode,
-  HTMLNode,
-  IfNode,
-  IntegerNode,
-  JsAsmNode,
-  ObjectLiteralNode,
-  PropertyAccessNode,
-  StringNode,
-  UnaryExpressionNode,
-  VariableAccessNode,
-  UsePackageNode,
-  UseAbsoluteNode,
-  UseRelativeNode,
 } from '../../../parser/ast'
 
 export interface ConcreteNamedType {
@@ -167,6 +168,10 @@ export interface TypedUseSelectorNode extends UseSelectorNode {
 export interface TypedVariableAccessNode extends VariableAccessNode {
   $type: InferredType
 }
+export interface TypedVariableAttributeListNode
+  extends VariableAttributeListNode {
+  $type: InferredType
+}
 export interface TypedVariableDeclarationNode extends VariableDeclarationNode {
   $type: InferredType
 }
@@ -211,5 +216,6 @@ export type TypedAstNode =
   | TypedUseRelativeNode
   | TypedUseSelectorNode
   | TypedVariableAccessNode
+  | TypedVariableAttributeListNode
   | TypedVariableDeclarationNode
   | TypedWhileNode

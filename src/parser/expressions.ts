@@ -35,6 +35,7 @@ import {
   createStringNode,
   createUnaryExpressionNode,
   createVariableAccessNode,
+  createVariableAttributeListNode,
   createVariableDeclarationNode,
   createWhileNode,
   ExpressionNode,
@@ -44,6 +45,7 @@ import {
   token,
   trailingCommaList,
   _braces,
+  _brackets,
   _colon,
   _parens,
 } from './common'
@@ -99,19 +101,27 @@ const foldBinaryExpression = ([left, rights]: [
     left as ExpressionNode
   )
 
-export const _variableDeclaration = _letKeyword
-  .and(
-    seq([
-      maybe(_mutKeyword),
-      _identifier,
-      maybe(_colon.and(_type)),
-      token(/=/y),
-      lazy(() => _expression),
-    ])
+const _variableAttributeList = token(/#/y)
+  .and(between(_brackets, trailingCommaList(_identifier)))
+  .map(createVariableAttributeListNode)
+
+export const _variableDeclaration = seq([
+  zeroOrMore(_variableAttributeList),
+  _letKeyword,
+  maybe(_mutKeyword),
+  _identifier,
+  maybe(_colon.and(_type)),
+  token(/=/y),
+  lazy(() => _expression),
+]).map(([attributeLists, , mut, identifier, type, , initializer]) =>
+  createVariableDeclarationNode(
+    attributeLists,
+    identifier,
+    mut !== null,
+    type,
+    initializer
   )
-  .map(([mut, identifier, type, , initializer]) =>
-    createVariableDeclarationNode(identifier, mut !== null, type, initializer)
-  )
+)
 
 export let _block: Parser<BlockNode> = error('Not yet implemented')
 

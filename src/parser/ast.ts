@@ -463,14 +463,27 @@ export const createWhileNode = (
   body,
 })
 
+export interface VariableAttributeListNode {
+  __type: 'VariableAttributeList'
+  attributes: IdentifierNode[]
+}
+export const createVariableAttributeListNode = (
+  attributes: IdentifierNode[]
+): VariableAttributeListNode => ({
+  __type: 'VariableAttributeList',
+  attributes,
+})
+
 export interface VariableDeclarationNode {
   __type: 'VariableDeclaration'
+  attributeLists: VariableAttributeListNode[]
   identifier: IdentifierNode
   mutable: boolean
   type: TypeNode | null
   initializer: ExpressionNode
 }
 export const createVariableDeclarationNode = (
+  attributeLists: VariableAttributeListNode[],
   identifier: IdentifierNode,
   mutable: boolean,
   type: TypeNode | null,
@@ -478,6 +491,7 @@ export const createVariableDeclarationNode = (
 ): VariableDeclarationNode => ({
   __type: 'VariableDeclaration',
   identifier,
+  attributeLists,
   mutable,
   type,
   initializer,
@@ -530,6 +544,8 @@ export type ASTNode =
   | TypePropertyNode
   | UseNode
   | UseSelectorNode
+  | VariableAccessNode
+  | VariableAttributeListNode
   | VariableDeclarationNode
   | WhileNode
 
