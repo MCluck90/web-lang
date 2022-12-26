@@ -197,11 +197,14 @@ const _propertyAccess = seq([
 
 const _functionCall = seq([
   _propertyAccess,
-  maybe(between(_parens, trailingCommaList(lazy(() => _expression)))),
-]).map(([left, right]) =>
-  right === null
+  zeroOrMore(between(_parens, trailingCommaList(lazy(() => _expression)))),
+]).map(([left, rights]) =>
+  rights.length === 0
     ? left
-    : createFunctionCallNode(left, createArgumentListNode(right))
+    : rights.reduce(
+        (l, r) => createFunctionCallNode(l, createArgumentListNode(r)),
+        left as ExpressionNode
+      )
 )
 
 const _unary = seq([

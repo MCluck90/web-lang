@@ -383,6 +383,21 @@ describe('Function Calls', () => {
     assertNodeType(binaryExpression, 'BinaryExpression')
     assertNodeType(binaryExpression.left, 'FunctionCall')
   })
+
+  test('can parse successive function calls', () => {
+    const source = 'add(2)(3)'
+    const expr = _expression.parseToEnd(source)
+    assertSuccessfulParse(expr)
+    expect(expr).toEqual(
+      createFunctionCallNode(
+        createFunctionCallNode(
+          createVariableAccessNode(createIdentifierNode('add')),
+          createArgumentListNode([createIntegerNode(2)])
+        ),
+        createArgumentListNode([createIntegerNode(3)])
+      )
+    )
+  })
 })
 
 describe('Object Literals', () => {
