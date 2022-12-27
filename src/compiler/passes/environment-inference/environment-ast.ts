@@ -23,58 +23,63 @@ import {
 export type EnvironmentType = 'backend' | 'frontend' | 'isomorphic' | 'unknown'
 
 export interface AssignmentNodeWithEnvironment extends AssignmentNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface BinaryExpressionNodeWithEnvironment
   extends BinaryExpressionNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface BooleanNodeWithEnvironment extends BooleanNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface FloatingPointNodeWithEnvironment extends FloatingPointNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface FunctionCallNodeWithEnvironment extends FunctionCallNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface FunctionExpressionNodeWithEnvironment
   extends FunctionExpressionNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface HTMLNodeWithEnvironment extends HTMLNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface IfNodeWithEnvironment extends IfNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface IntegerNodeWithEnvironment extends IntegerNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface JsAsmNodeWithEnvironment extends JsAsmNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface ObjectLiteralNodeWithEnvironment extends ObjectLiteralNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface PropertyAccessNodeWithEnvironment extends PropertyAccessNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface StringNodeWithEnvironment extends StringNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface UnaryExpressionNodeWithEnvironment
   extends UnaryExpressionNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface VariableAccessNodeWithEnvironment extends VariableAccessNode {
-  $environment: EnvironmentType
+  $environment?: EnvironmentType
 }
 export interface VariableDeclarationNodeWithEnvironment
   extends VariableDeclarationNode {
-  $environment: EnvironmentType
-  initializer: ExpressionNode & { $environment: EnvironmentType }
+  $environment?: EnvironmentType
+  initializer: ExpressionNode & { $environment?: EnvironmentType }
 }
+
+export const isAnEnvironmentNode = <T extends AstNode>(
+  node: T
+): node is T & { $environment: EnvironmentType } =>
+  '$environment' in node && typeof node['$environment'] === 'string'
 
 export type AstNodeWithEnvironment = MergeNodeTypes<
   AstNode,

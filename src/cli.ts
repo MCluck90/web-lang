@@ -48,15 +48,20 @@ switch (subcommand) {
     if (!fs.existsSync(outputDirectory)) {
       fs.mkdirSync(outputDirectory)
     }
+
+    const publicDirectory = path.join(outputDirectory, 'public')
+    if (!fs.existsSync(publicDirectory)) {
+      fs.mkdirSync(publicDirectory)
+    }
     for (const htmlModule of compileResult.html) {
       const htmlPath = path.join(
-        outputDirectory,
+        publicDirectory,
         `${htmlModule.moduleName}.html`
       )
       fs.writeFileSync(htmlPath, htmlModule.contents)
     }
 
-    const isomorphicJsDirectory = path.join(outputDirectory, 'isomorphic-js')
+    const isomorphicJsDirectory = path.join(publicDirectory, 'isomorphic-js')
     if (
       compileResult.isomorphicJs.length > 0 &&
       !fs.existsSync(isomorphicJsDirectory)
@@ -70,6 +75,26 @@ switch (subcommand) {
       )
       fs.writeFileSync(htmlPath, jsModule.contents)
     }
+
+    const frontendJsDirectory = path.join(publicDirectory, 'frontend-js')
+    if (
+      compileResult.frontendJs.length > 0 &&
+      !fs.existsSync(frontendJsDirectory)
+    ) {
+      fs.mkdirSync(frontendJsDirectory)
+    }
+    for (const jsModule of compileResult.frontendJs) {
+      const htmlPath = path.join(
+        frontendJsDirectory,
+        `${jsModule.moduleName}.mjs`
+      )
+      fs.writeFileSync(htmlPath, jsModule.contents)
+    }
+
+    for (const jsModule of compileResult.backendJs) {
+      const htmlPath = path.join(outputDirectory, `${jsModule.moduleName}.mjs`)
+      fs.writeFileSync(htmlPath, jsModule.contents)
+    }
     console.log('Compilation succeeded')
     break
   }
@@ -81,7 +106,7 @@ switch (subcommand) {
 
 if (subcommand === 'run') {
   console.log('==================\n\n')
-  const node = spawn('node', ['_build/isomorphic-js/main.mjs'])
+  const node = spawn('node', ['_build/backend-js/main.mjs'])
   node.stdout.on('data', (data) => process.stdout.write(data))
   node.stderr.on('data', (data) => process.stderr.write(data))
   node.on('error', (error) => console.error(error))

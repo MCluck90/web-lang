@@ -1,0 +1,26 @@
+#[Backend]
+let saveTodo = fn (todo: Todo) {
+  console.log('Write todo to database:', todo)
+  { title: 'Done' }
+}
+
+#[Frontend]
+let renderTodo = fn (todo: Todo) {
+  document.write(todo.title)
+}
+
+#[Frontend]
+let frontend_main = fn () {
+  let todo = { title: 'Hello world' }
+  renderTodo(todo)
+
+  setTimeout(fn () {
+    let p1 = saveTodo(todo)
+    let p2 = p1.then(fn (resp) { resp.json() })
+    p2.then(renderTodo)
+  }, 3000)
+}
+
+render {
+  h1#('Test')
+}

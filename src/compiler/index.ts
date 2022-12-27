@@ -1,10 +1,5 @@
 import { ProgramNode } from '../parser/ast'
-import {
-  CompilerConfig,
-  CompilerOutput,
-  HTMLModule,
-  JSModule,
-} from './index.types'
+import { CompilerConfig, CompilerOutput, HTMLModule } from './index.types'
 import { constantFolding } from './passes/constant-folding'
 import { emitJs } from './passes/emit-js'
 import { inferEnvironment } from './passes/environment-inference'
@@ -19,23 +14,20 @@ export const compileProgram = (
   const withEnvironment = inferEnvironment(typedProgram)
   const finalProgram = constantFolding(withEnvironment)
 
-  const jsModules: JSModule[] = []
-  const rootJsModule = emitJs(finalProgram)
-  if (rootJsModule !== null) {
-    jsModules.push(rootJsModule)
-  }
+  const rootJsModules = emitJs(finalProgram)
 
   const htmlModules: HTMLModule[] = []
-
   const staticHtml = renderStaticEntryHtmlPass({
     program,
-    startupJsModules: jsModules,
+    startupJsModules: rootJsModules.frontend ? [rootJsModules.frontend] : [],
   })
   if (staticHtml !== null) {
     htmlModules.push(staticHtml)
   }
   return {
     html: htmlModules,
-    isomorphicJs: jsModules,
+    isomorphicJs: rootJsModules.isomorphic ? [rootJsModules.isomorphic] : [],
+    frontendJs: rootJsModules.frontend ? [rootJsModules.frontend] : [],
+    backendJs: rootJsModules.backend ? [rootJsModules.backend] : [],
   }
 }

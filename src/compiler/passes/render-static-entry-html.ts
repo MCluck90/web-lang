@@ -47,7 +47,7 @@ const generateHtmlDocument = (body: string, jsModules: JSModule[]) =>
 <body>
   ${body}
   ${jsModules.map(
-    (mod) => `<script src="frontend-js/${mod.moduleName}.js"></script>`
+    (mod) => `<script src="frontend-js/${mod.moduleName}.mjs"></script>`
   )}
 </body>
 </html>

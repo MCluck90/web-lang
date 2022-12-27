@@ -35,6 +35,11 @@ export const inferEnvironment = <T extends AstNode>(
   const scopeStack: Scope[] = [new Scope(null)]
   const currentScope = () => scopeStack[scopeStack.length - 1]
 
+  // TODO: Move this to somewhere better and do it for all environment values
+  currentScope().setVariable('console', 'isomorphic')
+  currentScope().setVariable('document', 'isomorphic')
+  currentScope().setVariable('setTimeout', 'isomorphic')
+
   const visitor: CustomOrderVisitor<
     AstNodeWithEnvironment | (AstNode & { $environment?: EnvironmentType })
   > = new CustomOrderVisitor<AstNodeWithEnvironment>({
@@ -48,9 +53,6 @@ export const inferEnvironment = <T extends AstNode>(
       return { ...node, $environment: 'isomorphic' }
     },
     visitVariableDeclaration(node, path) {
-      const initializer =
-        visitor.descendIntoNode(node.initializer, [...path, node]) ??
-        node.initializer
       const isMarkedAsFrontend = node.attributeLists.find((attr) =>
         attr.attributes.map((i) => i.value).includes('Frontend')
       )
@@ -58,6 +60,16 @@ export const inferEnvironment = <T extends AstNode>(
         attr.attributes.map((i) => i.value).includes('Backend')
       )
       const isMarkedAsIsomorphic = isMarkedAsFrontend && isMarkedAsBackend
+      node.$environment = isMarkedAsIsomorphic
+        ? 'isomorphic'
+        : isMarkedAsBackend
+        ? 'backend'
+        : isMarkedAsFrontend
+        ? 'frontend'
+        : 'unknown'
+      const initializer =
+        visitor.descendIntoNode(node.initializer, [...path, node]) ??
+        node.initializer
       const markedEnvironment: EnvironmentType = isMarkedAsIsomorphic
         ? 'isomorphic'
         : isMarkedAsFrontend
@@ -65,7 +77,7 @@ export const inferEnvironment = <T extends AstNode>(
         : isMarkedAsBackend
         ? 'backend'
         : 'unknown'
-      const initializerEnvironment = initializer.$environment
+      const initializerEnvironment = initializer.$environment ?? 'unknown'
       let foundEnvironment: EnvironmentType = 'unknown'
       if (markedEnvironment === 'unknown') {
         foundEnvironment = initializerEnvironment
@@ -84,6 +96,12 @@ export const inferEnvironment = <T extends AstNode>(
       currentScope().setVariable(node.identifier.value, foundEnvironment)
       return { ...node, $environment: foundEnvironment }
     },
+
+    visitParameter(node) {
+      currentScope().setVariable(node.name.value, 'isomorphic')
+      return node
+    },
+
     visitVariableAccess(node) {
       return {
         ...node,
