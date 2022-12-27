@@ -1,44 +1,23 @@
 import {
-  AnonymousTypeNode,
-  ArgumentListNode,
   AssignmentNode,
+  AstNode,
   BinaryExpressionNode,
-  BlockNode,
   BooleanNode,
-  ElseNode,
   ExpressionNode,
   FloatingPointNode,
   FunctionCallNode,
   FunctionExpressionNode,
   HTMLNode,
-  IdentifierNode,
   IfNode,
   IntegerNode,
   JsAsmNode,
-  MethodBodyNode,
-  MethodDefinitionNode,
-  NamedTypeNode,
+  MergeNodeTypes,
   ObjectLiteralNode,
-  ObjectPropertyNode,
-  ObjectTypeNode,
-  ParameterListNode,
-  ParameterNode,
-  ProgramNode,
   PropertyAccessNode,
-  PropertyKeyNode,
-  RenderNode,
   StringNode,
-  TypeDefinitionNode,
-  TypePropertyNode,
   UnaryExpressionNode,
-  UseAbsoluteNode,
-  UsePackageNode,
-  UseRelativeNode,
-  UseSelectorNode,
   VariableAccessNode,
-  VariableAttributeListNode,
   VariableDeclarationNode,
-  WhileNode,
 } from '../../../parser/ast'
 
 export type EnvironmentType = 'backend' | 'frontend' | 'isomorphic' | 'unknown'
@@ -97,43 +76,22 @@ export interface VariableDeclarationNodeWithEnvironment
   initializer: ExpressionNode & { $environment: EnvironmentType }
 }
 
-export type AstNodeWithEnvironment =
-  | AnonymousTypeNode
-  | ArgumentListNode
+export type AstNodeWithEnvironment = MergeNodeTypes<
+  AstNode,
   | AssignmentNodeWithEnvironment
   | BinaryExpressionNodeWithEnvironment
-  | BlockNode
   | BooleanNodeWithEnvironment
-  | ElseNode
   | FloatingPointNodeWithEnvironment
   | FunctionCallNodeWithEnvironment
   | FunctionExpressionNodeWithEnvironment
   | HTMLNodeWithEnvironment
-  | IdentifierNode
   | IfNodeWithEnvironment
   | IntegerNodeWithEnvironment
   | JsAsmNodeWithEnvironment
-  | MethodBodyNode
-  | MethodDefinitionNode
-  | NamedTypeNode
   | ObjectLiteralNodeWithEnvironment
-  | ObjectPropertyNode
-  | ObjectTypeNode
-  | ParameterListNode
-  | ParameterNode
-  | ProgramNode
   | PropertyAccessNodeWithEnvironment
-  | PropertyKeyNode
-  | RenderNode
   | StringNodeWithEnvironment
-  | TypeDefinitionNode
-  | TypePropertyNode
   | UnaryExpressionNodeWithEnvironment
-  | UseAbsoluteNode
-  | UsePackageNode
-  | UseRelativeNode
-  | UseSelectorNode
   | VariableAccessNodeWithEnvironment
-  | VariableAttributeListNode
   | VariableDeclarationNodeWithEnvironment
-  | WhileNode
+>

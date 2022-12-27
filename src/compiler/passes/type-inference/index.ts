@@ -8,7 +8,9 @@ import {
 import { AstNode, StringNode } from '../../../parser/ast'
 import { CustomOrderVisitor } from '../../../utils/ast-visitor'
 
-export const inferTypes = (node: AstNode): TypedAstNode => {
+export const inferTypes = <T extends AstNode>(
+  node: T
+): TypedAstNode & { __type: T['__type'] } => {
   const inferenceVisitor = new CustomOrderVisitor<AstNode, TypedAstNode>({
     visitBoolean(node): TypedBooleanNode {
       return { ...node, $type: createConcreteNamedType('bool', []) }

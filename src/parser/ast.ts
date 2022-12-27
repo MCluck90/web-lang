@@ -561,3 +561,13 @@ export const isNodeType =
     const node = value as AstNode
     return node.__type === type
   }
+
+// Utility type to merge decorated AST nodes
+export type MergeNodeTypes<
+  TBaseAstNode extends AstNode,
+  TDecoratedAstNode extends AstNode
+> = {
+  [TAstType in TBaseAstNode['__type']]: TAstType extends TDecoratedAstNode['__type']
+    ? TDecoratedAstNode & { __type: TAstType }
+    : TBaseAstNode & { __type: TAstType }
+}[TBaseAstNode['__type']]

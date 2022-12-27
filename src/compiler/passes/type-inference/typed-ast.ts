@@ -2,6 +2,7 @@ import {
   AnonymousTypeNode,
   ArgumentListNode,
   AssignmentNode,
+  AstNode,
   BinaryExpressionNode,
   BlockNode,
   BooleanNode,
@@ -14,6 +15,7 @@ import {
   IfNode,
   IntegerNode,
   JsAsmNode,
+  MergeNodeTypes as MergeAstNodes,
   MethodBodyNode,
   MethodDefinitionNode,
   NamedTypeNode,
@@ -179,7 +181,8 @@ export interface TypedWhileNode extends WhileNode {
   $type: InferredType
 }
 
-export type TypedAstNode =
+export type TypedAstNode = MergeAstNodes<
+  AstNode,
   | TypedAnonymousTypeNode
   | TypedArgumentListNode
   | TypedAssignmentNode
@@ -219,3 +222,4 @@ export type TypedAstNode =
   | TypedVariableAttributeListNode
   | TypedVariableDeclarationNode
   | TypedWhileNode
+>

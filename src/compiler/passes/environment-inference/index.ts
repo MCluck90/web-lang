@@ -31,7 +31,7 @@ class Scope {
 
 export const inferEnvironment = <T extends AstNode>(
   node: T
-): T & AstNodeWithEnvironment => {
+): AstNodeWithEnvironment & { __type: T['__type'] } => {
   const scopeStack: Scope[] = [new Scope(null)]
   const currentScope = () => scopeStack[scopeStack.length - 1]
 

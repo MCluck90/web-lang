@@ -1,4 +1,4 @@
-import { AstNode } from '../../parser/ast'
+import { AstNode, MergeNodeTypes } from '../../parser/ast'
 import { AstReducer } from '../../utils/ast-visitor'
 import { JSModule } from '../index.types'
 import { AstNodeWithEnvironment } from './environment-inference/environment-ast'
@@ -6,7 +6,7 @@ import { TypedAstNode } from './type-inference/typed-ast'
 
 const buildPath = (node: AstNode, path: AstNode[]) => [...path, node]
 
-type FinalAst = TypedAstNode & AstNodeWithEnvironment
+type FinalAst = MergeNodeTypes<TypedAstNode, AstNodeWithEnvironment>
 
 const jsEmitter: AstReducer<string> = {
   visitNode<T extends AstNode>(node: T, path: AstNode[]) {
