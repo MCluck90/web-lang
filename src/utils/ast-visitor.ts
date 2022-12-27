@@ -1,5 +1,5 @@
 import {
-  ASTNode,
+  AstNode,
   AnonymousTypeNode,
   ArgumentListNode,
   AssignmentNode,
@@ -43,50 +43,50 @@ import {
 } from '../parser/ast'
 
 export interface AstMapper<T> {
-  visitNode(node: ASTNode, path: ASTNode[]): T
+  visitNode(node: AstNode, path: AstNode[]): T
   visitProgram(node: ProgramNode): T
-  visitAnonymousType(node: AnonymousTypeNode, path: ASTNode[]): T
-  visitArgumentList(node: ArgumentListNode, path: ASTNode[]): T
-  visitAssignment(node: AssignmentNode, path: ASTNode[]): T
-  visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]): T
-  visitBlock(node: BlockNode, path: ASTNode[]): T
-  visitBoolean(node: BooleanNode, path: ASTNode[]): T
-  visitElse(node: ElseNode, path: ASTNode[]): T
-  visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]): T
-  visitFunctionCall(node: FunctionCallNode, path: ASTNode[]): T
-  visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]): T
-  visitHTML(node: HTMLNode, path: ASTNode[]): T
-  visitIdentifier(node: IdentifierNode, path: ASTNode[]): T
-  visitIf(node: IfNode, path: ASTNode[]): T
-  visitInteger(node: IntegerNode, path: ASTNode[]): T
-  visitJsAsm(node: JsAsmNode, path: ASTNode[]): T
-  visitMethodDefinition(node: MethodDefinitionNode, path: ASTNode[]): T
-  visitNamedType(node: NamedTypeNode, path: ASTNode[]): T
-  visitObjectLiteral(node: ObjectLiteralNode, path: ASTNode[]): T
-  visitObjectProperty(node: ObjectPropertyNode, path: ASTNode[]): T
-  visitObjectType(node: ObjectTypeNode, path: ASTNode[]): T
-  visitParameter(node: ParameterNode, path: ASTNode[]): T
-  visitParameterList(node: ParameterListNode, path: ASTNode[]): T
-  visitPropertyAccess(node: PropertyAccessNode, path: ASTNode[]): T
-  visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]): T
-  visitRender(node: RenderNode, path: ASTNode[]): T
-  visitString(node: StringNode, path: ASTNode[]): T
-  visitTypeDefinition(node: TypeDefinitionNode, path: ASTNode[]): T
-  visitTypeProperty(node: TypePropertyNode, path: ASTNode[]): T
-  visitUnaryExpression(node: UnaryExpressionNode, path: ASTNode[]): T
-  visitUse(node: UseNode, path: ASTNode[]): T
-  visitUseSelector(node: UseSelectorNode, path: ASTNode[]): T
-  visitVariableAccess(node: VariableAccessNode, path: ASTNode[]): T
+  visitAnonymousType(node: AnonymousTypeNode, path: AstNode[]): T
+  visitArgumentList(node: ArgumentListNode, path: AstNode[]): T
+  visitAssignment(node: AssignmentNode, path: AstNode[]): T
+  visitBinaryExpression(node: BinaryExpressionNode, path: AstNode[]): T
+  visitBlock(node: BlockNode, path: AstNode[]): T
+  visitBoolean(node: BooleanNode, path: AstNode[]): T
+  visitElse(node: ElseNode, path: AstNode[]): T
+  visitFloatingPoint(node: FloatingPointNode, path: AstNode[]): T
+  visitFunctionCall(node: FunctionCallNode, path: AstNode[]): T
+  visitFunctionExpression(node: FunctionExpressionNode, path: AstNode[]): T
+  visitHTML(node: HTMLNode, path: AstNode[]): T
+  visitIdentifier(node: IdentifierNode, path: AstNode[]): T
+  visitIf(node: IfNode, path: AstNode[]): T
+  visitInteger(node: IntegerNode, path: AstNode[]): T
+  visitJsAsm(node: JsAsmNode, path: AstNode[]): T
+  visitMethodDefinition(node: MethodDefinitionNode, path: AstNode[]): T
+  visitNamedType(node: NamedTypeNode, path: AstNode[]): T
+  visitObjectLiteral(node: ObjectLiteralNode, path: AstNode[]): T
+  visitObjectProperty(node: ObjectPropertyNode, path: AstNode[]): T
+  visitObjectType(node: ObjectTypeNode, path: AstNode[]): T
+  visitParameter(node: ParameterNode, path: AstNode[]): T
+  visitParameterList(node: ParameterListNode, path: AstNode[]): T
+  visitPropertyAccess(node: PropertyAccessNode, path: AstNode[]): T
+  visitPropertyKey(node: PropertyKeyNode, path: AstNode[]): T
+  visitRender(node: RenderNode, path: AstNode[]): T
+  visitString(node: StringNode, path: AstNode[]): T
+  visitTypeDefinition(node: TypeDefinitionNode, path: AstNode[]): T
+  visitTypeProperty(node: TypePropertyNode, path: AstNode[]): T
+  visitUnaryExpression(node: UnaryExpressionNode, path: AstNode[]): T
+  visitUse(node: UseNode, path: AstNode[]): T
+  visitUseSelector(node: UseSelectorNode, path: AstNode[]): T
+  visitVariableAccess(node: VariableAccessNode, path: AstNode[]): T
   visitVariableAttributeList(
     node: VariableAttributeListNode,
-    path: ASTNode[]
+    path: AstNode[]
   ): T
-  visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]): T
-  visitWhile(node: WhileNode, path: ASTNode[]): T
+  visitVariableDeclaration(node: VariableDeclarationNode, path: AstNode[]): T
+  visitWhile(node: WhileNode, path: AstNode[]): T
 }
 
 export interface AstVisitor<
-  TAstNode extends ASTNode = ASTNode,
+  TAstNode extends AstNode = AstNode,
   TReturn = void
 > {
   visitAnonymousType(
@@ -160,7 +160,7 @@ export interface AstVisitor<
   visitNode(
     node: TAstNode & { __type: TAstNode['__type'] },
     path: TAstNode[]
-  ): (TAstNode & { __type: ASTNode['__type'] }) | TReturn
+  ): (TAstNode & { __type: AstNode['__type'] }) | TReturn
   visitObjectLiteral(
     node: TAstNode & { __type: ObjectLiteralNode['__type'] },
     path: TAstNode[]
@@ -238,7 +238,7 @@ export interface AstVisitor<
   ): (TAstNode & { __type: WhileNode['__type'] }) | TReturn
 }
 
-export class DepthFirstVisitor<TAstNode extends ASTNode>
+export class DepthFirstVisitor<TAstNode extends AstNode>
   implements AstVisitor<TAstNode>
 {
   constructor(private readonly visitors: Partial<AstVisitor<TAstNode>>) {}
@@ -254,7 +254,7 @@ export class DepthFirstVisitor<TAstNode extends ASTNode>
     return (specificResult ?? genericResult) as T | void
   }
 
-  private descendIntoNode<T extends ASTNode>(
+  private descendIntoNode<T extends AstNode>(
     node: T,
     path: TAstNode[]
   ): T | void {
@@ -738,7 +738,7 @@ export class DepthFirstVisitor<TAstNode extends ASTNode>
   }
 }
 
-export class CustomOrderVisitor<TAstNode extends ASTNode>
+export class CustomOrderVisitor<TAstNode extends AstNode>
   implements AstVisitor<TAstNode, void>
 {
   constructor(private readonly visitors: Partial<AstVisitor<TAstNode, void>>) {}
@@ -747,7 +747,7 @@ export class CustomOrderVisitor<TAstNode extends ASTNode>
     return this.visitors[`visit${node['__type']}`]
   }
 
-  descendIntoNode<T extends ASTNode>(node: T, path: TAstNode[]): T | void {
+  descendIntoNode<T extends AstNode>(node: T, path: TAstNode[]): T | void {
     // This is safe. TypeScript just doesn't understand it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this[`visit${node.__type}`] as any)(node, path)

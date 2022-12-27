@@ -1,4 +1,4 @@
-import { ASTNode } from '../../../parser/ast'
+import { AstNode } from '../../../parser/ast'
 import { CustomOrderVisitor } from '../../../utils/ast-visitor'
 import { AstNodeWithEnvironment, EnvironmentType } from './environment-ast'
 
@@ -29,14 +29,14 @@ class Scope {
   }
 }
 
-export const inferEnvironment = <T extends ASTNode>(
+export const inferEnvironment = <T extends AstNode>(
   node: T
 ): T & AstNodeWithEnvironment => {
   const scopeStack: Scope[] = [new Scope(null)]
   const currentScope = () => scopeStack[scopeStack.length - 1]
 
   const visitor: CustomOrderVisitor<
-    AstNodeWithEnvironment | (ASTNode & { $environment?: EnvironmentType })
+    AstNodeWithEnvironment | (AstNode & { $environment?: EnvironmentType })
   > = new CustomOrderVisitor<AstNodeWithEnvironment>({
     visitBoolean(node) {
       return { ...node, $environment: 'isomorphic' }

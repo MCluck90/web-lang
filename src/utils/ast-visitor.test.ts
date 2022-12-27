@@ -1,5 +1,5 @@
 import {
-  ASTNode,
+  AstNode,
   createAnonymousTypeNode,
   createBlockNode,
   createIntegerNode,
@@ -15,7 +15,7 @@ describe('CustomOrderVisitor', () => {
     test('visits object types', () => {
       const objectType = createObjectTypeNode([])
       const anonymousType = createAnonymousTypeNode(objectType, false)
-      const visitedNodes = new Set<ASTNode>()
+      const visitedNodes = new Set<AstNode>()
       const visitor = new CustomOrderVisitor({
         visitNode(node) {
           visitedNodes.add(node)
@@ -42,7 +42,7 @@ describe('CustomOrderVisitor', () => {
       const render = createRenderNode(createBlockNode([]))
       const program = createProgramNode(useStatements, statements, render)
 
-      const allNodes = new Set<ASTNode>([
+      const allNodes = new Set<AstNode>([
         ...useStatements,
         ...statements,
         render,
@@ -84,7 +84,7 @@ describe('CustomOrderVisitor', () => {
       const render = createRenderNode(createBlockNode([]))
       const program = createProgramNode(useStatements, statements, render)
 
-      const visitedNodes = new Set<ASTNode>()
+      const visitedNodes = new Set<AstNode>()
 
       const visitor = new CustomOrderVisitor({
         visitProgram(node) {

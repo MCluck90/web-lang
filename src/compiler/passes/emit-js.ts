@@ -1,7 +1,7 @@
 import {
   AnonymousTypeNode,
   ArgumentListNode,
-  ASTNode,
+  AstNode,
   BinaryExpressionNode,
   BlockNode,
   FloatingPointNode,
@@ -33,10 +33,10 @@ import {
 import { AstMapper } from '../../utils/ast-visitor'
 import { JSModule } from '../index.types'
 
-const buildPath = (node: ASTNode, path: ASTNode[]) => [...path, node]
+const buildPath = (node: AstNode, path: AstNode[]) => [...path, node]
 
 const jsEmitterVisitor: AstMapper<string> = {
-  visitNode<T extends ASTNode>(node: T, path: ASTNode[]) {
+  visitNode<T extends AstNode>(node: T, path: AstNode[]) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (jsEmitterVisitor[`visit${node.__type}`] as any)(node as never, path)
   },
@@ -62,16 +62,16 @@ const jsEmitterVisitor: AstMapper<string> = {
       buildPath(node, path)
     )} = ${this.visitNode(node.right, path)}`
   },
-  visitAnonymousType(_node: AnonymousTypeNode, _path: ASTNode[]) {
+  visitAnonymousType(_node: AnonymousTypeNode, _path: AstNode[]) {
     // Types do not emit code
     return ''
   },
-  visitArgumentList(node: ArgumentListNode, path: ASTNode[]) {
+  visitArgumentList(node: ArgumentListNode, path: AstNode[]) {
     return `(${node.arguments
       .map((n) => this.visitNode(n, buildPath(node, path)))
       .join(', ')})`
   },
-  visitBlock(node: BlockNode, path: ASTNode[]) {
+  visitBlock(node: BlockNode, path: AstNode[]) {
     if (node.statements.length === 0) {
       return ''
     }
@@ -94,7 +94,7 @@ const jsEmitterVisitor: AstMapper<string> = {
       buildPath(node, path)
     )}\n}`
   },
-  visitBinaryExpression(node: BinaryExpressionNode, path: ASTNode[]) {
+  visitBinaryExpression(node: BinaryExpressionNode, path: AstNode[]) {
     return `${this.visitNode(node.left, buildPath(node, path))} ${
       node.operator === '=='
         ? '==='
@@ -109,22 +109,22 @@ const jsEmitterVisitor: AstMapper<string> = {
   visitElse(node, path) {
     return `else ${this.visitNode(node.body, buildPath(node, path))}`
   },
-  visitFloatingPoint(node: FloatingPointNode, path: ASTNode[]) {
+  visitFloatingPoint(node: FloatingPointNode, path: AstNode[]) {
     return node.value.toString()
   },
-  visitFunctionCall(node: FunctionCallNode, path: ASTNode[]) {
+  visitFunctionCall(node: FunctionCallNode, path: AstNode[]) {
     return `${this.visitNode(
       node.callee,
       buildPath(node, path)
     )}${this.visitNode(node.argumentList, path)}`
   },
-  visitFunctionExpression(node: FunctionExpressionNode, path: ASTNode[]) {
+  visitFunctionExpression(node: FunctionExpressionNode, path: AstNode[]) {
     return `${this.visitNode(
       node.parameterList,
       buildPath(node, path)
     )} => ${this.visitNode(node.body, path)}`
   },
-  visitHTML(node: HTMLNode, path: ASTNode[]) {
+  visitHTML(node: HTMLNode, path: AstNode[]) {
     throw new Error('HTML not yet implemented.')
   },
   visitIf(node, path) {
@@ -135,23 +135,23 @@ const jsEmitterVisitor: AstMapper<string> = {
       node.else_ ? this.visitNode(node.else_, path) : ''
     }})();`
   },
-  visitInteger(node: IntegerNode, path: ASTNode[]) {
+  visitInteger(node: IntegerNode, path: AstNode[]) {
     return node.value.toString()
   },
-  visitJsAsm(node: JsAsmNode, path: ASTNode[]) {
+  visitJsAsm(node: JsAsmNode, path: AstNode[]) {
     return node.code
   },
-  visitObjectLiteral(node: ObjectLiteralNode, path: ASTNode[]) {
+  visitObjectLiteral(node: ObjectLiteralNode, path: AstNode[]) {
     return `{ ${node.properties
       .map((n) => this.visitNode(n, buildPath(node, path)))
       .join(', ')} }`
   },
-  visitPropertyAccess(node: PropertyAccessNode, path: ASTNode[]) {
+  visitPropertyAccess(node: PropertyAccessNode, path: AstNode[]) {
     return `${this.visitNode(node.left, buildPath(node, path))}.${node.rights
       .map((n) => this.visitNode(n, buildPath(node, path)))
       .join(',')}`
   },
-  visitString(node: StringNode, path: ASTNode[]) {
+  visitString(node: StringNode, path: AstNode[]) {
     const result = node.value
       .replace(/"/g, '\\"')
       .replace(/\r/g, '\\r')
@@ -160,65 +160,65 @@ const jsEmitterVisitor: AstMapper<string> = {
       .replace(/\0/g, '\\0')
     return `"${result}"`
   },
-  visitUnaryExpression(node: UnaryExpressionNode, path: ASTNode[]) {
+  visitUnaryExpression(node: UnaryExpressionNode, path: AstNode[]) {
     return `${node.operator}${this.visitNode(
       node.expression,
       buildPath(node, path)
     )}`
   },
-  visitVariableAccess(node: VariableAccessNode, path: ASTNode[]) {
+  visitVariableAccess(node: VariableAccessNode, path: AstNode[]) {
     return this.visitNode(node.name, buildPath(node, path))
   },
-  visitVariableAttributeList(node: VariableAttributeListNode, path: ASTNode[]) {
+  visitVariableAttributeList(node: VariableAttributeListNode, path: AstNode[]) {
     // Attributes are not emitted
     return ''
   },
-  visitIdentifier(node: IdentifierNode, path: ASTNode[]) {
+  visitIdentifier(node: IdentifierNode, path: AstNode[]) {
     return node.value
   },
-  visitMethodDefinition(node: MethodDefinitionNode, path: ASTNode[]) {
+  visitMethodDefinition(node: MethodDefinitionNode, path: AstNode[]) {
     return `${node.name}${this.visitNode(
       node.parameterList,
       path
     )} ${this.visitNode(node.body, buildPath(node, path))}`
   },
-  visitNamedType(node: NamedTypeNode, path: ASTNode[]) {
+  visitNamedType(node: NamedTypeNode, path: AstNode[]) {
     // Types are not emitted
     return ''
   },
-  visitObjectProperty(node: ObjectPropertyNode, path: ASTNode[]) {
+  visitObjectProperty(node: ObjectPropertyNode, path: AstNode[]) {
     return `${this.visitNode(
       node.key,
       buildPath(node, path)
     )}: ${this.visitNode(node.value, path)},`
   },
-  visitObjectType(node: ObjectTypeNode, path: ASTNode[]) {
+  visitObjectType(node: ObjectTypeNode, path: AstNode[]) {
     // Types are not emitted
     return ''
   },
-  visitParameterList(node: ParameterListNode, path: ASTNode[]) {
+  visitParameterList(node: ParameterListNode, path: AstNode[]) {
     return `(${node.parameters
       .map((n) => this.visitNode(n, buildPath(node, path)))
       .join(', ')})`
   },
-  visitParameter(node: ParameterNode, path: ASTNode[]) {
+  visitParameter(node: ParameterNode, path: AstNode[]) {
     return this.visitNode(node.name, buildPath(node, path))
   },
-  visitPropertyKey(node: PropertyKeyNode, path: ASTNode[]) {
+  visitPropertyKey(node: PropertyKeyNode, path: AstNode[]) {
     return this.visitNode(node.value, buildPath(node, path))
   },
-  visitRender(node: RenderNode, path: ASTNode[]) {
+  visitRender(node: RenderNode, path: AstNode[]) {
     throw new Error('Render not yet implemented.')
   },
-  visitTypeDefinition(node: TypeDefinitionNode, path: ASTNode[]) {
+  visitTypeDefinition(node: TypeDefinitionNode, path: AstNode[]) {
     // Types are not emitted
     return ''
   },
-  visitTypeProperty(node: TypePropertyNode, path: ASTNode[]) {
+  visitTypeProperty(node: TypePropertyNode, path: AstNode[]) {
     // Types are not emitted
     return ''
   },
-  visitVariableDeclaration(node: VariableDeclarationNode, path: ASTNode[]) {
+  visitVariableDeclaration(node: VariableDeclarationNode, path: AstNode[]) {
     return `let ${this.visitNode(
       node.identifier,
       buildPath(node, path)

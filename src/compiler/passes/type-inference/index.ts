@@ -38,7 +38,7 @@ import {
   TypedWhileNode,
 } from './typed-ast'
 import {
-  ASTNode,
+  AstNode,
   AnonymousTypeNode,
   ArgumentListNode,
   BlockNode,
@@ -77,9 +77,9 @@ import {
   VariableAttributeListNode,
 } from '../../../parser/ast'
 
-export const inferTypes = <T extends ASTNode>(node: T): T & TypedAstNode => {
+export const inferTypes = <T extends AstNode>(node: T): T & TypedAstNode => {
   const inferenceVisitor = {
-    visitNode<T extends ASTNode>(node: T): T & TypedAstNode {
+    visitNode<T extends AstNode>(node: T): T & TypedAstNode {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (inferenceVisitor[`visit${node.__type}`] as any)(node as never)
     },
@@ -201,6 +201,6 @@ export const inferTypes = <T extends ASTNode>(node: T): T & TypedAstNode => {
     visitWhile(node: WhileNode): TypedWhileNode {
       throw new Error('Not yet implemented')
     },
-  } satisfies Record<`visit${ASTNode['__type']}` | 'visitNode', unknown>
+  } satisfies Record<`visit${AstNode['__type']}` | 'visitNode', unknown>
   return inferenceVisitor.visitNode(node)
 }

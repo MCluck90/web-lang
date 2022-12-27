@@ -1,5 +1,5 @@
 import { ParseError } from 'parsnip-ts/error'
-import { ASTNode } from '../parser/ast'
+import { AstNode } from '../parser/ast'
 
 export function assertSuccessfulParse<T>(
   result: T | ParseError
@@ -17,10 +17,10 @@ export function assertFailedParse<T>(
   }
 }
 
-export function assertNodeType<T extends ASTNode['__type']>(
-  node: ASTNode,
+export function assertNodeType<T extends AstNode['__type']>(
+  node: AstNode,
   type: T
-): asserts node is ASTNode & { __type: T } {
+): asserts node is AstNode & { __type: T } {
   if (node.__type !== type) {
     throw new Error(`Expected a ${type}, received a ${node.__type}`)
   }
