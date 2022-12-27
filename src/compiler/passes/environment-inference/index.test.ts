@@ -9,7 +9,7 @@ import {
   createVariableDeclarationNode,
 } from '../../../parser/ast'
 import { assertSuccessfulParse } from '../../../test/parser-utils'
-import { DepthFirstVisitor } from '../../../utils/ast-visitor'
+import { CustomOrderVisitor } from '../../../utils/ast-visitor'
 import { AstNodeWithEnvironment } from './environment-ast'
 
 describe('Environment Inference', () => {
@@ -72,7 +72,7 @@ describe('Environment Inference', () => {
     assertSuccessfulParse(program)
     inferEnvironment(program)
     let foundVariableAccess = false
-    const visitor = new DepthFirstVisitor<AstNodeWithEnvironment>({
+    const visitor = new CustomOrderVisitor<AstNodeWithEnvironment>({
       visitVariableAccess(node) {
         foundVariableAccess = true
         expect(node.name.value).toBe('value')

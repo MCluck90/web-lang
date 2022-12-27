@@ -6,6 +6,7 @@ import {
   BlockNode,
   BooleanNode,
   ElseNode,
+  ExpressionNode,
   FloatingPointNode,
   FunctionCallNode,
   FunctionExpressionNode,
@@ -93,6 +94,7 @@ export interface VariableAccessNodeWithEnvironment extends VariableAccessNode {
 export interface VariableDeclarationNodeWithEnvironment
   extends VariableDeclarationNode {
   $environment: EnvironmentType
+  initializer: ExpressionNode & { $environment: EnvironmentType }
 }
 
 export type AstNodeWithEnvironment =
