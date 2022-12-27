@@ -7,16 +7,20 @@ import {
 } from './index.types'
 import { constantFolding } from './passes/constant-folding'
 import { emitJs } from './passes/emit-js'
+import { inferEnvironment } from './passes/environment-inference'
 import { renderStaticEntryHtmlPass } from './passes/render-static-entry-html'
+import { inferTypes } from './passes/type-inference'
 
 export const compileProgram = (
   config: CompilerConfig,
   program: ProgramNode
 ): CompilerOutput => {
-  program = constantFolding(program)
+  const typedProgram = inferTypes(program)
+  const withEnvironment = inferEnvironment(typedProgram)
+  const finalProgram = constantFolding(withEnvironment)
 
   const jsModules: JSModule[] = []
-  const rootJsModule = emitJs(program)
+  const rootJsModule = emitJs(finalProgram)
   if (rootJsModule !== null) {
     jsModules.push(rootJsModule)
   }

@@ -5,14 +5,10 @@ import {
   createIntegerNode,
   ExpressionNode,
   isNodeType,
-  ProgramNode,
 } from '../../parser/ast'
 import { DepthFirstVisitor } from '../../utils/ast-visitor'
 
-export type Input = ProgramNode
-export type Output = ProgramNode
-
-export const constantFolding = (program: Input): Output => {
+export const constantFolding = <T extends AstNode>(node: T): T => {
   const foldConstants = (node: BinaryExpressionNode): ExpressionNode => {
     const left = isNodeType('BinaryExpression')(node.left)
       ? foldConstants(node.left)
@@ -52,7 +48,7 @@ export const constantFolding = (program: Input): Output => {
     visitBinaryExpression: foldConstants,
   })
 
-  visitor.visitProgram(program)
-
-  return program
+  // This is safe. TypeScript just can't prove it.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (visitor[`visit${node.__type}`] as any)(node as never, [])
 }
