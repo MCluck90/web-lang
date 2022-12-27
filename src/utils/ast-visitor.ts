@@ -42,208 +42,227 @@ import {
   isNodeType,
 } from '../parser/ast'
 
-export interface AstMapper<T> {
-  visitNode(node: AstNode, path: AstNode[]): T
-  visitProgram(node: ProgramNode): T
-  visitAnonymousType(node: AnonymousTypeNode, path: AstNode[]): T
-  visitArgumentList(node: ArgumentListNode, path: AstNode[]): T
-  visitAssignment(node: AssignmentNode, path: AstNode[]): T
-  visitBinaryExpression(node: BinaryExpressionNode, path: AstNode[]): T
-  visitBlock(node: BlockNode, path: AstNode[]): T
-  visitBoolean(node: BooleanNode, path: AstNode[]): T
-  visitElse(node: ElseNode, path: AstNode[]): T
-  visitFloatingPoint(node: FloatingPointNode, path: AstNode[]): T
-  visitFunctionCall(node: FunctionCallNode, path: AstNode[]): T
-  visitFunctionExpression(node: FunctionExpressionNode, path: AstNode[]): T
-  visitHTML(node: HTMLNode, path: AstNode[]): T
-  visitIdentifier(node: IdentifierNode, path: AstNode[]): T
-  visitIf(node: IfNode, path: AstNode[]): T
-  visitInteger(node: IntegerNode, path: AstNode[]): T
-  visitJsAsm(node: JsAsmNode, path: AstNode[]): T
-  visitMethodDefinition(node: MethodDefinitionNode, path: AstNode[]): T
-  visitNamedType(node: NamedTypeNode, path: AstNode[]): T
-  visitObjectLiteral(node: ObjectLiteralNode, path: AstNode[]): T
-  visitObjectProperty(node: ObjectPropertyNode, path: AstNode[]): T
-  visitObjectType(node: ObjectTypeNode, path: AstNode[]): T
-  visitParameter(node: ParameterNode, path: AstNode[]): T
-  visitParameterList(node: ParameterListNode, path: AstNode[]): T
-  visitPropertyAccess(node: PropertyAccessNode, path: AstNode[]): T
-  visitPropertyKey(node: PropertyKeyNode, path: AstNode[]): T
-  visitRender(node: RenderNode, path: AstNode[]): T
-  visitString(node: StringNode, path: AstNode[]): T
-  visitTypeDefinition(node: TypeDefinitionNode, path: AstNode[]): T
-  visitTypeProperty(node: TypePropertyNode, path: AstNode[]): T
-  visitUnaryExpression(node: UnaryExpressionNode, path: AstNode[]): T
-  visitUse(node: UseNode, path: AstNode[]): T
-  visitUseSelector(node: UseSelectorNode, path: AstNode[]): T
-  visitVariableAccess(node: VariableAccessNode, path: AstNode[]): T
+export interface AstReducer<TOutput, TAstNode extends AstNode = AstNode> {
+  visitNode(node: TAstNode, path: TAstNode[]): TOutput
+  visitProgram(node: ProgramNode): TOutput
+  visitAnonymousType(node: AnonymousTypeNode, path: TAstNode[]): TOutput
+  visitArgumentList(node: ArgumentListNode, path: TAstNode[]): TOutput
+  visitAssignment(node: AssignmentNode, path: TAstNode[]): TOutput
+  visitBinaryExpression(node: BinaryExpressionNode, path: TAstNode[]): TOutput
+  visitBlock(node: BlockNode, path: TAstNode[]): TOutput
+  visitBoolean(node: BooleanNode, path: TAstNode[]): TOutput
+  visitElse(node: ElseNode, path: TAstNode[]): TOutput
+  visitFloatingPoint(node: FloatingPointNode, path: TAstNode[]): TOutput
+  visitFunctionCall(node: FunctionCallNode, path: TAstNode[]): TOutput
+  visitFunctionExpression(
+    node: FunctionExpressionNode,
+    path: TAstNode[]
+  ): TOutput
+  visitHTML(node: HTMLNode, path: TAstNode[]): TOutput
+  visitIdentifier(node: IdentifierNode, path: TAstNode[]): TOutput
+  visitIf(node: IfNode, path: TAstNode[]): TOutput
+  visitInteger(node: IntegerNode, path: TAstNode[]): TOutput
+  visitJsAsm(node: JsAsmNode, path: TAstNode[]): TOutput
+  visitMethodDefinition(node: MethodDefinitionNode, path: TAstNode[]): TOutput
+  visitNamedType(node: NamedTypeNode, path: TAstNode[]): TOutput
+  visitObjectLiteral(node: ObjectLiteralNode, path: TAstNode[]): TOutput
+  visitObjectProperty(node: ObjectPropertyNode, path: TAstNode[]): TOutput
+  visitObjectType(node: ObjectTypeNode, path: TAstNode[]): TOutput
+  visitParameter(node: ParameterNode, path: TAstNode[]): TOutput
+  visitParameterList(node: ParameterListNode, path: TAstNode[]): TOutput
+  visitPropertyAccess(node: PropertyAccessNode, path: TAstNode[]): TOutput
+  visitPropertyKey(node: PropertyKeyNode, path: TAstNode[]): TOutput
+  visitRender(node: RenderNode, path: TAstNode[]): TOutput
+  visitString(node: StringNode, path: TAstNode[]): TOutput
+  visitTypeDefinition(node: TypeDefinitionNode, path: TAstNode[]): TOutput
+  visitTypeProperty(node: TypePropertyNode, path: TAstNode[]): TOutput
+  visitUnaryExpression(node: UnaryExpressionNode, path: TAstNode[]): TOutput
+  visitUse(node: UseNode, path: TAstNode[]): TOutput
+  visitUseSelector(node: UseSelectorNode, path: TAstNode[]): TOutput
+  visitVariableAccess(node: VariableAccessNode, path: TAstNode[]): TOutput
   visitVariableAttributeList(
     node: VariableAttributeListNode,
-    path: AstNode[]
-  ): T
-  visitVariableDeclaration(node: VariableDeclarationNode, path: AstNode[]): T
-  visitWhile(node: WhileNode, path: AstNode[]): T
+    path: TAstNode[]
+  ): TOutput
+  visitVariableDeclaration(
+    node: VariableDeclarationNode,
+    path: TAstNode[]
+  ): TOutput
+  visitWhile(node: WhileNode, path: TAstNode[]): TOutput
 }
 
 export interface AstVisitor<
-  TAstNode extends AstNode = AstNode,
-  TReturn = void
+  TInputAstNode extends AstNode = AstNode,
+  TOutputAstNode extends AstNode | void = TInputAstNode,
+  TOutputWithoutVoid = Exclude<TOutputAstNode, void>
 > {
   visitAnonymousType(
-    node: TAstNode & { __type: AnonymousTypeNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: AnonymousTypeNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: AnonymousTypeNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: AnonymousTypeNode['__type'] }) | TOutputAstNode
   visitArgumentList(
-    node: TAstNode & { __type: ArgumentListNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ArgumentListNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ArgumentListNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ArgumentListNode['__type'] }) | TOutputAstNode
   visitAssignment(
-    node: TAstNode & { __type: AssignmentNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: AssignmentNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: AssignmentNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: AssignmentNode['__type'] }) | TOutputAstNode
   visitBinaryExpression(
-    node: TAstNode & { __type: BinaryExpressionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ExpressionNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: BinaryExpressionNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ExpressionNode['__type'] }) | TOutputAstNode
   visitBlock(
-    node: TAstNode & { __type: BlockNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: BlockNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: BlockNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: BlockNode['__type'] }) | TOutputAstNode
   visitBoolean(
-    node: TAstNode & { __type: BooleanNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: BooleanNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: BooleanNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: BooleanNode['__type'] }) | TOutputAstNode
   visitElse(
-    node: TAstNode & { __type: ElseNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ElseNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ElseNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ElseNode['__type'] }) | TOutputAstNode
   visitFloatingPoint(
-    node: TAstNode & { __type: FloatingPointNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: FloatingPointNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: FloatingPointNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: FloatingPointNode['__type'] }) | TOutputAstNode
   visitFunctionCall(
-    node: TAstNode & { __type: FunctionCallNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: FunctionCallNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: FunctionCallNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: FunctionCallNode['__type'] }) | TOutputAstNode
   visitFunctionExpression(
-    node: TAstNode & { __type: FunctionExpressionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: FunctionExpressionNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: FunctionExpressionNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ):
+    | (TInputAstNode & { __type: FunctionExpressionNode['__type'] })
+    | TOutputAstNode
   visitHTML(
-    node: TAstNode & { __type: HTMLNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: HTMLNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: HTMLNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: HTMLNode['__type'] }) | TOutputAstNode
   visitIdentifier(
-    node: TAstNode & { __type: IdentifierNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: IdentifierNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: IdentifierNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: IdentifierNode['__type'] }) | TOutputAstNode
   visitIf(
-    node: TAstNode & { __type: IfNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: IfNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: IfNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: IfNode['__type'] }) | TOutputAstNode
   visitInteger(
-    node: TAstNode & { __type: IntegerNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: IntegerNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: IntegerNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: IntegerNode['__type'] }) | TOutputAstNode
   visitJsAsm(
-    node: TAstNode & { __type: JsAsmNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: JsAsmNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: JsAsmNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: JsAsmNode['__type'] }) | TOutputAstNode
   visitMethodDefinition(
-    node: TAstNode & { __type: MethodDefinitionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: MethodDefinitionNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: MethodDefinitionNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ):
+    | (TInputAstNode & { __type: MethodDefinitionNode['__type'] })
+    | TOutputAstNode
   visitNamedType(
-    node: TAstNode & { __type: NamedTypeNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: NamedTypeNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: NamedTypeNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: NamedTypeNode['__type'] }) | TOutputAstNode
   visitNode(
-    node: TAstNode & { __type: TAstNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: AstNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: TInputAstNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: AstNode['__type'] }) | TOutputAstNode
   visitObjectLiteral(
-    node: TAstNode & { __type: ObjectLiteralNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ObjectLiteralNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ObjectLiteralNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ObjectLiteralNode['__type'] }) | TOutputAstNode
   visitObjectProperty(
-    node: TAstNode & { __type: ObjectPropertyNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ObjectPropertyNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ObjectPropertyNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ObjectPropertyNode['__type'] }) | TOutputAstNode
   visitObjectType(
-    node: TAstNode & { __type: ObjectTypeNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ObjectTypeNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ObjectTypeNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ObjectTypeNode['__type'] }) | TOutputAstNode
   visitParameter(
-    node: TAstNode & { __type: ParameterNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ParameterNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ParameterNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ParameterNode['__type'] }) | TOutputAstNode
   visitParameterList(
-    node: TAstNode & { __type: ParameterListNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ParameterListNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ParameterListNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: ParameterListNode['__type'] }) | TOutputAstNode
   visitProgram(
-    node: TAstNode & { __type: ProgramNode['__type'] }
-  ): (TAstNode & { __type: ProgramNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: ProgramNode['__type'] }
+  ): (TInputAstNode & { __type: ProgramNode['__type'] }) | TOutputAstNode
   visitPropertyAccess(
-    node: TAstNode & { __type: PropertyAccessNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: PropertyAccessNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: PropertyAccessNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: PropertyAccessNode['__type'] }) | TOutputAstNode
   visitPropertyKey(
-    node: TAstNode & { __type: PropertyKeyNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: PropertyKeyNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: PropertyKeyNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: PropertyKeyNode['__type'] }) | TOutputAstNode
   visitRender(
-    node: TAstNode & { __type: RenderNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: RenderNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: RenderNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: RenderNode['__type'] }) | TOutputAstNode
   visitString(
-    node: TAstNode & { __type: StringNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: StringNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: StringNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: StringNode['__type'] }) | TOutputAstNode
   visitTypeDefinition(
-    node: TAstNode & { __type: TypeDefinitionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: TypeDefinitionNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: TypeDefinitionNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: TypeDefinitionNode['__type'] }) | TOutputAstNode
   visitTypeProperty(
-    node: TAstNode & { __type: TypePropertyNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: TypePropertyNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: TypePropertyNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: TypePropertyNode['__type'] }) | TOutputAstNode
   visitUnaryExpression(
-    node: TAstNode & { __type: UnaryExpressionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: UnaryExpressionNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: UnaryExpressionNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ):
+    | (TInputAstNode & { __type: UnaryExpressionNode['__type'] })
+    | TOutputAstNode
   visitUse(
-    node: TAstNode & { __type: UseNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: UseNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: UseNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: UseNode['__type'] }) | TOutputAstNode
   visitUseSelector(
-    node: TAstNode & { __type: UseSelectorNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: UseSelectorNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: UseSelectorNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: UseSelectorNode['__type'] }) | TOutputAstNode
   visitVariableAccess(
-    node: TAstNode & { __type: VariableAccessNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: VariableAccessNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: VariableAccessNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: VariableAccessNode['__type'] }) | TOutputAstNode
   visitVariableAttributeList(
-    node: TAstNode & { __type: VariableAttributeListNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: VariableAttributeListNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: VariableAttributeListNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ):
+    | (TInputAstNode & { __type: VariableAttributeListNode['__type'] })
+    | TOutputAstNode
   visitVariableDeclaration(
-    node: TAstNode & { __type: VariableDeclarationNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: VariableDeclarationNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: VariableDeclarationNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ):
+    | (TInputAstNode & { __type: VariableDeclarationNode['__type'] })
+    | TOutputAstNode
   visitWhile(
-    node: TAstNode & { __type: WhileNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: WhileNode['__type'] }) | TReturn
+    node: TInputAstNode & { __type: WhileNode['__type'] },
+    path: (TInputAstNode | TOutputWithoutVoid)[]
+  ): (TInputAstNode & { __type: WhileNode['__type'] }) | TOutputAstNode
 }
 
-export class DepthFirstVisitor<TAstNode extends AstNode>
-  implements AstVisitor<TAstNode>
+export class DepthFirstVisitor<
+  TInputAstNode extends AstNode,
+  TOutputAstNode extends AstNode = AstNode
+> implements AstVisitor<TInputAstNode, TOutputAstNode>
 {
-  constructor(private readonly visitors: Partial<AstVisitor<TAstNode>>) {}
+  constructor(private readonly visitors: Partial<AstVisitor<TInputAstNode>>) {}
 
-  visitNode<T extends TAstNode>(node: T, path: TAstNode[]) {
+  visitNode<T extends TInputAstNode>(node: T, path: TInputAstNode[]) {
     // This is safe. TypeScript just doesn't understand it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const specificResult = (this.visitors[`visit${node.__type}`] as any)?.(
@@ -251,12 +270,12 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
       path
     )
     const genericResult = this.visitors.visitNode?.(node, path)
-    return (specificResult ?? genericResult) as T | void
+    return specificResult ?? genericResult ?? node
   }
 
   private descendIntoNode<T extends AstNode>(
     node: T,
-    path: TAstNode[]
+    path: TInputAstNode[]
   ): T | void {
     // This is safe. TypeScript just doesn't understand it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -264,25 +283,25 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitAssignment(
-    node: TAstNode & { __type: 'Assignment' },
-    path: TAstNode[]
-  ): void | (TAstNode & { __type: 'Assignment' }) {
+    node: TInputAstNode & { __type: 'Assignment' },
+    path: TInputAstNode[]
+  ) {
     node.left = this.descendIntoNode(node.left, [...path, node]) ?? node.left
     node.right = this.descendIntoNode(node.right, [...path, node]) ?? node.right
     return this.visitNode(node, path)
   }
 
   visitAnonymousType(
-    node: TAstNode & { __type: AnonymousTypeNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: AnonymousTypeNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.type = this.descendIntoNode(node.type, [...path, node]) ?? node.type
     return this.visitNode(node, path)
   }
 
   visitArgumentList(
-    node: TAstNode & { __type: ArgumentListNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: ArgumentListNode['__type'] },
+    path: TInputAstNode[]
   ) {
     let hasModifiedArguments = false
     const args: ExpressionNode[] = []
@@ -302,8 +321,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitBlock(
-    node: TAstNode & { __type: BlockNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: BlockNode['__type'] },
+    path: TInputAstNode[]
   ) {
     let hasModifiedStatements = false
     const statements: Statement[] = []
@@ -325,8 +344,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitBinaryExpression(
-    node: TAstNode & { __type: BinaryExpressionNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: BinaryExpressionNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.left = this.descendIntoNode(node.left, [...path, node]) ?? node.left
     node.right = this.descendIntoNode(node.right, [...path, node]) ?? node.right
@@ -334,27 +353,30 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitBoolean(
-    node: TAstNode & { __type: BooleanNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: BooleanNode['__type'] },
+    path: TInputAstNode[]
   ) {
     return this.visitNode(node, path)
   }
 
-  visitElse(node: TAstNode & { __type: ElseNode['__type'] }, path: TAstNode[]) {
+  visitElse(
+    node: TInputAstNode & { __type: ElseNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     node.body = this.descendIntoNode(node.body, [...path, node]) ?? node.body
     return this.visitNode(node, path)
   }
 
   visitFloatingPoint(
-    node: TAstNode & { __type: FloatingPointNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: FloatingPointNode['__type'] },
+    path: TInputAstNode[]
   ) {
     return this.visitNode(node, path)
   }
 
   visitFunctionCall(
-    node: TAstNode & { __type: FunctionCallNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: FunctionCallNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.callee =
       this.descendIntoNode(node.callee, [...path, node]) ?? node.callee
@@ -365,8 +387,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitFunctionExpression(
-    node: TAstNode & { __type: FunctionExpressionNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: FunctionExpressionNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.parameterList =
       this.descendIntoNode(node.parameterList, [...path, node]) ??
@@ -375,7 +397,10 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
     return this.visitNode(node, path)
   }
 
-  visitHTML(node: TAstNode & { __type: HTMLNode['__type'] }, path: TAstNode[]) {
+  visitHTML(
+    node: TInputAstNode & { __type: HTMLNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     let hasModifiedChildren = false
     const children: ExpressionNode[] = []
     for (const child of node.children) {
@@ -395,13 +420,16 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitInteger(
-    node: TAstNode & { __type: IntegerNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: IntegerNode['__type'] },
+    path: TInputAstNode[]
   ) {
     return this.visitNode(node, path)
   }
 
-  visitIf(node: TAstNode & { __type: IfNode['__type'] }, path: TAstNode[]) {
+  visitIf(
+    node: TInputAstNode & { __type: IfNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     node.condition =
       this.descendIntoNode(node.condition, [...path, node]) ?? node.condition
     node.body = this.descendIntoNode(node.body, [...path, node]) ?? node.body
@@ -412,15 +440,15 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitJsAsm(
-    node: TAstNode & { __type: JsAsmNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: JsAsmNode['__type'] },
+    path: TInputAstNode[]
   ) {
     return this.visitNode(node, path)
   }
 
   visitObjectLiteral(
-    node: TAstNode & { __type: ObjectLiteralNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: ObjectLiteralNode['__type'] },
+    path: TInputAstNode[]
   ) {
     let hasModifiedProperties = false
     const properties: ObjectPropertyNode[] = []
@@ -440,8 +468,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitPropertyAccess(
-    node: TAstNode & { __type: PropertyAccessNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: PropertyAccessNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.left = this.descendIntoNode(node.left, [...path, node]) ?? node.left
 
@@ -465,15 +493,15 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitString(
-    node: TAstNode & { __type: StringNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: StringNode['__type'] },
+    path: TInputAstNode[]
   ) {
     return this.visitNode(node, path)
   }
 
   visitUnaryExpression(
-    node: TAstNode & { __type: UnaryExpressionNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: UnaryExpressionNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.expression =
       this.descendIntoNode(node.expression, [...path, node]) ?? node.expression
@@ -481,16 +509,16 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitVariableAccess(
-    node: TAstNode & { __type: VariableAccessNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: VariableAccessNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.name = this.descendIntoNode(node.name, [...path, node]) ?? node.name
     return this.visitNode(node, path)
   }
 
   visitVariableAttributeList(
-    node: TAstNode & { __type: VariableAttributeListNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: VariableAttributeListNode['__type'] },
+    path: TInputAstNode[]
   ) {
     let hasModifiedAttributes = false
     const attributes: IdentifierNode[] = []
@@ -512,15 +540,15 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitIdentifier(
-    node: TAstNode & { __type: IdentifierNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: IdentifierNode['__type'] },
+    path: TInputAstNode[]
   ) {
     return this.visitNode(node, path)
   }
 
   visitMethodDefinition(
-    node: TAstNode & { __type: MethodDefinitionNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: MethodDefinitionNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.name = this.descendIntoNode(node.name, [...path, node]) ?? node.name
     node.parameterList =
@@ -535,8 +563,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitNamedType(
-    node: TAstNode & { __type: NamedTypeNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: NamedTypeNode['__type'] },
+    path: TInputAstNode[]
   ) {
     let hasModifiedGenerics = false
     const genericArguments: TypeNode[] = []
@@ -558,8 +586,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitObjectProperty(
-    node: TAstNode & { __type: ObjectPropertyNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: ObjectPropertyNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.key = this.descendIntoNode(node.key, [...path, node]) ?? node.key
     node.value = this.descendIntoNode(node.value, [...path, node]) ?? node.value
@@ -567,8 +595,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitObjectType(
-    node: TAstNode & { __type: ObjectTypeNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: ObjectTypeNode['__type'] },
+    path: TInputAstNode[]
   ) {
     let hasModifiedProperties = false
     const properties: TypePropertyNode[] = []
@@ -591,8 +619,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitParameterList(
-    node: TAstNode & { __type: ParameterListNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: ParameterListNode['__type'] },
+    path: TInputAstNode[]
   ) {
     let hasModifiedParameters = false
     const parameters: ParameterNode[] = []
@@ -615,8 +643,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitParameter(
-    node: TAstNode & { __type: ParameterNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: ParameterNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.name = this.descendIntoNode(node.name, [...path, node]) ?? node.name
     node.type = node.type
@@ -625,7 +653,7 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
     return this.visitNode(node, path)
   }
 
-  visitProgram(node: TAstNode & { __type: ProgramNode['__type'] }) {
+  visitProgram(node: TInputAstNode & { __type: ProgramNode['__type'] }) {
     let hasModifiedStatements = false
     const statements: (TypeDefinitionNode | Statement)[] = []
 
@@ -647,24 +675,24 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitPropertyKey(
-    node: TAstNode & { __type: PropertyKeyNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: PropertyKeyNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.value = this.descendIntoNode(node.value, [...path, node]) ?? node.value
     return this.visitNode(node, path)
   }
 
   visitRender(
-    node: TAstNode & { __type: RenderNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: RenderNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.body = this.descendIntoNode(node.body, [...path, node]) ?? node.body
     return this.visitNode(node, path)
   }
 
   visitTypeDefinition(
-    node: TAstNode & { __type: TypeDefinitionNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: TypeDefinitionNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.name = this.descendIntoNode(node.name, [...path, node]) ?? node.name
     node.type = this.descendIntoNode(node.type, [...path, node]) ?? node.type
@@ -672,15 +700,18 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitTypeProperty(
-    node: TAstNode & { __type: TypePropertyNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: TypePropertyNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.name = this.descendIntoNode(node.name, [...path, node]) ?? node.name
     node.type = this.descendIntoNode(node.type, [...path, node]) ?? node.type
     return this.visitNode(node, path)
   }
 
-  visitUse(node: TAstNode & { __type: UseNode['__type'] }, path: TAstNode[]) {
+  visitUse(
+    node: TInputAstNode & { __type: UseNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     let hasModifiedSelectors = false
     const selectors: UseSelectorNode[] = []
     for (const selector of node.selectors) {
@@ -700,8 +731,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitUseSelector(
-    node: TAstNode & { __type: UseSelectorNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: UseSelectorNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.name = isNodeType('Identifier')(node.name)
       ? this.descendIntoNode(node.name, [...path, node]) ?? node.name
@@ -713,8 +744,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitVariableDeclaration(
-    node: TAstNode & { __type: VariableDeclarationNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: VariableDeclarationNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.identifier =
       this.descendIntoNode(node.identifier, [...path, node]) ?? node.identifier
@@ -728,8 +759,8 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 
   visitWhile(
-    node: TAstNode & { __type: WhileNode['__type'] },
-    path: TAstNode[]
+    node: TInputAstNode & { __type: WhileNode['__type'] },
+    path: TInputAstNode[]
   ) {
     node.condition =
       this.descendIntoNode(node.condition, [...path, node]) ?? node.condition
@@ -738,22 +769,28 @@ export class DepthFirstVisitor<TAstNode extends AstNode>
   }
 }
 
-export class CustomOrderVisitor<TAstNode extends AstNode>
-  implements AstVisitor<TAstNode, void>
+export class CustomOrderVisitor<
+  TInputAstNode extends AstNode,
+  TOutputAstNode extends AstNode = TInputAstNode
+> implements AstVisitor<TInputAstNode, TOutputAstNode>
 {
-  constructor(private readonly visitors: Partial<AstVisitor<TAstNode, void>>) {}
+  constructor(
+    private readonly visitors: Partial<
+      AstVisitor<TInputAstNode, TOutputAstNode | void>
+    >
+  ) {}
 
-  private hasCustomVisitor<T extends TAstNode>(node: T) {
+  private hasCustomVisitor<T extends TInputAstNode>(node: T) {
     return this.visitors[`visit${node['__type']}`]
   }
 
-  descendIntoNode<T extends AstNode>(node: T, path: TAstNode[]): T | void {
+  descendIntoNode<T extends AstNode>(node: T, path: TInputAstNode[]): T | void {
     // This is safe. TypeScript just doesn't understand it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (this[`visit${node.__type}`] as any)(node, path)
   }
 
-  visitNode<T extends TAstNode>(node: T, path: TAstNode[]) {
+  visitNode<T extends TInputAstNode>(node: T, path: TInputAstNode[]) {
     // This is safe. TypeScript just doesn't understand it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const specificResult = (this.visitors[`visit${node.__type}`] as any)?.(
@@ -761,51 +798,52 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
       path
     )
     const genericResult = this.visitors.visitNode?.(node, path)
-    return (specificResult ?? genericResult) as T | void
+    return specificResult ?? genericResult ?? node
   }
 
   visitAnonymousType(
-    node: TAstNode & { __type: AnonymousTypeNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: AnonymousTypeNode['__type'] }) | void {
+    node: TInputAstNode & { __type: AnonymousTypeNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, path)
     }
 
-    const result = this.visitNode(node, path)
-    const anonymousType = result ?? node
+    const anonymousType = this.visitNode(node, path)
     node.type =
       this.descendIntoNode(anonymousType.type, [...path, node]) ?? node.type
-    return result
+    return anonymousType
   }
 
   visitArgumentList(
-    node: TAstNode & { __type: ArgumentListNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ArgumentListNode['__type'] }) | void {
+    node: TInputAstNode & { __type: ArgumentListNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitAssignment(
-    node: TAstNode & { __type: AssignmentNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: AssignmentNode['__type'] }) | void {
+    node: TInputAstNode & { __type: AssignmentNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitBinaryExpression(
-    node: TAstNode & { __type: BinaryExpressionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ExpressionNode['__type'] }) | void {
+    node: TInputAstNode & { __type: BinaryExpressionNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitBlock(
-    node: TAstNode & { __type: BlockNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: BlockNode['__type'] }) | void {
-    const result = this.visitNode(node, path)
-    const block = result ?? node
+    node: TInputAstNode & { __type: BlockNode['__type'] },
+    path: TInputAstNode[]
+  ) {
+    const block = this.visitNode(node, path)
 
     let hasModifiedStatements = false
     const statements: Statement[] = []
@@ -823,111 +861,121 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
       block.statements = statements
     }
 
-    return result
+    return block
   }
 
   visitBoolean(
-    node: TAstNode & { __type: BooleanNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: BooleanNode['__type'] }) | void {
+    node: TInputAstNode & { __type: BooleanNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     return this.visitNode(node, path)
   }
 
   visitElse(
-    node: TAstNode & { __type: ElseNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ElseNode['__type'] }) | void {
+    node: TInputAstNode & { __type: ElseNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitFloatingPoint(
-    node: TAstNode & { __type: FloatingPointNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: FloatingPointNode['__type'] }) | void {
+    node: TInputAstNode & { __type: FloatingPointNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     return this.visitNode(node, path)
   }
 
   visitFunctionCall(
-    node: TAstNode & { __type: FunctionCallNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: FunctionCallNode['__type'] }) | void {
+    node: TInputAstNode & { __type: FunctionCallNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitFunctionExpression(
-    node: TAstNode & { __type: FunctionExpressionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: FunctionExpressionNode['__type'] }) | void {
+    node: TInputAstNode & { __type: FunctionExpressionNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitHTML(
-    node: TAstNode & { __type: HTMLNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: HTMLNode['__type'] }) | void {
+    node: TInputAstNode & { __type: HTMLNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitIdentifier(
-    node: TAstNode & { __type: IdentifierNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: IdentifierNode['__type'] }) | void {
+    node: TInputAstNode & { __type: IdentifierNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     return this.visitNode(node, path)
   }
 
   visitIf(
-    node: TAstNode & { __type: IfNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: IfNode['__type'] }) | void {
+    node: TInputAstNode & { __type: IfNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitInteger(
-    node: TAstNode & { __type: IntegerNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: IntegerNode['__type'] }) | void {
+    node: TInputAstNode & { __type: IntegerNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     return this.visitNode(node, path)
   }
 
   visitJsAsm(
-    node: TAstNode & { __type: JsAsmNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: JsAsmNode['__type'] }) | void {
+    node: TInputAstNode & { __type: JsAsmNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitMethodDefinition(
-    node: TAstNode & { __type: MethodDefinitionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: MethodDefinitionNode['__type'] }) | void {
+    node: TInputAstNode & { __type: MethodDefinitionNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitNamedType(
-    node: TAstNode & { __type: NamedTypeNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: NamedTypeNode['__type'] }) | void {
+    node: TInputAstNode & { __type: NamedTypeNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitObjectLiteral(
-    node: TAstNode & { __type: ObjectLiteralNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ObjectLiteralNode['__type'] }) | void {
+    node: TInputAstNode & { __type: ObjectLiteralNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitObjectProperty(
-    node: TAstNode & { __type: ObjectPropertyNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ObjectPropertyNode['__type'] }) | void {
+    node: TInputAstNode & { __type: ObjectPropertyNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitObjectType(
-    node: TAstNode & { __type: ObjectTypeNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ObjectTypeNode['__type'] }) | void {
+    node: TInputAstNode & { __type: ObjectTypeNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, path)
     }
@@ -952,22 +1000,22 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
   }
 
   visitParameter(
-    node: TAstNode & { __type: ParameterNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ParameterNode['__type'] }) | void {
+    node: TInputAstNode & { __type: ParameterNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitParameterList(
-    node: TAstNode & { __type: ParameterListNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: ParameterListNode['__type'] }) | void {
+    node: TInputAstNode & { __type: ParameterListNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
-  visitProgram(
-    node: TAstNode & { __type: ProgramNode['__type'] }
-  ): (TAstNode & { __type: ProgramNode['__type'] }) | void {
+  visitProgram(node: TInputAstNode & { __type: ProgramNode['__type'] }) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, [])
     }
@@ -1012,23 +1060,25 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
   }
 
   visitPropertyAccess(
-    node: TAstNode & { __type: PropertyAccessNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: PropertyAccessNode['__type'] }) | void {
+    node: TInputAstNode & { __type: PropertyAccessNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitPropertyKey(
-    node: TAstNode & { __type: PropertyKeyNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: PropertyKeyNode['__type'] }) | void {
+    node: TInputAstNode & { __type: PropertyKeyNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitRender(
-    node: TAstNode & { __type: RenderNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: RenderNode['__type'] }) | void {
+    node: TInputAstNode & { __type: RenderNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, path)
     }
@@ -1039,37 +1089,40 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
   }
 
   visitString(
-    node: TAstNode & { __type: StringNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: StringNode['__type'] }) | void {
+    node: TInputAstNode & { __type: StringNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     return this.visitNode(node, path)
   }
 
   visitTypeDefinition(
-    node: TAstNode & { __type: TypeDefinitionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: TypeDefinitionNode['__type'] }) | void {
+    node: TInputAstNode & { __type: TypeDefinitionNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitTypeProperty(
-    node: TAstNode & { __type: TypePropertyNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: TypePropertyNode['__type'] }) | void {
+    node: TInputAstNode & { __type: TypePropertyNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitUnaryExpression(
-    node: TAstNode & { __type: UnaryExpressionNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: UnaryExpressionNode['__type'] }) | void {
+    node: TInputAstNode & { __type: UnaryExpressionNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitUse(
-    node: TAstNode & { __type: UseNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: UseNode['__type'] }) | void {
+    node: TInputAstNode & { __type: UseNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, path)
     }
@@ -1097,16 +1150,17 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
   }
 
   visitUseSelector(
-    node: TAstNode & { __type: UseSelectorNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: UseSelectorNode['__type'] }) | void {
+    node: TInputAstNode & { __type: UseSelectorNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 
   visitVariableAccess(
-    node: TAstNode & { __type: VariableAccessNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: VariableAccessNode['__type'] }) | void {
+    node: TInputAstNode & { __type: VariableAccessNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, path)
     }
@@ -1119,9 +1173,9 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
   }
 
   visitVariableAttributeList(
-    node: TAstNode & { __type: VariableAttributeListNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: VariableAttributeListNode['__type'] }) | void {
+    node: TInputAstNode & { __type: VariableAttributeListNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, path)
     }
@@ -1148,9 +1202,9 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
   }
 
   visitVariableDeclaration(
-    node: TAstNode & { __type: VariableDeclarationNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: VariableDeclarationNode['__type'] }) | void {
+    node: TInputAstNode & { __type: VariableDeclarationNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     if (this.hasCustomVisitor(node)) {
       return this.visitNode(node, path)
     }
@@ -1184,9 +1238,10 @@ export class CustomOrderVisitor<TAstNode extends AstNode>
   }
 
   visitWhile(
-    node: TAstNode & { __type: WhileNode['__type'] },
-    path: TAstNode[]
-  ): (TAstNode & { __type: WhileNode['__type'] }) | void {
+    node: TInputAstNode & { __type: WhileNode['__type'] },
+    path: TInputAstNode[]
+  ) {
     throw new Error('Method not implemented.')
+    return node
   }
 }

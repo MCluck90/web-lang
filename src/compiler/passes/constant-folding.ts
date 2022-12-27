@@ -13,7 +13,7 @@ export type Input = ProgramNode
 export type Output = ProgramNode
 
 export const constantFolding = (program: Input): Output => {
-  const foldConstants = (node: BinaryExpressionNode): ExpressionNode | void => {
+  const foldConstants = (node: BinaryExpressionNode): ExpressionNode => {
     const left = isNodeType('BinaryExpression')(node.left)
       ? foldConstants(node.left)
       : node.left
@@ -46,6 +46,7 @@ export const constantFolding = (program: Input): Output => {
           return createFloatingPointNode(left.value / right.value)
       }
     }
+    return node
   }
   const visitor = new DepthFirstVisitor<AstNode>({
     visitBinaryExpression: foldConstants,

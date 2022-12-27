@@ -30,28 +30,27 @@ import {
   VariableAttributeListNode,
   VariableDeclarationNode,
 } from '../../parser/ast'
-import { AstMapper } from '../../utils/ast-visitor'
+import { AstReducer } from '../../utils/ast-visitor'
 import { JSModule } from '../index.types'
 
 const buildPath = (node: AstNode, path: AstNode[]) => [...path, node]
 
-const jsEmitterVisitor: AstMapper<string> = {
+const jsEmitter: AstReducer<string> = {
   visitNode<T extends AstNode>(node: T, path: AstNode[]) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (jsEmitterVisitor[`visit${node.__type}`] as any)(node as never, path)
+    return (jsEmitter[`visit${node.__type}`] as any)(node as never, path)
   },
   visitProgram(node: ProgramNode) {
     // TODO: Handle `render` section
     const useStatements = node.useStatements.reduce(
-      (acc, statement) =>
-        acc + `${jsEmitterVisitor.visitNode(statement, [node])};\n`,
+      (acc, statement) => acc + `${jsEmitter.visitNode(statement, [node])};\n`,
       ''
     )
     return (
       useStatements +
       node.statements.reduce(
         (acc, statement) =>
-          acc + `${jsEmitterVisitor.visitNode(statement, [node])};\n`,
+          acc + `${jsEmitter.visitNode(statement, [node])};\n`,
         ''
       )
     )
@@ -268,7 +267,7 @@ const jsEmitterVisitor: AstMapper<string> = {
 }
 
 export const emitJs = (program: ProgramNode): JSModule | null => {
-  const contents = jsEmitterVisitor.visitProgram(program)
+  const contents = jsEmitter.visitProgram(program)
   if (typeof contents !== 'string' || contents.length === 0) {
     return null
   }
