@@ -784,13 +784,13 @@ export class CustomOrderVisitor<
     return this.visitors[`visit${node['__type']}`]
   }
 
-  descendIntoNode<T extends AstNode>(node: T, path: TInputAstNode[]): T | void {
+  descendIntoNode<T extends AstNode>(node: T, path: TInputAstNode[]): T {
     // This is safe. TypeScript just doesn't understand it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (this[`visit${node.__type}`] as any)(node, path)
+    return (this[`visit${node.__type}`] as any)(node, path) ?? node
   }
 
-  visitNode<T extends TInputAstNode>(node: T, path: TInputAstNode[]) {
+  visitNode<T extends TInputAstNode>(node: T, path: TInputAstNode[]): T {
     // This is safe. TypeScript just doesn't understand it
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const specificResult = (this.visitors[`visit${node.__type}`] as any)?.(
@@ -810,8 +810,7 @@ export class CustomOrderVisitor<
     }
 
     const anonymousType = this.visitNode(node, path)
-    node.type =
-      this.descendIntoNode(anonymousType.type, [...path, node]) ?? node.type
+    node.type = this.descendIntoNode(anonymousType.type, [...path, node])
     return anonymousType
   }
 
@@ -819,48 +818,69 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: ArgumentListNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const argumentList = this.visitNode(node, path)
+    argumentList.arguments = argumentList.arguments.map((arg) =>
+      this.descendIntoNode(arg, [...path, argumentList])
+    )
+    return argumentList
   }
 
   visitAssignment(
     node: TInputAstNode & { __type: AssignmentNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const assignment = this.visitNode(node, path)
+    assignment.left = this.descendIntoNode(assignment.left, [
+      ...path,
+      assignment,
+    ])
+    assignment.right = this.descendIntoNode(assignment.right, [
+      ...path,
+      assignment,
+    ])
+    return assignment
   }
 
   visitBinaryExpression(
     node: TInputAstNode & { __type: BinaryExpressionNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const binaryExpression = this.visitNode(node, path)
+    binaryExpression.left = this.descendIntoNode(binaryExpression.left, [
+      ...path,
+      binaryExpression,
+    ])
+    binaryExpression.right = this.descendIntoNode(binaryExpression.right, [
+      ...path,
+      binaryExpression,
+    ])
+    return binaryExpression
   }
 
   visitBlock(
     node: TInputAstNode & { __type: BlockNode['__type'] },
     path: TInputAstNode[]
   ) {
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
     const block = this.visitNode(node, path)
-
-    let hasModifiedStatements = false
-    const statements: Statement[] = []
-    for (const statement of block.statements) {
-      const statementResult = this.descendIntoNode(statement, [...path, node])
-      if (statementResult) {
-        hasModifiedStatements = true
-        statements.push(statementResult)
-      } else {
-        statements.push(statement)
-      }
-    }
-
-    if (hasModifiedStatements) {
-      block.statements = statements
-    }
-
+    block.statements = block.statements.map((s) =>
+      this.descendIntoNode(s, [...path, block])
+    )
     return block
   }
 
@@ -875,8 +895,13 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: ElseNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const else_ = this.visitNode(node, path)
+    else_.body = this.descendIntoNode(else_.body, [...path, else_])
+    return else_
   }
 
   visitFloatingPoint(
@@ -890,24 +915,55 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: FunctionCallNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const functionCall = this.visitNode(node, path)
+    functionCall.callee = this.descendIntoNode(functionCall.callee, [
+      ...path,
+      functionCall,
+    ])
+    functionCall.argumentList = this.descendIntoNode(
+      functionCall.argumentList,
+      [...path, functionCall]
+    )
+    return functionCall
   }
 
   visitFunctionExpression(
     node: TInputAstNode & { __type: FunctionExpressionNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const functionExpression = this.visitNode(node, path)
+    functionExpression.parameterList = this.descendIntoNode(
+      functionExpression.parameterList,
+      [...path, functionExpression]
+    )
+    functionExpression.body = this.descendIntoNode(functionExpression.body, [
+      ...path,
+      functionExpression,
+    ])
+    return functionExpression
   }
 
   visitHTML(
     node: TInputAstNode & { __type: HTMLNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const html = this.visitNode(node, path)
+    html.children = html.children.map((c) =>
+      this.descendIntoNode(c, [...path, html])
+    )
+    return html
   }
 
   visitIdentifier(
@@ -921,8 +977,14 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: IfNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const if_ = this.visitNode(node, path)
+    if_.condition = this.descendIntoNode(if_.condition, [...path, node])
+    if_.body = this.descendIntoNode(if_.body, [...path, node])
+    return if_
   }
 
   visitInteger(
@@ -936,40 +998,84 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: JsAsmNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    return this.visitNode(node, path)
   }
 
   visitMethodDefinition(
     node: TInputAstNode & { __type: MethodDefinitionNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const methodDefinition = this.visitNode(node, path)
+    methodDefinition.name = this.descendIntoNode(methodDefinition.name, [
+      ...path,
+      node,
+    ])
+    methodDefinition.parameterList = this.descendIntoNode(
+      methodDefinition.parameterList,
+      [...path, node]
+    )
+    methodDefinition.returnType = methodDefinition.returnType
+      ? this.descendIntoNode(methodDefinition.returnType, [...path, node])
+      : null
+    methodDefinition.body = this.descendIntoNode(methodDefinition.body, [
+      ...path,
+      node,
+    ])
+    return methodDefinition
   }
 
   visitNamedType(
     node: TInputAstNode & { __type: NamedTypeNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const namedType = this.visitNode(node, path)
+    namedType.genericArguments = namedType.genericArguments.map((g) =>
+      this.descendIntoNode(g, [...path, namedType])
+    )
+    return namedType
   }
 
   visitObjectLiteral(
     node: TInputAstNode & { __type: ObjectLiteralNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const objectLiteral = this.visitNode(node, path)
+    objectLiteral.properties = objectLiteral.properties.map((prop) =>
+      this.descendIntoNode(prop, [...path, objectLiteral])
+    )
+    return objectLiteral
   }
 
   visitObjectProperty(
     node: TInputAstNode & { __type: ObjectPropertyNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const objectProperty = this.visitNode(node, path)
+    objectProperty.key = this.descendIntoNode(objectProperty.key, [
+      ...path,
+      objectProperty,
+    ])
+    objectProperty.value = this.descendIntoNode(objectProperty.value, [
+      ...path,
+      objectProperty,
+    ])
+    return objectProperty
   }
 
   visitObjectType(
@@ -980,39 +1086,42 @@ export class CustomOrderVisitor<
       return this.visitNode(node, path)
     }
 
-    const result = this.visitNode(node, path)
-    let hasModifiedProperties = false
-    const typeProperties: TypePropertyNode[] = []
-    for (const property of node.properties) {
-      const propertyResult = this.descendIntoNode(property, [...path, node])
-      if (propertyResult) {
-        hasModifiedProperties = true
-        typeProperties.push(propertyResult)
-      } else {
-        typeProperties.push(property)
-      }
-    }
-
-    if (hasModifiedProperties) {
-      node.properties = typeProperties
-    }
-    return result
+    const objectType = this.visitNode(node, path)
+    objectType.properties = objectType.properties.map((p) =>
+      this.descendIntoNode(p, [...path, objectType])
+    )
+    return objectType
   }
 
   visitParameter(
     node: TInputAstNode & { __type: ParameterNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const parameter = this.visitNode(node, path)
+    parameter.name = this.descendIntoNode(parameter.name, [...path, parameter])
+    parameter.type = parameter.type
+      ? this.descendIntoNode(parameter.type, [...path, parameter])
+      : null
+    return parameter
   }
 
   visitParameterList(
     node: TInputAstNode & { __type: ParameterListNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const parameterList = this.visitNode(node, path)
+    parameterList.parameters = parameterList.parameters.map((p) =>
+      this.descendIntoNode(p, [...path, parameterList])
+    )
+    return parameterList
   }
 
   visitProgram(node: TInputAstNode & { __type: ProgramNode['__type'] }) {
@@ -1020,50 +1129,36 @@ export class CustomOrderVisitor<
       return this.visitNode(node, [])
     }
 
-    const result = this.visitNode(node, [])
-    const program = result ?? node
-    let hasModifiedUseStatements = false
-    const useStatements: UseNode[] = []
-    for (const useStatement of program.useStatements) {
-      const useStatementResult = this.descendIntoNode(useStatement, [program])
-      if (useStatementResult) {
-        hasModifiedUseStatements = true
-        useStatements.push(useStatementResult)
-      } else {
-        useStatements.push(useStatement)
-      }
-    }
-
-    program.useStatements = hasModifiedUseStatements
-      ? useStatements
-      : program.useStatements
-
-    let hasModifiedStatements = false
-    const statements: (Statement | TypeDefinitionNode)[] = []
-    for (const statement of program.statements) {
-      const statementResult = this.descendIntoNode(statement, [program])
-      if (statementResult) {
-        hasModifiedStatements = true
-        statements.push(statementResult)
-      } else {
-        statements.push(statement)
-      }
-    }
-
-    program.statements = hasModifiedStatements ? statements : program.statements
-
+    const program = this.visitNode(node, [])
+    program.useStatements = program.useStatements.map((s) =>
+      this.descendIntoNode(s, [program])
+    )
+    program.statements = program.statements.map((s) =>
+      this.descendIntoNode(s, [program])
+    )
     program.render = program.render
       ? this.descendIntoNode(program.render, [program]) ?? program.render
       : program.render
 
-    return result
+    return program
   }
 
   visitPropertyAccess(
     node: TInputAstNode & { __type: PropertyAccessNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const propertyAccess = this.visitNode(node, path)
+    propertyAccess.left = this.descendIntoNode(propertyAccess.left, [
+      ...path,
+      propertyAccess,
+    ])
+    propertyAccess.rights = propertyAccess.rights.map((r) =>
+      this.descendIntoNode(r, [...path, propertyAccess])
+    )
     return node
   }
 
@@ -1071,8 +1166,16 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: PropertyKeyNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const propertyKey = this.visitNode(node, path)
+    propertyKey.value = this.descendIntoNode(propertyKey.value, [
+      ...path,
+      propertyKey,
+    ])
+    return propertyKey
   }
 
   visitRender(
@@ -1083,9 +1186,9 @@ export class CustomOrderVisitor<
       return this.visitNode(node, path)
     }
 
-    const result = this.visitNode(node, path)
-    node.body = this.descendIntoNode(node.body, [...path, node]) ?? node.body
-    return result
+    const render = this.visitNode(node, path)
+    render.body = this.descendIntoNode(render.body, [...path, render])
+    return render
   }
 
   visitString(
@@ -1099,24 +1202,50 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: TypeDefinitionNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const typeDef = this.visitNode(node, path)
+    typeDef.name = this.descendIntoNode(typeDef.name, [...path, typeDef])
+    typeDef.type = this.descendIntoNode(typeDef.type, [...path, typeDef])
+    return typeDef
   }
 
   visitTypeProperty(
     node: TInputAstNode & { __type: TypePropertyNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const typeProperty = this.visitNode(node, path)
+    typeProperty.name = this.descendIntoNode(typeProperty.name, [
+      ...path,
+      typeProperty,
+    ])
+    typeProperty.type = this.descendIntoNode(typeProperty.type, [
+      ...path,
+      typeProperty,
+    ])
+    return typeProperty
   }
 
   visitUnaryExpression(
     node: TInputAstNode & { __type: UnaryExpressionNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const unaryExpression = this.visitNode(node, path)
+    unaryExpression.expression = this.descendIntoNode(
+      unaryExpression.expression,
+      [...path, unaryExpression]
+    )
+    return unaryExpression
   }
 
   visitUse(
@@ -1127,34 +1256,31 @@ export class CustomOrderVisitor<
       return this.visitNode(node, path)
     }
 
-    const result = this.visitNode(node, path)
-    const useStatement = result ?? node
-
-    let hasModifiedSelectors = false
-    const selectors: UseSelectorNode[] = []
-    for (const selector of useStatement.selectors) {
-      const selectorResult = this.descendIntoNode(selector, [...path, node])
-      if (selectorResult) {
-        hasModifiedSelectors = true
-        selectors.push(selectorResult)
-      } else {
-        selectors.push(selector)
-      }
-    }
-
-    if (hasModifiedSelectors) {
-      useStatement.selectors = selectors
-    }
-
-    return result
+    const useStatement = this.visitNode(node, path)
+    useStatement.selectors = useStatement.selectors.map((s) =>
+      this.descendIntoNode(s, [...path, useStatement])
+    )
+    return useStatement
   }
 
   visitUseSelector(
     node: TInputAstNode & { __type: UseSelectorNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const useSelector = this.visitNode(node, path)
+    useSelector.name =
+      typeof useSelector.name !== 'string'
+        ? this.descendIntoNode(useSelector.name, [...path, useSelector])
+        : useSelector.name
+    useSelector.alias =
+      useSelector.alias !== null
+        ? this.descendIntoNode(useSelector.alias, [...path, useSelector])
+        : useSelector.alias
+    return useSelector
   }
 
   visitVariableAccess(
@@ -1165,7 +1291,7 @@ export class CustomOrderVisitor<
       return this.visitNode(node, path)
     }
 
-    const variableAccess = this.visitNode(node, path) ?? node
+    const variableAccess = this.visitNode(node, path)
     variableAccess.name =
       this.descendIntoNode(variableAccess.name, [...path, variableAccess]) ??
       variableAccess.name
@@ -1180,24 +1306,10 @@ export class CustomOrderVisitor<
       return this.visitNode(node, path)
     }
 
-    const variableAttributeList = this.visitNode(node, path) ?? node
-
-    let hasModifiedAttributes = false
-    const attributes: IdentifierNode[] = []
-    for (const attribute of attributes) {
-      const result = this.descendIntoNode(attribute, [...path, node])
-      if (result) {
-        hasModifiedAttributes = true
-        attributes.push(result)
-      } else {
-        attributes.push(attribute)
-      }
-    }
-
-    if (hasModifiedAttributes) {
-      variableAttributeList.attributes = attributes
-    }
-
+    const variableAttributeList = this.visitNode(node, path)
+    variableAttributeList.attributes = variableAttributeList.attributes.map(
+      (attr) => this.descendIntoNode(attr, [...path, variableAttributeList])
+    )
     return variableAttributeList
   }
 
@@ -1209,31 +1321,18 @@ export class CustomOrderVisitor<
       return this.visitNode(node, path)
     }
 
-    const variableDeclaration = this.visitNode(node, path) ?? node
-    let hasModifiedAttributeLists = false
-    const attributeLists: VariableAttributeListNode[] = []
-    for (const attrList of node.attributeLists) {
-      const result = this.descendIntoNode(attrList, [...path, node])
-      if (result) {
-        hasModifiedAttributeLists = true
-        attributeLists.push(result)
-      } else {
-        attributeLists.push(attrList)
-      }
-    }
-
-    if (hasModifiedAttributeLists) {
-      variableDeclaration.attributeLists = attributeLists
-    }
-
-    variableDeclaration.identifier =
-      this.descendIntoNode(variableDeclaration.identifier, [...path, node]) ??
-      variableDeclaration.identifier
-    variableDeclaration.initializer =
-      this.descendIntoNode(variableDeclaration.initializer, [
-        ...path,
-        variableDeclaration,
-      ]) ?? variableDeclaration.initializer
+    const variableDeclaration = this.visitNode(node, path)
+    variableDeclaration.attributeLists = variableDeclaration.attributeLists.map(
+      (a) => this.descendIntoNode(a, [...path, variableDeclaration])
+    )
+    variableDeclaration.identifier = this.descendIntoNode(
+      variableDeclaration.identifier,
+      [...path, node]
+    )
+    variableDeclaration.initializer = this.descendIntoNode(
+      variableDeclaration.initializer,
+      [...path, variableDeclaration]
+    )
     return variableDeclaration
   }
 
@@ -1241,7 +1340,13 @@ export class CustomOrderVisitor<
     node: TInputAstNode & { __type: WhileNode['__type'] },
     path: TInputAstNode[]
   ) {
-    throw new Error('Method not implemented.')
-    return node
+    if (this.hasCustomVisitor(node)) {
+      return this.visitNode(node, path)
+    }
+
+    const while_ = this.visitNode(node, path)
+    while_.condition = this.descendIntoNode(while_.condition, [...path, while_])
+    while_.body = this.descendIntoNode(while_.body, [...path, while_])
+    return while_
   }
 }
