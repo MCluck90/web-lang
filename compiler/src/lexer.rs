@@ -2,6 +2,7 @@ use chumsky::prelude::*;
 use core::fmt;
 
 pub type Span = std::ops::Range<usize>;
+pub type Spanned<T> = (T, Span);
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum BuiltInTypeToken {
@@ -131,7 +132,7 @@ impl fmt::Display for Token {
     }
 }
 
-pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
+pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     let num = text::int::<char, Simple<char>>(10).map(Token::Integer);
 
     // Grouping or delimiting marker
@@ -150,11 +151,19 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         just("~").to(Token::PackagePathMarker),
     ));
 
-    let string_ = just('\'')
+    let single_quote_string = just('\'')
         .ignore_then(filter(|c| *c != '\'').repeated())
         .then_ignore(just('\''))
         .collect::<String>()
         .map(Token::String);
+
+    let double_quote_string = just('"')
+        .ignore_then(filter(|c| *c != '"').repeated())
+        .then_ignore(just('"'))
+        .collect::<String>()
+        .map(Token::String);
+
+    let string_ = single_quote_string.or(double_quote_string);
 
     let operator = choice::<_, Simple<char>>((
         just::<char, _, Simple<char>>('+').to(Token::Operator(Operator::Add)),

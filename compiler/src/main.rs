@@ -1,21 +1,36 @@
 mod lexer;
+mod parser;
 
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
-use chumsky::prelude::*;
+use chumsky::{prelude::*, Stream};
 use lexer::lexer;
+use parser::main_parser;
 
 fn main() {
     let src = std::fs::read_to_string(std::env::args().nth(1).unwrap()).unwrap();
-    let (tokens, tokenization_errors) = lexer().parse_recovery(src.as_str());
-    if let Some(tokens) = tokens {
-        for token in tokens {
-            println!("Token: {:?}", token)
-        }
-    }
+    let (tokens, errors) = lexer().parse_recovery(src.as_str());
+    let parse_errors = if let Some(tokens) = tokens {
+        let len = src.chars().count();
+        let (ast, parse_errs) =
+            main_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
-    tokenization_errors
+        if let Some(ast) = ast {
+            println!("{:?}", ast);
+        }
+
+        parse_errs
+    } else {
+        Vec::new()
+    };
+
+    errors
         .into_iter()
         .map(|e| e.map(|c| c.to_string()))
+        .chain(
+            parse_errors
+                .into_iter()
+                .map(|e| e.map(|token| token.to_string())),
+        )
         .for_each(|e| {
             let report = Report::build(ReportKind::Error, (), e.span().start);
 
