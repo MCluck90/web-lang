@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::lexer::*;
 use chumsky::prelude::*;
 
@@ -23,32 +21,33 @@ pub enum Expression {
     Integer(i64),
     String(String),
 
+    // Ex: `Todo { title: "Write a compiler" }`
+    // ObjectLiteral(String, HashMap<String, Expression>),
     VariableDeclaration {
         is_mutable: bool,
         identifier: String,
         initializer: Box<Expression>,
-    },
-
-    UnaryExpression(Operator, Box<Expression>),
-    BinaryExpression(Box<Expression>, Operator, Box<Expression>),
-    FunctionCall {
-        callee: Box<Expression>,
-        arguments: Vec<Expression>,
     },
     FunctionDefinition {
         name: String,
         parameters: Vec<Parameter>,
         body: Block,
     },
-    AnonymousFunction {
-        parameters: Vec<Parameter>,
-        body: Block,
+
+    // UnaryExpression(Operator, Box<Expression>),
+    BinaryExpression(Box<Expression>, Operator, Box<Expression>),
+    FunctionCall {
+        callee: Box<Expression>,
+        arguments: Vec<Expression>,
     },
+    // AnonymousFunction {
+    //     parameters: Vec<Parameter>,
+    //     body: Block,
+    // },
     If {
         condition: Box<Expression>,
         body: Block,
     },
-    ObjectLiteral(HashMap<String, Expression>),
 
     Error,
 }
@@ -77,6 +76,40 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
         }
         .labelled("identifier");
 
+        let parameters = identifier
+            .clone()
+            .map(|i| match i {
+                Expression::Identifier(i) => i,
+                _ => unreachable!(),
+            })
+            .then_ignore(just(Token::KeyValueSeparator))
+            .then(select! { Token::Identifier(i) => i, Token::BuiltInType(t) => format!("{}", t) })
+            .map(|(name, type_)| Parameter { name, type_ })
+            .separated_by(just(Token::ListSeparator))
+            .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
+            .map_with_span(|parameters, span| (parameters, span));
+
+        let block = expr
+            .clone()
+            .repeated()
+            .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock))
+            .map_with_span(|e, s| (e, s));
+
+        let function_definition = just(Token::Let)
+            .ignore_then(identifier.clone().map(|e| match e {
+                Expression::Identifier(i) => i,
+                _ => unreachable!(),
+            }))
+            .then(parameters)
+            .then(block)
+            .map(
+                |((name, parameters), body)| Expression::FunctionDefinition {
+                    name,
+                    parameters: parameters.0,
+                    body: body.0.into_iter().map(|(e, _)| e).collect(),
+                },
+            );
+
         let variable_declaration = just(Token::Let)
             .to(false)
             .or(just(Token::Mut).to(true))
@@ -96,6 +129,7 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
 
         let atom = value
             .or(identifier)
+            .or(function_definition)
             .or(variable_declaration)
             .map_with_span(|expr, span| (expr, span))
             // Attempt to recover anything that looks like a list but contains errors
@@ -248,6 +282,50 @@ fn can_parse_an_identifier() {
         .unwrap()
         .0;
     assert_eq!(expected, actual, "expected to parse an identifier");
+}
+
+#[test]
+fn can_parse_function_definitions() {
+    let expected = Expression::FunctionDefinition {
+        name: "add".into(),
+        parameters: vec![
+            Parameter {
+                name: "x".into(),
+                type_: "int".into(),
+            },
+            Parameter {
+                name: "y".into(),
+                type_: "int".into(),
+            },
+        ],
+        body: vec![Expression::BinaryExpression(
+            Box::new(Expression::Identifier("x".into())),
+            Operator::Add,
+            Box::new(Expression::Identifier("y".into())),
+        )],
+    };
+    let actual = expression_parser()
+        .parse(vec![
+            Token::Let,
+            Token::Identifier("add".into()),
+            Token::OpenParen,
+            Token::Identifier("x".into()),
+            Token::KeyValueSeparator,
+            Token::Identifier("int".into()),
+            Token::ListSeparator,
+            Token::Identifier("y".into()),
+            Token::KeyValueSeparator,
+            Token::Identifier("int".into()),
+            Token::CloseParen,
+            Token::OpenBlock,
+            Token::Identifier("x".into()),
+            Token::Operator(Operator::Add),
+            Token::Identifier("y".into()),
+            Token::CloseBlock,
+        ])
+        .unwrap()
+        .0;
+    assert_eq!(expected, actual, "expected to parse a function definition");
 }
 
 #[test]
