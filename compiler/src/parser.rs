@@ -5,8 +5,6 @@ pub fn main_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple<T
     expression_parser().then_ignore(end())
 }
 
-type Block = Vec<Expression>;
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Parameter {
     name: String,
@@ -20,6 +18,7 @@ pub enum Expression {
     Identifier(String),
     Integer(i64),
     String(String),
+    Block(Vec<Expression>),
 
     // Ex: `Todo { title: "Write a compiler" }`
     // ObjectLiteral(String, HashMap<String, Expression>),
@@ -31,7 +30,7 @@ pub enum Expression {
     FunctionDefinition {
         name: String,
         parameters: Vec<Parameter>,
-        body: Block,
+        body: Box<Expression>,
     },
 
     // UnaryExpression(Operator, Box<Expression>),
@@ -46,7 +45,8 @@ pub enum Expression {
     // },
     If {
         condition: Box<Expression>,
-        body: Block,
+        body: Box<Expression>,
+        else_: Option<Box<Expression>>,
     },
 
     Error,
@@ -83,8 +83,12 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
                 _ => unreachable!(),
             })
             .then_ignore(just(Token::KeyValueSeparator))
-            .then(select! { Token::Identifier(i) => i, Token::BuiltInType(t) => format!("{}", t) })
+            .then(select! {
+                Token::Identifier(i) => i,
+                Token::BuiltInType(t) => format!("{}", t)
+            })
             .map(|(name, type_)| Parameter { name, type_ })
+            .labelled("parameter")
             .separated_by(just(Token::ListSeparator))
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
             .map_with_span(|parameters, span| (parameters, span));
@@ -93,7 +97,7 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             .clone()
             .repeated()
             .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock))
-            .map_with_span(|e, s| (e, s));
+            .map(|e| Expression::Block(e.into_iter().map(|(e, _)| e).collect()));
 
         let function_definition = just(Token::Let)
             .ignore_then(identifier.clone().map(|e| match e {
@@ -101,12 +105,12 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
                 _ => unreachable!(),
             }))
             .then(parameters)
-            .then(block)
+            .then(block.clone())
             .map(
                 |((name, parameters), body)| Expression::FunctionDefinition {
                     name,
                     parameters: parameters.0,
-                    body: body.0.into_iter().map(|(e, _)| e).collect(),
+                    body: Box::new(body),
                 },
             );
 
@@ -127,10 +131,27 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
                 },
             );
 
+        let if_ = just(Token::If)
+            .ignore_then(expr.clone())
+            .then(expr.clone())
+            .then(
+                just(Token::Else)
+                    .ignore_then(expr.clone())
+                    .map(|(e, _)| Box::new(e))
+                    .or_not(),
+            )
+            .map(|((condition, body), else_)| Expression::If {
+                condition: Box::new(condition.0),
+                body: Box::new(body.0),
+                else_,
+            });
+
         let atom = value
+            .or(block.clone())
             .or(identifier)
             .or(function_definition)
             .or(variable_declaration)
+            .or(if_)
             .map_with_span(|expr, span| (expr, span))
             // Attempt to recover anything that looks like a list but contains errors
             .recover_with(nested_delimiters(
@@ -298,11 +319,11 @@ fn can_parse_function_definitions() {
                 type_: "int".into(),
             },
         ],
-        body: vec![Expression::BinaryExpression(
+        body: Box::new(Expression::Block(vec![Expression::BinaryExpression(
             Box::new(Expression::Identifier("x".into())),
             Operator::Add,
             Box::new(Expression::Identifier("y".into())),
-        )],
+        )])),
     };
     let actual = expression_parser()
         .parse(vec![
@@ -581,4 +602,28 @@ fn can_parse_assignment() {
         .unwrap()
         .0;
     assert_eq!(expected, actual, "expected to parse assignment");
+}
+
+#[test]
+fn can_parse_if_expressions() {
+    let expected = Expression::If {
+        condition: Box::new(Expression::Boolean(true)),
+        body: Box::new(Expression::Block(vec![Expression::Integer(1)])),
+        else_: Some(Box::new(Expression::Block(vec![Expression::Integer(2)]))),
+    };
+    let actual = expression_parser()
+        .parse(vec![
+            Token::If,
+            Token::Boolean(true),
+            Token::OpenBlock,
+            Token::Integer("1".into()),
+            Token::CloseBlock,
+            Token::Else,
+            Token::OpenBlock,
+            Token::Integer("2".into()),
+            Token::CloseBlock,
+        ])
+        .unwrap()
+        .0;
+    assert_eq!(expected, actual, "expected to parse if expression");
 }
