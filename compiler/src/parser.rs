@@ -77,17 +77,19 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             Token::Integer(n) => Expression::Integer(n.parse().unwrap()),
             Token::String(s) => Expression::String(s)
         }
-        .labelled("value");
+        .labelled("value")
+        .map_with_span(|e, span| (e, span));
 
         let identifier = select! {
             Token::Identifier(i) => Expression::Identifier(i),
         }
-        .labelled("identifier");
+        .labelled("identifier")
+        .map_with_span(|e, span| (e, span));
 
         let parameters = identifier
             .clone()
             .map(|i| match i {
-                Expression::Identifier(i) => i,
+                (Expression::Identifier(i), span) => (i, span),
                 _ => unreachable!(),
             })
             .then_ignore(just(Token::KeyValueSeparator))
@@ -95,7 +97,10 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
                 Token::Identifier(i) => i,
                 Token::BuiltInType(t) => format!("{}", t)
             })
-            .map(|(name, type_)| Parameter { name, type_ })
+            .map(|(name, type_)| Parameter {
+                name: name.0,
+                type_,
+            })
             .labelled("parameter")
             .separated_by(just(Token::ListSeparator))
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
@@ -105,39 +110,50 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             .clone()
             .repeated()
             .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock))
-            .map(|e| Expression::Block(e.into_iter().map(|(e, _)| e).collect()));
+            .map_with_span(|e, span| {
+                (
+                    Expression::Block(e.into_iter().map(|(e, _)| e).collect()),
+                    span,
+                )
+            });
 
         let function_definition = just(Token::Let)
             .ignore_then(identifier.clone().map(|e| match e {
-                Expression::Identifier(i) => i,
+                (Expression::Identifier(i), span) => (i, span),
                 _ => unreachable!(),
             }))
             .then(parameters)
             .then(block.clone())
-            .map(
-                |((name, parameters), body)| Expression::FunctionDefinition {
-                    name,
-                    parameters: parameters.0,
-                    body: Box::new(body),
-                },
-            );
+            .map_with_span(|((name, parameters), body), span| {
+                (
+                    Expression::FunctionDefinition {
+                        name: name.0,
+                        parameters: parameters.0,
+                        body: Box::new(body.0),
+                    },
+                    span,
+                )
+            });
 
         let variable_declaration = just(Token::Let)
             .to(false)
             .or(just(Token::Mut).to(true))
             .then(identifier.map(|exp| match exp {
-                Expression::Identifier(i) => i,
+                (Expression::Identifier(i), span) => (i, span),
                 _ => unreachable!(),
             }))
             .then_ignore(just(Token::Operator(Operator::Assignment)))
             .then(expr.clone())
-            .map(
-                |((is_mutable, identifier), (initializer, _))| Expression::VariableDeclaration {
-                    is_mutable,
-                    identifier,
-                    initializer: Box::new(initializer),
-                },
-            );
+            .map_with_span(|((is_mutable, identifier), (initializer, _)), span| {
+                (
+                    Expression::VariableDeclaration {
+                        is_mutable,
+                        identifier: identifier.0,
+                        initializer: Box::new(initializer),
+                    },
+                    span,
+                )
+            });
 
         let if_ = just(Token::If)
             .ignore_then(expr.clone())
@@ -148,19 +164,23 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
                     .map(|(e, _)| Box::new(e))
                     .or_not(),
             )
-            .map(|((condition, body), else_)| Expression::If {
-                condition: Box::new(condition.0),
-                body: Box::new(body.0),
-                else_,
+            .map_with_span(|((condition, body), else_), span| {
+                (
+                    Expression::If {
+                        condition: Box::new(condition.0),
+                        body: Box::new(body.0),
+                        else_,
+                    },
+                    span,
+                )
             });
 
         let atom = value
             .or(block.clone())
-            .or(identifier)
+            .or(identifier.clone())
             .or(function_definition)
             .or(variable_declaration)
             .or(if_)
-            .map_with_span(|expr, span| (expr, span))
             // Attempt to recover anything that looks like a list but contains errors
             .recover_with(nested_delimiters(
                 Token::OpenList,
@@ -173,13 +193,25 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             ))
             .or(parenthesized_expr);
 
+        let operator = just(Token::Operator(Operator::Dot)).to(Operator::Dot);
+        let dot_member = atom
+            .clone()
+            .then(operator.then(identifier.clone()).repeated())
+            .foldl(|a, (op, b)| {
+                let span = a.1.start..b.1.end;
+                (
+                    Expression::BinaryExpression(Box::new(a.0), op, Box::new(b.0)),
+                    span,
+                )
+            });
+
         let arguments = expr
             .clone()
             .separated_by(just(Token::ListSeparator))
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
             .map_with_span(|args, span| (args, span));
 
-        let fn_call = atom
+        let fn_call = dot_member
             .clone()
             .then(arguments.repeated())
             .foldl(|callee, arguments| {
