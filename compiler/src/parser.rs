@@ -41,7 +41,7 @@ pub enum Expression {
     },
     // AnonymousFunction {
     //     parameters: Vec<Parameter>,
-    //     body: Block,
+    //     body: Box<Expression>,
     // },
     If {
         condition: Box<Expression>,

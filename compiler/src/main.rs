@@ -7,7 +7,8 @@ use lexer::lexer;
 use parser::main_parser;
 
 fn main() {
-    let src = std::fs::read_to_string(std::env::args().nth(1).unwrap()).unwrap();
+    let file_path = std::env::args().nth(1).unwrap();
+    let src = std::fs::read_to_string(&file_path).unwrap();
     let (tokens, errors) = lexer().parse_recovery(src.as_str());
     let parse_errors = if let Some(tokens) = tokens {
         let len = src.chars().count();
@@ -32,7 +33,7 @@ fn main() {
                 .map(|e| e.map(|token| token.to_string())),
         )
         .for_each(|e| {
-            let report = Report::build(ReportKind::Error, (), e.span().start);
+            let report = Report::build(ReportKind::Error, &file_path, e.span().start);
 
             let report = match e.reason() {
                 chumsky::error::SimpleReason::Unclosed { span, delimiter } => report
@@ -41,7 +42,7 @@ fn main() {
                         delimiter.fg(Color::Yellow)
                     ))
                     .with_label(
-                        Label::new(span.clone())
+                        Label::new((&file_path, span.clone()))
                             .with_message(format!(
                                 "Unclosed delimiter {}",
                                 delimiter.fg(Color::Yellow)
@@ -49,7 +50,7 @@ fn main() {
                             .with_color(Color::Yellow),
                     )
                     .with_label(
-                        Label::new(e.span())
+                        Label::new((&file_path, e.span()))
                             .with_message(format!(
                                 "Must be closed before this {}",
                                 e.found()
@@ -79,7 +80,7 @@ fn main() {
                         }
                     ))
                     .with_label(
-                        Label::new(e.span())
+                        Label::new((&file_path, e.span()))
                             .with_message(format!(
                                 "Unexpected token {}",
                                 e.found()
@@ -89,12 +90,15 @@ fn main() {
                             .with_color(Color::Red),
                     ),
                 chumsky::error::SimpleReason::Custom(msg) => report.with_message(msg).with_label(
-                    Label::new(e.span())
+                    Label::new((&file_path, e.span()))
                         .with_message(format!("{}", msg.fg(Color::Red)))
                         .with_color(Color::Red),
                 ),
             };
 
-            report.finish().print(Source::from(&src)).unwrap();
+            report
+                .finish()
+                .print((&file_path, Source::from(&src)))
+                .unwrap();
         });
 }
