@@ -12,10 +12,10 @@ fn main() {
     let (tokens, errors) = lexer().parse_recovery(src.as_str());
     let parse_errors = if let Some(tokens) = tokens {
         let len = src.chars().count();
-        let (ast, parse_errs) =
+        let (program, parse_errs) =
             main_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
-        if let Some(ast) = ast {
+        if let Some(ast) = program {
             println!("{:?}", ast);
         }
 

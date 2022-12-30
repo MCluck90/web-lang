@@ -1,8 +1,16 @@
 use crate::lexer::*;
 use chumsky::prelude::*;
 
-pub fn main_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple<Token>> + Clone {
-    expression_parser().then_ignore(end())
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Program {
+    expressions: Vec<Spanned<Expression>>,
+}
+
+pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clone {
+    expression_parser()
+        .repeated()
+        .then_ignore(end())
+        .map(|expressions| Program { expressions })
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
