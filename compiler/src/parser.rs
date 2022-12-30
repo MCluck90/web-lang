@@ -8,6 +8,7 @@ pub struct Program {
 
 pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clone {
     expression_parser()
+        .then_ignore(just(Token::Terminator).or_not())
         .repeated()
         .then_ignore(end())
         .map(|expressions| Program { expressions })
