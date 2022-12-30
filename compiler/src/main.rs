@@ -1,3 +1,4 @@
+mod code_gen;
 mod lexer;
 mod parser;
 
@@ -9,14 +10,21 @@ use parser::main_parser;
 fn main() {
     let file_path = std::env::args().nth(1).unwrap();
     let src = std::fs::read_to_string(&file_path).unwrap();
-    let (tokens, errors) = lexer().parse_recovery(src.as_str());
+    let (tokens, lex_errs) = lexer().parse_recovery(src.as_str());
     let parse_errors = if let Some(tokens) = tokens {
         let len = src.chars().count();
         let (program, parse_errs) =
             main_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
-        if let Some(ast) = program {
-            println!("{:?}", ast);
+        if let Some(program) = program {
+            if lex_errs.is_empty() && parse_errs.is_empty() {
+                let output = code_gen::generate_code(&program);
+                if let Some(be_js) = output.js {
+                    println!("{}", be_js);
+                }
+            } else {
+                println!("{:?}", program);
+            }
         }
 
         parse_errs
@@ -24,7 +32,7 @@ fn main() {
         Vec::new()
     };
 
-    errors
+    lex_errs
         .into_iter()
         .map(|e| e.map(|c| c.to_string()))
         .chain(

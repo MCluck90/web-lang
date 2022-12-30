@@ -3,7 +3,7 @@ use chumsky::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Program {
-    expressions: Vec<Spanned<Expression>>,
+    pub expressions: Vec<Spanned<Expression>>,
 }
 
 pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clone {
@@ -16,8 +16,8 @@ pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clo
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Parameter {
-    name: String,
-    type_: String,
+    pub name: String,
+    pub type_: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
