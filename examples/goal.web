@@ -35,6 +35,10 @@ style main {
 let front main() {
   let todos = getTodos()
 
+  for todos {
+    console.log(it)
+  }
+
   main(
     style.main,
     h1('TODO'),
