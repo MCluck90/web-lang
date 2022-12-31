@@ -1,4 +1,4 @@
-use crate::parser::{Expression, Program};
+use crate::parser::{Expression, ExpressionKind, Program};
 
 pub struct CodeGenOutput {
     pub html: Option<String>,
@@ -32,24 +32,24 @@ pub fn generate_code(program: &Program) -> CodeGenOutput {
 
 fn visit_program(program: &Program, output: &mut OutputBuilder) {
     for expression in &program.expressions {
-        output.js.push_str(visit_expression(&expression.0).as_str());
+        output.js.push_str(visit_expression(&expression).as_str());
         output.js.push_str(";\n");
     }
 }
 
 fn visit_expression(expression: &Expression) -> String {
-    match expression {
-        Expression::BinaryExpression(left, op, right) => format!(
+    match &expression.kind {
+        ExpressionKind::BinaryExpression(left, op, right) => format!(
             "{}{}{}",
-            visit_expression(left),
+            visit_expression(&left),
             op,
-            visit_expression(right)
+            visit_expression(&right)
         )
         .to_string(),
 
-        Expression::Boolean(b) => b.to_string(),
+        ExpressionKind::Boolean(b) => b.to_string(),
 
-        Expression::Block(expressions) => {
+        ExpressionKind::Block(expressions) => {
             let num_of_expressions = expressions.len();
             format!(
                 "(()=>{{{}}})()",
@@ -66,9 +66,9 @@ fn visit_expression(expression: &Expression) -> String {
             )
         }
 
-        Expression::FunctionCall { callee, arguments } => format!(
+        ExpressionKind::FunctionCall { callee, arguments } => format!(
             "{}({})",
-            visit_expression(callee),
+            visit_expression(&callee),
             arguments
                 .iter()
                 .map(visit_expression)
@@ -76,7 +76,7 @@ fn visit_expression(expression: &Expression) -> String {
                 .join(",")
         ),
 
-        Expression::FunctionDefinition {
+        ExpressionKind::FunctionDefinition {
             name,
             parameters,
             body,
@@ -88,31 +88,31 @@ fn visit_expression(expression: &Expression) -> String {
                 .map(|p| p.name.clone())
                 .collect::<Vec<String>>()
                 .join(","),
-            visit_expression(body),
+            visit_expression(&body),
         ),
 
-        Expression::Identifier(ident) => ident.clone(),
+        ExpressionKind::Identifier(ident) => ident.clone(),
 
         // TODO: How do early returns work when everything is an expression?
-        Expression::If {
+        ExpressionKind::If {
             condition,
             body,
             else_,
         } => format!(
             "({}) ? {} : {}",
-            visit_expression(condition),
-            visit_expression(body),
+            visit_expression(&condition),
+            visit_expression(&body),
             else_
                 .clone()
                 .map_or("null".to_string(), |e| visit_expression(&e))
         ),
 
-        Expression::Integer(n) => n.to_string(),
+        ExpressionKind::Integer(n) => n.to_string(),
 
         // TODO: Generate strings with correct quotes and escape characters
-        Expression::String(s) => format!("`{}`", s),
+        ExpressionKind::String(s) => format!("`{}`", s),
 
-        Expression::VariableDeclaration {
+        ExpressionKind::VariableDeclaration {
             is_mutable,
             identifier,
             initializer,
@@ -120,9 +120,9 @@ fn visit_expression(expression: &Expression) -> String {
             "{} {}={}",
             if *is_mutable { "let" } else { "const" },
             identifier,
-            visit_expression(initializer)
+            visit_expression(&initializer)
         ),
 
-        Expression::Error => unreachable!(),
+        ExpressionKind::Error => unreachable!(),
     }
 }

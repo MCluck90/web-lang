@@ -1,9 +1,25 @@
 use crate::lexer::*;
 use chumsky::prelude::*;
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct NodeId {
+    value: u32,
+}
+
+impl NodeId {
+    pub const fn from_u32(value: u32) -> NodeId {
+        NodeId { value }
+    }
+}
+
+// We use this just for the initial construction. We need to go over the tree later and generate unique IDs.
+// We don't generate them as we parse the tree because, for example, repeated use of the same identifier should
+// give the same ID.
+const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Program {
-    pub expressions: Vec<Spanned<Expression>>,
+    pub expressions: Vec<Expression>,
 }
 
 pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clone {
@@ -16,12 +32,38 @@ pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clo
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Parameter {
+    pub id: NodeId,
+    pub span: Span,
     pub name: String,
     pub type_: String,
 }
 
+impl Parameter {
+    fn new(id: NodeId, span: Span, name: String, type_: String) -> Parameter {
+        Parameter {
+            id,
+            span,
+            name,
+            type_,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Expression {
+pub struct Expression {
+    pub id: NodeId,
+    pub kind: ExpressionKind,
+    pub span: Span,
+}
+
+impl Expression {
+    fn new(id: NodeId, kind: ExpressionKind, span: Span) -> Expression {
+        Expression { id, kind, span }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExpressionKind {
     // Primitives
     Boolean(bool),
     Identifier(String),
@@ -61,10 +103,17 @@ pub enum Expression {
     Error,
 }
 
-fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple<Token>> + Clone {
+fn get_identifier_from_expression_kind(kind: &ExpressionKind) -> String {
+    match kind {
+        ExpressionKind::Identifier(i) => i.to_string(),
+        _ => unreachable!("If you called this with a non-identifier, you messed up"),
+    }
+}
+
+fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> + Clone {
     recursive(|expr| {
         let parenthesized_expr: chumsky::combinator::DelimitedBy<
-            Recursive<Token, (Expression, std::ops::Range<usize>), Simple<Token>>,
+            Recursive<Token, Expression, Simple<Token>>,
             chumsky::primitive::Just<Token, Token, Simple<Token>>,
             chumsky::primitive::Just<Token, Token, Simple<Token>>,
             Token,
@@ -74,33 +123,34 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen));
 
         let value = select! {
-            Token::Boolean(b) => Expression::Boolean(b),
-            Token::Integer(n) => Expression::Integer(n.parse().unwrap()),
-            Token::String(s) => Expression::String(s)
+            Token::Boolean(b) => ExpressionKind::Boolean(b),
+            Token::Integer(n) => ExpressionKind::Integer(n.parse().unwrap()),
+            Token::String(s) => ExpressionKind::String(s)
         }
         .labelled("value")
-        .map_with_span(|e, span| (e, span));
+        .map_with_span(|kind, span| Expression::new(DUMMY_NODE_ID, kind, span));
 
         let identifier = select! {
-            Token::Identifier(i) => Expression::Identifier(i),
+            Token::Identifier(i) => ExpressionKind::Identifier(i),
         }
         .labelled("identifier")
-        .map_with_span(|e, span| (e, span));
+        .map_with_span(|kind, span| Expression::new(DUMMY_NODE_ID, kind, span));
 
         let parameters = identifier
             .clone()
-            .map(|i| match i {
-                (Expression::Identifier(i), span) => (i, span),
-                _ => unreachable!(),
-            })
+            .map(|ident| (ident.kind, ident.span))
             .then_ignore(just(Token::KeyValueSeparator))
             .then(select! {
                 Token::Identifier(i) => i,
                 Token::BuiltInType(t) => format!("{}", t)
             })
-            .map(|(name, type_)| Parameter {
-                name: name.0,
-                type_,
+            .map(|((kind, span), type_)| {
+                Parameter::new(
+                    DUMMY_NODE_ID,
+                    span,
+                    get_identifier_from_expression_kind(&kind),
+                    type_,
+                )
             })
             .labelled("parameter")
             .separated_by(just(Token::ListSeparator))
@@ -112,25 +162,24 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             .repeated()
             .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock))
             .map_with_span(|e, span| {
-                (
-                    Expression::Block(e.into_iter().map(|(e, _)| e).collect()),
-                    span,
-                )
+                Expression::new(DUMMY_NODE_ID, ExpressionKind::Block(e), span)
             });
 
         let function_definition = just(Token::Let)
-            .ignore_then(identifier.clone().map(|e| match e {
-                (Expression::Identifier(i), span) => (i, span),
-                _ => unreachable!(),
-            }))
+            .ignore_then(
+                identifier
+                    .clone()
+                    .map(|expr| (get_identifier_from_expression_kind(&expr.kind), expr.span)),
+            )
             .then(parameters)
             .then(block.clone())
             .map_with_span(|((name, parameters), body), span| {
-                (
-                    Expression::FunctionDefinition {
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::FunctionDefinition {
                         name: name.0,
                         parameters: parameters.0,
-                        body: Box::new(body.0),
+                        body: Box::new(body),
                     },
                     span,
                 )
@@ -139,15 +188,15 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
         let variable_declaration = just(Token::Let)
             .to(false)
             .or(just(Token::Mut).to(true))
-            .then(identifier.map(|exp| match exp {
-                (Expression::Identifier(i), span) => (i, span),
-                _ => unreachable!(),
-            }))
+            .then(
+                identifier.map(|expr| (get_identifier_from_expression_kind(&expr.kind), expr.span)),
+            )
             .then_ignore(just(Token::Operator(Operator::Assignment)))
             .then(expr.clone())
-            .map_with_span(|((is_mutable, identifier), (initializer, _)), span| {
-                (
-                    Expression::VariableDeclaration {
+            .map_with_span(|((is_mutable, identifier), initializer), span| {
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::VariableDeclaration {
                         is_mutable,
                         identifier: identifier.0,
                         initializer: Box::new(initializer),
@@ -162,14 +211,15 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             .then(
                 just(Token::Else)
                     .ignore_then(expr.clone())
-                    .map(|(e, _)| Box::new(e))
+                    .map(Box::new)
                     .or_not(),
             )
             .map_with_span(|((condition, body), else_), span| {
-                (
-                    Expression::If {
-                        condition: Box::new(condition.0),
-                        body: Box::new(body.0),
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::If {
+                        condition: Box::new(condition),
+                        body: Box::new(body),
                         else_,
                     },
                     span,
@@ -190,7 +240,7 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
                     (Token::OpenParen, Token::CloseParen),
                     (Token::OpenBlock, Token::CloseBlock),
                 ],
-                |span| (Expression::Error, span),
+                |span| Expression::new(DUMMY_NODE_ID, ExpressionKind::Error, span),
             ))
             .or(parenthesized_expr);
 
@@ -198,10 +248,11 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
         let dot_member = atom
             .clone()
             .then(operator.then(identifier.clone()).repeated())
-            .foldl(|a, (op, b)| {
-                let span = a.1.start..b.1.end;
-                (
-                    Expression::BinaryExpression(Box::new(a.0), op, Box::new(b.0)),
+            .foldl(|left, (op, right)| {
+                let span = left.span.start..right.span.end;
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )
             });
@@ -212,19 +263,21 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
             .map_with_span(|args, span| (args, span));
 
-        let fn_call = dot_member
-            .clone()
-            .then(arguments.repeated())
-            .foldl(|callee, arguments| {
-                let span = callee.1.start..arguments.1.end;
-                (
-                    Expression::FunctionCall {
-                        callee: Box::new(callee.0),
-                        arguments: arguments.0.into_iter().map(|(e, _)| e).collect(),
-                    },
-                    span,
-                )
-            });
+        let fn_call =
+            dot_member
+                .clone()
+                .then(arguments.repeated())
+                .foldl(|callee, (arguments, arg_span)| {
+                    let span = callee.span.start..arg_span.end;
+                    Expression::new(
+                        DUMMY_NODE_ID,
+                        ExpressionKind::FunctionCall {
+                            callee: Box::new(callee),
+                            arguments: arguments,
+                        },
+                        span,
+                    )
+                });
 
         let operator = just(Token::Operator(Operator::Mul))
             .to(Operator::Mul)
@@ -232,10 +285,11 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
         let factor = fn_call
             .clone()
             .then(operator.then(fn_call).repeated())
-            .foldl(|a, (op, b)| {
-                let span = a.1.start..b.1.end;
-                (
-                    Expression::BinaryExpression(Box::new(a.0), op, Box::new(b.0)),
+            .foldl(|left, (op, right)| {
+                let span = left.span.start..right.span.end;
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )
             });
@@ -243,16 +297,18 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
         let operator = just(Token::Operator(Operator::Add))
             .to(Operator::Add)
             .or(just(Token::Operator(Operator::Sub)).to(Operator::Sub));
-        let sum = factor
-            .clone()
-            .then(operator.then(factor).repeated())
-            .foldl(|a, (op, b)| {
-                let span = a.1.start..b.1.end;
-                (
-                    Expression::BinaryExpression(Box::new(a.0), op, Box::new(b.0)),
-                    span,
-                )
-            });
+        let sum =
+            factor
+                .clone()
+                .then(operator.then(factor).repeated())
+                .foldl(|left, (op, right)| {
+                    let span = left.span.start..right.span.end;
+                    Expression::new(
+                        DUMMY_NODE_ID,
+                        ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
+                        span,
+                    )
+                });
 
         let operator = just(Token::Operator(Operator::LessThan))
             .to(Operator::LessThan)
@@ -260,16 +316,17 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
             .or(just(Token::Operator(Operator::GreaterThan)).to(Operator::GreaterThan))
             .or(just(Token::Operator(Operator::GreaterThanOrEqual))
                 .to(Operator::GreaterThanOrEqual));
-        let comparison = sum
-            .clone()
-            .then(operator.then(sum).repeated())
-            .foldl(|a, (op, b)| {
-                let span = a.1.start..b.1.end;
-                (
-                    Expression::BinaryExpression(Box::new(a.0), op, Box::new(b.0)),
-                    span,
-                )
-            });
+        let comparison =
+            sum.clone()
+                .then(operator.then(sum).repeated())
+                .foldl(|left, (op, right)| {
+                    let span = left.span.start..right.span.end;
+                    Expression::new(
+                        DUMMY_NODE_ID,
+                        ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
+                        span,
+                    )
+                });
 
         let operator = just(Token::Operator(Operator::Equal))
             .to(Operator::Equal)
@@ -277,10 +334,11 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
         let equality = comparison
             .clone()
             .then(operator.then(comparison).repeated())
-            .foldl(|a, (op, b)| {
-                let span = a.1.start..b.1.end;
-                (
-                    Expression::BinaryExpression(Box::new(a.0), op, Box::new(b.0)),
+            .foldl(|left, (op, right)| {
+                let span = left.span.start..right.span.end;
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )
             });
@@ -289,382 +347,15 @@ fn expression_parser() -> impl Parser<Token, Spanned<Expression>, Error = Simple
         let assignment = equality
             .clone()
             .then(operator.then(equality).repeated())
-            .foldl(|a, (op, b)| {
-                let span = a.1.start..b.1.end;
-                (
-                    Expression::BinaryExpression(Box::new(a.0), op, Box::new(b.0)),
+            .foldl(|left, (op, right)| {
+                let span = left.span.start..right.span.end;
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )
             });
 
         assignment
     })
-}
-
-#[test]
-fn can_parse_basic_values() {
-    let expected = Expression::Boolean(true);
-    let actual = expression_parser()
-        .parse(vec![Token::Boolean(true)])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse a boolean");
-
-    let expected = Expression::Integer(23);
-    let actual = expression_parser()
-        .parse(vec![Token::Integer("23".into())])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse an integer");
-
-    let expected = Expression::String("hello".into());
-    let actual = expression_parser()
-        .parse(vec![Token::String("hello".into())])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse a string");
-}
-
-#[test]
-fn can_parse_an_identifier() {
-    let expected = Expression::Identifier("foo".into());
-    let actual = expression_parser()
-        .parse(vec![Token::Identifier("foo".into())])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse an identifier");
-
-    let expected = Expression::Identifier("foo".into());
-    let actual = expression_parser()
-        .parse(vec![
-            Token::OpenParen,
-            Token::Identifier("foo".into()),
-            Token::CloseParen,
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse an identifier");
-}
-
-#[test]
-fn can_parse_function_definitions() {
-    let expected = Expression::FunctionDefinition {
-        name: "add".into(),
-        parameters: vec![
-            Parameter {
-                name: "x".into(),
-                type_: "int".into(),
-            },
-            Parameter {
-                name: "y".into(),
-                type_: "int".into(),
-            },
-        ],
-        body: Box::new(Expression::Block(vec![Expression::BinaryExpression(
-            Box::new(Expression::Identifier("x".into())),
-            Operator::Add,
-            Box::new(Expression::Identifier("y".into())),
-        )])),
-    };
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Let,
-            Token::Identifier("add".into()),
-            Token::OpenParen,
-            Token::Identifier("x".into()),
-            Token::KeyValueSeparator,
-            Token::Identifier("int".into()),
-            Token::ListSeparator,
-            Token::Identifier("y".into()),
-            Token::KeyValueSeparator,
-            Token::Identifier("int".into()),
-            Token::CloseParen,
-            Token::OpenBlock,
-            Token::Identifier("x".into()),
-            Token::Operator(Operator::Add),
-            Token::Identifier("y".into()),
-            Token::CloseBlock,
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse a function definition");
-}
-
-#[test]
-fn can_parse_variable_declarations() {
-    let expected = Expression::VariableDeclaration {
-        is_mutable: false,
-        identifier: "foo".into(),
-        initializer: Box::new(Expression::Boolean(true)),
-    };
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Let,
-            Token::Identifier("foo".into()),
-            Token::Operator(Operator::Assignment),
-            Token::Boolean(true),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse a variable declaration");
-}
-
-#[test]
-fn can_parse_function_calls() {
-    let expected = Expression::FunctionCall {
-        callee: Box::new(Expression::Identifier("log".into())),
-        arguments: vec![Expression::String("hello".into()), Expression::Integer(10)],
-    };
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Identifier("log".into()),
-            Token::OpenParen,
-            Token::String("hello".into()),
-            Token::ListSeparator,
-            Token::Integer("10".into()),
-            Token::CloseParen,
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse a function call");
-
-    let expected = Expression::FunctionCall {
-        callee: Box::new(Expression::FunctionCall {
-            callee: Box::new(Expression::Identifier("add".into())),
-            arguments: vec![Expression::Integer(2)],
-        }),
-        arguments: vec![Expression::Integer(3)],
-    };
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Identifier("add".into()),
-            Token::OpenParen,
-            Token::Integer("2".into()),
-            Token::CloseParen,
-            Token::OpenParen,
-            Token::Integer("3".into()),
-            Token::CloseParen,
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse a function call");
-}
-
-#[test]
-fn can_parse_multiplication() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(2)),
-        Operator::Mul,
-        Box::new(Expression::Integer(3)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("2".into()),
-            Token::Operator(Operator::Mul),
-            Token::Integer("3".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse multiplication");
-}
-
-#[test]
-fn can_parse_division() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::Div,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::Div),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse division");
-}
-
-#[test]
-fn can_parse_addition() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::Add,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::Add),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse addition");
-}
-
-#[test]
-fn can_parse_subtraction() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::Sub,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::Sub),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse subtraction");
-}
-
-#[test]
-fn can_parse_less_than() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::LessThan,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::LessThan),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse less than");
-}
-
-#[test]
-fn can_parse_less_than_or_equal() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::LessThanOrEqual,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::LessThanOrEqual),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse less than or equal");
-}
-
-#[test]
-fn can_parse_greater_than() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::GreaterThan,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::GreaterThan),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse greater than");
-}
-
-#[test]
-fn can_parse_greater_than_or_equal() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::GreaterThanOrEqual,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::GreaterThanOrEqual),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse greater than or equal");
-}
-
-#[test]
-fn can_parse_equality() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::Equal,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::Equal),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse equality");
-
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Integer(10)),
-        Operator::NotEqual,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Integer("10".into()),
-            Token::Operator(Operator::NotEqual),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse equality");
-}
-
-#[test]
-fn can_parse_assignment() {
-    let expected = Expression::BinaryExpression(
-        Box::new(Expression::Identifier("x".into())),
-        Operator::Assignment,
-        Box::new(Expression::Integer(2)),
-    );
-    let actual = expression_parser()
-        .parse(vec![
-            Token::Identifier("x".into()),
-            Token::Operator(Operator::Assignment),
-            Token::Integer("2".into()),
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse assignment");
-}
-
-#[test]
-fn can_parse_if_expressions() {
-    let expected = Expression::If {
-        condition: Box::new(Expression::Boolean(true)),
-        body: Box::new(Expression::Block(vec![Expression::Integer(1)])),
-        else_: Some(Box::new(Expression::Block(vec![Expression::Integer(2)]))),
-    };
-    let actual = expression_parser()
-        .parse(vec![
-            Token::If,
-            Token::Boolean(true),
-            Token::OpenBlock,
-            Token::Integer("1".into()),
-            Token::CloseBlock,
-            Token::Else,
-            Token::OpenBlock,
-            Token::Integer("2".into()),
-            Token::CloseBlock,
-        ])
-        .unwrap()
-        .0;
-    assert_eq!(expected, actual, "expected to parse if expression");
 }
