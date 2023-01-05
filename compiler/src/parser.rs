@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::lexer::*;
 use chumsky::prelude::*;
 
@@ -12,10 +14,16 @@ impl NodeId {
     }
 }
 
+impl fmt::Display for NodeId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
 // We use this just for the initial construction. We need to go over the tree later and generate unique IDs.
 // We don't generate them as we parse the tree because, for example, repeated use of the same identifier should
 // give the same ID.
-const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
+pub const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Program {
@@ -30,26 +38,38 @@ pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clo
         .map(|expressions| Program { expressions })
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Parameter {
     pub id: NodeId,
     pub span: Span,
-    pub name: String,
+    pub identifier: Identifier,
     pub type_: String,
 }
 
 impl Parameter {
-    fn new(id: NodeId, span: Span, name: String, type_: String) -> Parameter {
+    fn new(id: NodeId, span: Span, identifier: Identifier, type_: String) -> Parameter {
         Parameter {
             id,
             span,
-            name,
+            identifier,
             type_,
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Identifier {
+    pub id: NodeId,
+    pub name: String,
+    pub span: Span,
+}
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expression {
     pub id: NodeId,
     pub kind: ExpressionKind,
@@ -62,11 +82,11 @@ impl Expression {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ExpressionKind {
     // Primitives
     Boolean(bool),
-    Identifier(String),
+    Identifier(Identifier),
     Integer(i64),
     String(String),
     Block(Vec<Expression>),
@@ -75,11 +95,11 @@ pub enum ExpressionKind {
     // ObjectLiteral(String, HashMap<String, Expression>),
     VariableDeclaration {
         is_mutable: bool,
-        identifier: String,
+        identifier: Identifier,
         initializer: Box<Expression>,
     },
     FunctionDefinition {
-        name: String,
+        name: Identifier,
         parameters: Vec<Parameter>,
         body: Box<Expression>,
     },
@@ -103,13 +123,6 @@ pub enum ExpressionKind {
     Error,
 }
 
-fn get_identifier_from_expression_kind(kind: &ExpressionKind) -> String {
-    match kind {
-        ExpressionKind::Identifier(i) => i.to_string(),
-        _ => unreachable!("If you called this with a non-identifier, you messed up"),
-    }
-}
-
 fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> + Clone {
     recursive(|expr| {
         let parenthesized_expr: chumsky::combinator::DelimitedBy<
@@ -131,26 +144,24 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         .map_with_span(|kind, span| Expression::new(DUMMY_NODE_ID, kind, span));
 
         let identifier = select! {
-            Token::Identifier(i) => ExpressionKind::Identifier(i),
+            Token::Identifier(i) => i
         }
         .labelled("identifier")
-        .map_with_span(|kind, span| Expression::new(DUMMY_NODE_ID, kind, span));
+        .map_with_span(|name, span| Identifier {
+            id: DUMMY_NODE_ID,
+            name,
+            span,
+        });
 
         let parameters = identifier
             .clone()
-            .map(|ident| (ident.kind, ident.span))
             .then_ignore(just(Token::KeyValueSeparator))
             .then(select! {
                 Token::Identifier(i) => i,
                 Token::BuiltInType(t) => format!("{}", t)
             })
-            .map(|((kind, span), type_)| {
-                Parameter::new(
-                    DUMMY_NODE_ID,
-                    span,
-                    get_identifier_from_expression_kind(&kind),
-                    type_,
-                )
+            .map(|(identifier, type_)| {
+                Parameter::new(DUMMY_NODE_ID, identifier.clone().span, identifier, type_)
             })
             .labelled("parameter")
             .separated_by(just(Token::ListSeparator))
@@ -166,18 +177,14 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
             });
 
         let function_definition = just(Token::Let)
-            .ignore_then(
-                identifier
-                    .clone()
-                    .map(|expr| (get_identifier_from_expression_kind(&expr.kind), expr.span)),
-            )
+            .ignore_then(identifier.clone())
             .then(parameters)
             .then(block.clone())
             .map_with_span(|((name, parameters), body), span| {
                 Expression::new(
                     DUMMY_NODE_ID,
                     ExpressionKind::FunctionDefinition {
-                        name: name.0,
+                        name,
                         parameters: parameters.0,
                         body: Box::new(body),
                     },
@@ -188,9 +195,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         let variable_declaration = just(Token::Let)
             .to(false)
             .or(just(Token::Mut).to(true))
-            .then(
-                identifier.map(|expr| (get_identifier_from_expression_kind(&expr.kind), expr.span)),
-            )
+            .then(identifier)
             .then_ignore(just(Token::Operator(Operator::Assignment)))
             .then(expr.clone())
             .map_with_span(|((is_mutable, identifier), initializer), span| {
@@ -198,7 +203,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                     DUMMY_NODE_ID,
                     ExpressionKind::VariableDeclaration {
                         is_mutable,
-                        identifier: identifier.0,
+                        identifier,
                         initializer: Box::new(initializer),
                     },
                     span,
@@ -228,7 +233,13 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
 
         let atom = value
             .or(block.clone())
-            .or(identifier.clone())
+            .or(identifier.clone().map(|ident| {
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::Identifier(ident.clone()),
+                    ident.span,
+                )
+            }))
             .or(function_definition)
             .or(variable_declaration)
             .or(if_)
@@ -252,7 +263,15 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 let span = left.span.start..right.span.end;
                 Expression::new(
                     DUMMY_NODE_ID,
-                    ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
+                    ExpressionKind::BinaryExpression(
+                        Box::new(left),
+                        op,
+                        Box::new(Expression::new(
+                            DUMMY_NODE_ID,
+                            ExpressionKind::Identifier(right.clone()),
+                            right.span,
+                        )),
+                    ),
                     span,
                 )
             });
@@ -356,6 +375,6 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 )
             });
 
-        assignment
+        assignment.then_ignore(just(Token::Terminator).or_not())
     })
 }

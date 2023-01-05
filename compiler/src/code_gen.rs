@@ -85,13 +85,15 @@ fn visit_expression(expression: &Expression) -> String {
             name,
             parameters
                 .iter()
-                .map(|p| p.name.clone())
+                .map(|p| p.identifier.name.clone())
                 .collect::<Vec<String>>()
                 .join(","),
             visit_expression(&body),
         ),
 
-        ExpressionKind::Identifier(ident) => ident.clone(),
+        ExpressionKind::Identifier(ident) => {
+            format!("{}", ident.name.clone())
+        }
 
         // TODO: How do early returns work when everything is an expression?
         ExpressionKind::If {

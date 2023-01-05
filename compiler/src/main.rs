@@ -1,23 +1,48 @@
 mod code_gen;
 mod lexer;
 mod parser;
+mod passes;
 
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::{prelude::*, Stream};
 use lexer::lexer;
 use parser::main_parser;
+use passes::id_gen_and_reference_validation::generate_ids_and_validate_references;
 
 fn main() {
     let file_path = std::env::args().nth(1).unwrap();
     let src = std::fs::read_to_string(&file_path).unwrap();
     let (tokens, lex_errs) = lexer().parse_recovery(src.as_str());
+    let mut errors = lex_errs
+        .clone()
+        .into_iter()
+        .map(|e| e.map(|c| c.to_string()))
+        .collect::<Vec<Simple<String>>>();
     let parse_errors = if let Some(tokens) = tokens {
         let len = src.chars().count();
         let (program, parse_errs) =
             main_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
+        let mut parse_errs = parse_errs
+            .into_iter()
+            .map(|e| e.map(|token| token.to_string()))
+            .collect::<Vec<Simple<String>>>();
+
+        errors.append(&mut parse_errs);
+
         if let Some(program) = program {
             if lex_errs.is_empty() && parse_errs.is_empty() {
+                let (program, ctx) = generate_ids_and_validate_references(&program);
+
+                if !ctx.errors.is_empty() {
+                    let mut gen_errors = ctx
+                        .errors
+                        .into_iter()
+                        .map(|e| e.map(|f| f.id.to_string()))
+                        .collect::<Vec<Simple<String>>>();
+                    errors.append(&mut gen_errors);
+                }
+
                 let output = code_gen::generate_code(&program);
                 if let Some(be_js) = output.js {
                     println!("{}", be_js);
@@ -27,7 +52,7 @@ fn main() {
             }
         }
 
-        parse_errs
+        errors
     } else {
         Vec::new()
     };
