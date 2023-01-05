@@ -131,7 +131,7 @@ fn main() {
 
             report
                 .finish()
-                .print((&file_path, Source::from(&src)))
+                .eprint((&file_path, Source::from(&src)))
                 .unwrap();
         });
 }
