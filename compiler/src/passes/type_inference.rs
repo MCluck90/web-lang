@@ -113,25 +113,52 @@ fn visit_expression(
             visit_expression(right, symbol_table)?;
 
             let right_type = symbol_table.get_mut(&right.id).unwrap().type_.clone();
-            let mut left = symbol_table.get_mut(&left.id).unwrap();
+            let mut left_sym = symbol_table.get_mut(&left.id).unwrap();
+            // TODO: Generally handle when types are unknown
             match &op {
                 Operator::Assignment => {
-                    if left.type_ == Type::Unknown {
-                        left.type_ = right_type.clone();
+                    if left_sym.type_ == Type::Unknown {
+                        left_sym.type_ = right_type.clone();
                     } else {
-                        return create_type_mismatch_error(&right.span, &left.type_, &right_type);
+                        return create_type_mismatch_error(
+                            &right.span,
+                            &left_sym.type_,
+                            &right_type,
+                        );
                     }
                     symbol_table.set_type(&expression.id, right_type);
                     Ok(())
                 }
-                Operator::Add => todo!(),
-                Operator::Sub => todo!(),
-                Operator::Mul => todo!(),
-                Operator::Div => todo!(),
+                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div => {
+                    // TODO: Infer when either are `Unknown`
+                    // TODO: Add support for string concatenation
+                    if left_sym.type_ != Type::Int {
+                        create_type_mismatch_error(&left.span, &Type::Int, &left_sym.type_)
+                    } else if right_type != Type::Int {
+                        create_type_mismatch_error(&right.span, &Type::Int, &right_type)
+                    } else {
+                        Ok(())
+                    }
+                }
                 Operator::Dot => todo!(),
-                Operator::Not => todo!(),
-                Operator::NotEqual => todo!(),
-                Operator::Equal => todo!(),
+                Operator::NotEqual | Operator::Equal => {
+                    if left_sym.type_ != right_type {
+                        Err(
+                            Simple::custom(expression.span.clone(), "Invalid comparison").merge(
+                                Simple::expected_input_found(
+                                    expression.span.clone(),
+                                    vec![Some(format!(
+                                        "both sides to be {} or {}",
+                                        left_sym.type_, right_type
+                                    ))],
+                                    None,
+                                ),
+                            ),
+                        )
+                    } else {
+                        Ok(())
+                    }
+                }
                 Operator::LessThan => todo!(),
                 Operator::LessThanOrEqual => todo!(),
                 Operator::GreaterThan => todo!(),

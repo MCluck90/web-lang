@@ -120,7 +120,6 @@ impl ExpressionKind {
                 Operator::Mul => "a multiplication expression",
                 Operator::Div => "a division operation",
                 Operator::Dot => "a property access",
-                Operator::Not => "a negation expression",
                 Operator::NotEqual => "an equality expression",
                 Operator::Equal => "an equality expression",
                 Operator::LessThan => "a comparison expression",
