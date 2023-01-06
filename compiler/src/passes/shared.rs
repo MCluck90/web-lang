@@ -26,6 +26,19 @@ pub const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Unknown,
+    Bool,
+    Int,
+    String,
+}
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Unknown => write!(f, "unknown"),
+            Type::Bool => write!(f, "bool"),
+            Type::Int => write!(f, "int"),
+            Type::String => write!(f, "string"),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -64,5 +77,22 @@ impl SymbolTable {
 
     pub fn insert(&mut self, id: NodeId, symbol: Symbol) -> Option<Symbol> {
         self.table.insert(id, symbol)
+    }
+
+    pub fn get(&self, id: &NodeId) -> Option<&Symbol> {
+        self.table.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: &NodeId) -> Option<&mut Symbol> {
+        self.table.get_mut(id)
+    }
+
+    pub fn set_type(&mut self, id: &NodeId, type_: Type) -> bool {
+        if let Some(mut symbol) = self.table.get_mut(id) {
+            symbol.type_ = type_;
+            true
+        } else {
+            false
+        }
     }
 }
