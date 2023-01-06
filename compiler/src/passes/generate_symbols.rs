@@ -1,11 +1,37 @@
+use std::collections::HashMap;
+
 use chumsky::prelude::Simple;
 
 use crate::parser::{Expression, ExpressionKind, Identifier, Parameter, Program};
 
 use super::shared::{NodeId, Symbol, SymbolTable};
 
+pub struct Scope {
+    pub symbols: HashMap<String, Vec<NodeId>>,
+}
+impl Scope {
+    fn new() -> Self {
+        Scope {
+            symbols: HashMap::new(),
+        }
+    }
+
+    fn set(&mut self, identifier: &String, id: NodeId) {
+        if let Some(identifiers) = self.symbols.get_mut(identifier) {
+            identifiers.push(id);
+        } else {
+            self.symbols.insert(identifier.clone(), vec![id]);
+        }
+    }
+
+    fn get(&self, identifier: &String) -> Option<&NodeId> {
+        self.symbols.get(identifier).map(|v| v.last()).flatten()
+    }
+}
+
 pub struct Context {
     pub symbol_table: SymbolTable,
+    pub scopes: Vec<Scope>,
     pub errors: Vec<Simple<Expression>>,
     pub owner_id: NodeId,
 }
@@ -13,6 +39,7 @@ impl Context {
     pub fn new() -> Self {
         Context {
             symbol_table: SymbolTable::new(),
+            scopes: vec![Scope::new()],
             errors: Vec::new(),
             owner_id: NodeId::from_u32(0),
         }
@@ -26,10 +53,31 @@ impl Context {
         self.symbol_table.insert(id.clone(), symbol);
         id
     }
+
+    fn get_from_scope(&self, identifier: &String) -> Option<&NodeId> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(id) = scope.get(identifier) {
+                return Some(id);
+            }
+        }
+        None
+    }
+
+    fn add_to_scope(&mut self, identifier: &String, id: &NodeId) {
+        self.scopes.last_mut().unwrap().set(identifier, id.clone());
+    }
+
+    fn push_scope(&mut self, scope: Scope) {
+        self.scopes.push(scope)
+    }
+
+    fn pop_scope(&mut self) -> Option<Scope> {
+        self.scopes.pop()
+    }
 }
 
 /// Generate the initial symbols.
-pub fn generate_symbols(program: Program) -> Result<Program, Vec<Simple<String>>> {
+pub fn generate_symbols(program: Program) -> Result<(Program, SymbolTable), Vec<Simple<String>>> {
     let mut ctx = Context::new();
 
     let program = visit_program(program, &mut ctx);
@@ -40,7 +88,7 @@ pub fn generate_symbols(program: Program) -> Result<Program, Vec<Simple<String>>
             .map(|e| e.map(|f| f.id.to_string()))
             .collect::<Vec<Simple<String>>>())
     } else {
-        Ok(program)
+        Ok((program, ctx.symbol_table))
     }
 }
 
@@ -68,15 +116,27 @@ fn visit_expression(
             }
         }
 
-        ExpressionKind::Identifier(_) => Expression {
-            id: ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone())),
-            ..expression.clone()
-        },
+        ExpressionKind::Identifier(identifier) => {
+            if let Some(id) = ctx.get_from_scope(&identifier.name) {
+                Expression {
+                    id: id.clone(),
+                    ..expression.clone()
+                }
+            } else {
+                let id = ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone()));
+                ctx.add_to_scope(&identifier.name, &id);
+                Expression {
+                    id,
+                    ..expression.clone()
+                }
+            }
+        }
 
         ExpressionKind::Block(expressions) => {
             let old_owner_id = ctx.owner_id.clone();
             ctx.owner_id = ctx.insert_symbol(node_id, Symbol::new(old_owner_id.clone()));
 
+            ctx.push_scope(Scope::new());
             let new_block = Expression {
                 id: ctx.owner_id.clone(),
                 kind: ExpressionKind::Block(
@@ -87,6 +147,7 @@ fn visit_expression(
                 ),
                 ..expression.clone()
             };
+            ctx.pop_scope();
 
             ctx.owner_id = old_owner_id;
             new_block
@@ -153,6 +214,8 @@ fn visit_expression(
             }
         }
 
+        // TODO: Create a scope when doing a property access
+        // TODO: Allow for getting from scope but only one layer deep
         ExpressionKind::BinaryExpression(left, op, right) => {
             let expression_id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
 
@@ -206,5 +269,29 @@ fn visit_expression(
         }
 
         ExpressionKind::Error => todo!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use chumsky::{Parser, Stream};
+
+    use crate::{lexer::lexer, parser::main_parser};
+
+    use super::generate_symbols;
+
+    #[test]
+    fn should_use_same_id_for_identifiers_in_same_scope() {
+        let src = "a;a;";
+        let len = src.chars().count();
+        let (tokens, _) = lexer().parse_recovery(src);
+        let (program, _) = main_parser()
+            .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
+        let (program, _) = generate_symbols(program.unwrap()).unwrap();
+        assert_eq!(program.expressions.len(), 2);
+
+        let first = program.expressions.first().unwrap();
+        let last = program.expressions.last().unwrap();
+        assert_eq!(first.id, last.id);
     }
 }
