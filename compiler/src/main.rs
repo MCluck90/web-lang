@@ -32,20 +32,16 @@ fn main() {
 
         if let Some(program) = program {
             if lex_errs.is_empty() && parse_errs.is_empty() {
-                let (program, ctx) = transform_ast(&program);
-
-                if !ctx.errors.is_empty() {
-                    let mut gen_errors = ctx
-                        .errors
-                        .into_iter()
-                        .map(|e| e.map(|f| f.id.to_string()))
-                        .collect::<Vec<Simple<String>>>();
-                    errors.append(&mut gen_errors);
-                }
-
-                let output = code_gen::generate_code(&program);
-                if let Some(be_js) = output.js {
-                    println!("{}", be_js);
+                match transform_ast(&program) {
+                    Ok(program) => {
+                        let output = code_gen::generate_code(&program);
+                        if let Some(be_js) = output.js {
+                            println!("{}", be_js);
+                        }
+                    }
+                    Err(mut compile_errors) => {
+                        errors.append(&mut compile_errors);
+                    }
                 }
             } else {
                 println!("{:?}", program);

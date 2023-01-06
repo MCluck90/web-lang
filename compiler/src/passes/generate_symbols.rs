@@ -59,11 +59,19 @@ impl SymbolTable {
 }
 
 /// Generate the initial symbols.
-pub fn generate_symbols(program: &Program) -> (Program, Context) {
+pub fn generate_symbols(program: &Program) -> Result<Program, Vec<Simple<String>>> {
     let mut ctx = Context::new();
 
     let program = visit_program(&program, &mut ctx);
-    (program, ctx)
+    if !ctx.errors.is_empty() {
+        Err(ctx
+            .errors
+            .into_iter()
+            .map(|e| e.map(|f| f.id.to_string()))
+            .collect::<Vec<Simple<String>>>())
+    } else {
+        Ok(program)
+    }
 }
 
 fn visit_program(program: &Program, ctx: &mut Context) -> Program {
