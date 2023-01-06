@@ -1,4 +1,4 @@
-use chumsky::prelude::Simple;
+use chumsky::{prelude::Simple, Error};
 
 use crate::{
     lexer::Operator,
@@ -96,11 +96,11 @@ fn visit_expression(
                     if left.type_ == Type::Unknown {
                         left.type_ = right_type.clone();
                     } else {
-                        return Err(Simple::custom(
-                            expression.span.clone(),
-                            format!(
-                                "Type mismatch: right side is {} but the left side is {}",
-                                left.type_, right_type
+                        return Err(Simple::custom(right.span.clone(), "Type mismatch").merge(
+                            Simple::expected_input_found(
+                                right.span.clone(),
+                                vec![Some(format!("{}, found {}", left.type_, right_type))],
+                                None,
                             ),
                         ));
                     }
