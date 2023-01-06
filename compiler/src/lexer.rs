@@ -22,7 +22,7 @@ impl fmt::Display for BuiltInTypeToken {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Operator {
+pub enum BinaryOperator {
     Add,
     Sub,
     Mul,
@@ -39,23 +39,23 @@ pub enum Operator {
     Assignment,
 }
 
-impl fmt::Display for Operator {
+impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Operator::Add => write!(f, "+"),
-            Operator::Sub => write!(f, "-"),
-            Operator::Mul => write!(f, "*"),
-            Operator::Div => write!(f, "/"),
-            Operator::Dot => write!(f, "."),
-            Operator::NotEqual => write!(f, "!="),
-            Operator::Equal => write!(f, "=="),
-            Operator::LessThan => write!(f, "<"),
-            Operator::LessThanOrEqual => write!(f, "<="),
-            Operator::GreaterThan => write!(f, ">"),
-            Operator::GreaterThanOrEqual => write!(f, ">="),
-            Operator::And => write!(f, "&&"),
-            Operator::Or => write!(f, "||"),
-            Operator::Assignment => write!(f, "="),
+            BinaryOperator::Add => write!(f, "+"),
+            BinaryOperator::Sub => write!(f, "-"),
+            BinaryOperator::Mul => write!(f, "*"),
+            BinaryOperator::Div => write!(f, "/"),
+            BinaryOperator::Dot => write!(f, "."),
+            BinaryOperator::NotEqual => write!(f, "!="),
+            BinaryOperator::Equal => write!(f, "=="),
+            BinaryOperator::LessThan => write!(f, "<"),
+            BinaryOperator::LessThanOrEqual => write!(f, "<="),
+            BinaryOperator::GreaterThan => write!(f, ">"),
+            BinaryOperator::GreaterThanOrEqual => write!(f, ">="),
+            BinaryOperator::And => write!(f, "&&"),
+            BinaryOperator::Or => write!(f, "||"),
+            BinaryOperator::Assignment => write!(f, "="),
         }
     }
 }
@@ -92,7 +92,7 @@ pub enum Token {
     BuiltInType(BuiltInTypeToken),
     Identifier(String),
     Integer(String),
-    Operator(Operator),
+    Operator(BinaryOperator),
     String(String),
 }
 
@@ -164,20 +164,20 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     let string_ = single_quote_string.or(double_quote_string);
 
     let operator = choice::<_, Simple<char>>((
-        just::<char, _, Simple<char>>('+').to(Token::Operator(Operator::Add)),
-        just::<char, _, Simple<char>>('-').to(Token::Operator(Operator::Sub)),
-        just::<char, _, Simple<char>>('*').to(Token::Operator(Operator::Mul)),
-        just::<char, _, Simple<char>>('/').to(Token::Operator(Operator::Div)),
-        just::<char, _, Simple<char>>('.').to(Token::Operator(Operator::Dot)),
-        just::<char, _, Simple<char>>("==").to(Token::Operator(Operator::Equal)),
-        just::<char, _, Simple<char>>("!=").to(Token::Operator(Operator::NotEqual)),
-        just::<char, _, Simple<char>>("<=").to(Token::Operator(Operator::LessThanOrEqual)),
-        just::<char, _, Simple<char>>("<").to(Token::Operator(Operator::LessThan)),
-        just::<char, _, Simple<char>>(">=").to(Token::Operator(Operator::GreaterThanOrEqual)),
-        just::<char, _, Simple<char>>(">").to(Token::Operator(Operator::GreaterThan)),
-        just::<char, _, Simple<char>>("&&").to(Token::Operator(Operator::And)),
-        just::<char, _, Simple<char>>("||").to(Token::Operator(Operator::Or)),
-        just::<char, _, Simple<char>>("=").to(Token::Operator(Operator::Assignment)),
+        just::<char, _, Simple<char>>('+').to(Token::Operator(BinaryOperator::Add)),
+        just::<char, _, Simple<char>>('-').to(Token::Operator(BinaryOperator::Sub)),
+        just::<char, _, Simple<char>>('*').to(Token::Operator(BinaryOperator::Mul)),
+        just::<char, _, Simple<char>>('/').to(Token::Operator(BinaryOperator::Div)),
+        just::<char, _, Simple<char>>('.').to(Token::Operator(BinaryOperator::Dot)),
+        just::<char, _, Simple<char>>("==").to(Token::Operator(BinaryOperator::Equal)),
+        just::<char, _, Simple<char>>("!=").to(Token::Operator(BinaryOperator::NotEqual)),
+        just::<char, _, Simple<char>>("<=").to(Token::Operator(BinaryOperator::LessThanOrEqual)),
+        just::<char, _, Simple<char>>("<").to(Token::Operator(BinaryOperator::LessThan)),
+        just::<char, _, Simple<char>>(">=").to(Token::Operator(BinaryOperator::GreaterThanOrEqual)),
+        just::<char, _, Simple<char>>(">").to(Token::Operator(BinaryOperator::GreaterThan)),
+        just::<char, _, Simple<char>>("&&").to(Token::Operator(BinaryOperator::And)),
+        just::<char, _, Simple<char>>("||").to(Token::Operator(BinaryOperator::Or)),
+        just::<char, _, Simple<char>>("=").to(Token::Operator(BinaryOperator::Assignment)),
     ));
 
     let ident = text::ident().map(|ident: String| match ident.as_str() {

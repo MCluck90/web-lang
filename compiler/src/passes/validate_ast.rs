@@ -1,7 +1,7 @@
 use chumsky::{prelude::Simple, Error};
 
 use crate::{
-    lexer::Operator,
+    lexer::BinaryOperator,
     parser::{Expression, ExpressionKind, Program},
 };
 
@@ -41,7 +41,7 @@ fn validate_expression(expression: &Expression) -> Result<(), Simple<String>> {
         ExpressionKind::VariableDeclaration { initializer, .. } => validate_expression(initializer),
         ExpressionKind::FunctionDefinition { body, .. } => validate_expression(&body),
         ExpressionKind::BinaryExpression(left, op, _) => match &op {
-            Operator::Assignment => {
+            BinaryOperator::Assignment => {
                 if is_property_access_or_identifier(left) {
                     Ok(())
                 } else {
@@ -90,7 +90,7 @@ fn is_property_access_or_identifier(expression: &Expression) -> bool {
     match &expression.kind {
         ExpressionKind::BinaryExpression(_, op, right) => match &right.kind {
             ExpressionKind::BinaryExpression(_, _, _) => is_property_access_or_identifier(right),
-            ExpressionKind::Identifier(_) => op == &Operator::Dot,
+            ExpressionKind::Identifier(_) => op == &BinaryOperator::Dot,
             _ => false,
         },
         ExpressionKind::Identifier(_) => true,

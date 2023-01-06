@@ -1,7 +1,7 @@
 use chumsky::{prelude::Simple, Error};
 
 use crate::{
-    lexer::{Operator, Span},
+    lexer::{BinaryOperator, Span},
     parser::{Expression, ExpressionKind, Program},
 };
 
@@ -116,7 +116,7 @@ fn visit_expression(
             let mut left_sym = symbol_table.get_mut(&left.id).unwrap();
             // TODO: Generally handle when types are unknown
             match &op {
-                Operator::Assignment => {
+                BinaryOperator::Assignment => {
                     if left_sym.type_ == Type::Unknown {
                         left_sym.type_ = right_type.clone();
                     } else {
@@ -129,7 +129,10 @@ fn visit_expression(
                     symbol_table.set_type(&expression.id, right_type);
                     Ok(())
                 }
-                Operator::Add | Operator::Sub | Operator::Mul | Operator::Div => {
+                BinaryOperator::Add
+                | BinaryOperator::Sub
+                | BinaryOperator::Mul
+                | BinaryOperator::Div => {
                     // TODO: Infer when either are `Unknown`
                     // TODO: Add support for string concatenation
                     if left_sym.type_ != Type::Int {
@@ -140,8 +143,8 @@ fn visit_expression(
                         Ok(())
                     }
                 }
-                Operator::Dot => todo!(),
-                Operator::NotEqual | Operator::Equal => {
+                BinaryOperator::Dot => todo!(),
+                BinaryOperator::NotEqual | BinaryOperator::Equal => {
                     if left_sym.type_ != right_type {
                         Err(
                             Simple::custom(expression.span.clone(), "Invalid comparison").merge(
@@ -159,12 +162,12 @@ fn visit_expression(
                         Ok(())
                     }
                 }
-                Operator::LessThan => todo!(),
-                Operator::LessThanOrEqual => todo!(),
-                Operator::GreaterThan => todo!(),
-                Operator::GreaterThanOrEqual => todo!(),
-                Operator::And => todo!(),
-                Operator::Or => todo!(),
+                BinaryOperator::LessThan => todo!(),
+                BinaryOperator::LessThanOrEqual => todo!(),
+                BinaryOperator::GreaterThan => todo!(),
+                BinaryOperator::GreaterThanOrEqual => todo!(),
+                BinaryOperator::And => todo!(),
+                BinaryOperator::Or => todo!(),
             }
         }
         ExpressionKind::FunctionCall { callee, arguments } => todo!(),

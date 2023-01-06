@@ -86,7 +86,7 @@ pub enum ExpressionKind {
     },
 
     // UnaryExpression(Operator, Box<Expression>),
-    BinaryExpression(Box<Expression>, Operator, Box<Expression>),
+    BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     FunctionCall {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
@@ -115,20 +115,20 @@ impl ExpressionKind {
             ExpressionKind::VariableDeclaration { .. } => "a variable declaration",
             ExpressionKind::FunctionDefinition { .. } => "a function definition",
             ExpressionKind::BinaryExpression(_, op, _) => match op {
-                Operator::Add => "an addition expression",
-                Operator::Sub => "a subtraction expression",
-                Operator::Mul => "a multiplication expression",
-                Operator::Div => "a division operation",
-                Operator::Dot => "a property access",
-                Operator::NotEqual => "an equality expression",
-                Operator::Equal => "an equality expression",
-                Operator::LessThan => "a comparison expression",
-                Operator::LessThanOrEqual => "a comparison expression",
-                Operator::GreaterThan => "a comparison expression",
-                Operator::GreaterThanOrEqual => "a comparison expression",
-                Operator::And => "a comparison expression",
-                Operator::Or => "a comparison expression",
-                Operator::Assignment => "an assignment expression",
+                BinaryOperator::Add => "an addition expression",
+                BinaryOperator::Sub => "a subtraction expression",
+                BinaryOperator::Mul => "a multiplication expression",
+                BinaryOperator::Div => "a division operation",
+                BinaryOperator::Dot => "a property access",
+                BinaryOperator::NotEqual => "an equality expression",
+                BinaryOperator::Equal => "an equality expression",
+                BinaryOperator::LessThan => "a comparison expression",
+                BinaryOperator::LessThanOrEqual => "a comparison expression",
+                BinaryOperator::GreaterThan => "a comparison expression",
+                BinaryOperator::GreaterThanOrEqual => "a comparison expression",
+                BinaryOperator::And => "a comparison expression",
+                BinaryOperator::Or => "a comparison expression",
+                BinaryOperator::Assignment => "an assignment expression",
             },
             ExpressionKind::FunctionCall { .. } => "a function call",
             ExpressionKind::If { .. } => "an if expression",
@@ -210,7 +210,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
             .to(false)
             .or(just(Token::Mut).to(true))
             .then(identifier)
-            .then_ignore(just(Token::Operator(Operator::Assignment)))
+            .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
             .then(expr.clone())
             .map_with_span(|((is_mutable, identifier), initializer), span| {
                 Expression::new(
@@ -269,7 +269,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
             ))
             .or(parenthesized_expr);
 
-        let operator = just(Token::Operator(Operator::Dot)).to(Operator::Dot);
+        let operator = just(Token::Operator(BinaryOperator::Dot)).to(BinaryOperator::Dot);
         let dot_member = atom
             .clone()
             .then(operator.then(identifier.clone()).repeated())
@@ -312,9 +312,9 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                     )
                 });
 
-        let operator = just(Token::Operator(Operator::Mul))
-            .to(Operator::Mul)
-            .or(just(Token::Operator(Operator::Div)).to(Operator::Div));
+        let operator = just(Token::Operator(BinaryOperator::Mul))
+            .to(BinaryOperator::Mul)
+            .or(just(Token::Operator(BinaryOperator::Div)).to(BinaryOperator::Div));
         let factor = fn_call
             .clone()
             .then(operator.then(fn_call).repeated())
@@ -327,9 +327,9 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 )
             });
 
-        let operator = just(Token::Operator(Operator::Add))
-            .to(Operator::Add)
-            .or(just(Token::Operator(Operator::Sub)).to(Operator::Sub));
+        let operator = just(Token::Operator(BinaryOperator::Add))
+            .to(BinaryOperator::Add)
+            .or(just(Token::Operator(BinaryOperator::Sub)).to(BinaryOperator::Sub));
         let sum =
             factor
                 .clone()
@@ -343,12 +343,13 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                     )
                 });
 
-        let operator = just(Token::Operator(Operator::LessThan))
-            .to(Operator::LessThan)
-            .or(just(Token::Operator(Operator::LessThanOrEqual)).to(Operator::LessThanOrEqual))
-            .or(just(Token::Operator(Operator::GreaterThan)).to(Operator::GreaterThan))
-            .or(just(Token::Operator(Operator::GreaterThanOrEqual))
-                .to(Operator::GreaterThanOrEqual));
+        let operator = just(Token::Operator(BinaryOperator::LessThan))
+            .to(BinaryOperator::LessThan)
+            .or(just(Token::Operator(BinaryOperator::LessThanOrEqual))
+                .to(BinaryOperator::LessThanOrEqual))
+            .or(just(Token::Operator(BinaryOperator::GreaterThan)).to(BinaryOperator::GreaterThan))
+            .or(just(Token::Operator(BinaryOperator::GreaterThanOrEqual))
+                .to(BinaryOperator::GreaterThanOrEqual));
         let comparison =
             sum.clone()
                 .then(operator.then(sum).repeated())
@@ -361,9 +362,9 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                     )
                 });
 
-        let operator = just(Token::Operator(Operator::Equal))
-            .to(Operator::Equal)
-            .or(just(Token::Operator(Operator::NotEqual)).to(Operator::NotEqual));
+        let operator = just(Token::Operator(BinaryOperator::Equal))
+            .to(BinaryOperator::Equal)
+            .or(just(Token::Operator(BinaryOperator::NotEqual)).to(BinaryOperator::NotEqual));
         let equality = comparison
             .clone()
             .then(operator.then(comparison).repeated())
@@ -376,7 +377,8 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 )
             });
 
-        let operator = just(Token::Operator(Operator::Assignment)).to(Operator::Assignment);
+        let operator =
+            just(Token::Operator(BinaryOperator::Assignment)).to(BinaryOperator::Assignment);
         let assignment = equality
             .clone()
             .then(operator.then(equality).repeated())
