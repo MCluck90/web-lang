@@ -71,10 +71,15 @@ fn visit_expression(
         ExpressionKind::Identifier(_) => Ok(()),
         ExpressionKind::Block(_) => todo!(),
         ExpressionKind::VariableDeclaration {
-            is_mutable,
             identifier,
             initializer,
-        } => todo!(),
+            ..
+        } => {
+            visit_expression(initializer, symbol_table)?;
+            let initializer_symbol = symbol_table.get(&initializer.id).unwrap();
+            symbol_table.set_type(&identifier.id, initializer_symbol.type_.clone());
+            Ok(())
+        }
         ExpressionKind::FunctionDefinition {
             name,
             parameters,
@@ -215,6 +220,28 @@ mod tests {
             ExpressionKind::Identifier(_) => {
                 let symbol = symbol_table.get(&identifier.id).unwrap();
                 assert_eq!(symbol.type_, Type::Int);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn infer_types_of_identifiers_from_declarations() {
+        let src = "
+            let x = true;
+            x
+        ";
+        let len = src.chars().count();
+        let (tokens, _) = lexer().parse_recovery(src);
+        let (program, _) = main_parser()
+            .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
+        let (program, symbol_table) =
+            infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
+        let identifier = program.expressions.last().unwrap();
+        match &identifier.kind {
+            ExpressionKind::Identifier(_) => {
+                let symbol = symbol_table.get(&identifier.id).unwrap();
+                assert_eq!(symbol.type_, Type::Bool);
             }
             _ => unreachable!(),
         }
