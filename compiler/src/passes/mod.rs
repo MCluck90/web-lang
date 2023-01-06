@@ -6,6 +6,6 @@ use self::generate_symbols::generate_symbols;
 
 mod generate_symbols;
 
-pub fn transform_ast(program: &Program) -> Result<Program, Vec<Simple<String>>> {
+pub fn transform_ast(program: Program) -> Result<Program, Vec<Simple<String>>> {
     generate_symbols(program)
 }

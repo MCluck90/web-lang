@@ -32,7 +32,7 @@ fn main() {
 
         if let Some(program) = program {
             if lex_errs.is_empty() && parse_errs.is_empty() {
-                match transform_ast(&program) {
+                match transform_ast(program) {
                     Ok(program) => {
                         let output = code_gen::generate_code(&program);
                         if let Some(be_js) = output.js {
