@@ -1,29 +1,10 @@
 use core::fmt;
 
-use crate::lexer::*;
+use crate::{
+    lexer::*,
+    passes::shared::{NodeId, DUMMY_NODE_ID},
+};
 use chumsky::prelude::*;
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct NodeId {
-    value: u32,
-}
-
-impl NodeId {
-    pub const fn from_u32(value: u32) -> NodeId {
-        NodeId { value }
-    }
-}
-
-impl fmt::Display for NodeId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
-
-// We use this just for the initial construction. We need to go over the tree later and generate unique IDs.
-// We don't generate them as we parse the tree because, for example, repeated use of the same identifier should
-// give the same ID.
-pub const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Program {

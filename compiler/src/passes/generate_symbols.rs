@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-
 use chumsky::prelude::Simple;
 
-use crate::parser::{Expression, ExpressionKind, Identifier, NodeId, Parameter, Program};
+use crate::parser::{Expression, ExpressionKind, Identifier, Parameter, Program};
+
+use super::shared::{NodeId, Symbol, SymbolTable};
 
 pub struct Context {
     pub symbol_table: SymbolTable,
@@ -25,36 +25,6 @@ impl Context {
         };
         self.symbol_table.insert(id.clone(), symbol);
         id
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Symbol {
-    pub owner_id: NodeId,
-}
-
-#[derive(Debug)]
-pub struct SymbolTable {
-    next_id: u32,
-    table: HashMap<NodeId, Symbol>,
-}
-
-impl SymbolTable {
-    pub fn new() -> Self {
-        SymbolTable {
-            next_id: 0,
-            table: HashMap::new(),
-        }
-    }
-
-    pub fn generate_id(&mut self) -> NodeId {
-        let node_id = NodeId::from_u32(self.next_id);
-        self.next_id += 1;
-        node_id
-    }
-
-    pub fn insert(&mut self, id: NodeId, symbol: Symbol) -> Option<Symbol> {
-        self.table.insert(id, symbol)
     }
 }
 
@@ -91,12 +61,7 @@ fn visit_expression(
 ) -> Expression {
     match &expression.kind {
         ExpressionKind::Boolean(_) | ExpressionKind::Integer(_) | ExpressionKind::String(_) => {
-            let id = ctx.insert_symbol(
-                node_id,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            );
+            let id = ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone()));
             Expression {
                 id,
                 ..expression.clone()
@@ -104,23 +69,13 @@ fn visit_expression(
         }
 
         ExpressionKind::Identifier(_) => Expression {
-            id: ctx.insert_symbol(
-                node_id,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            ),
+            id: ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone())),
             ..expression.clone()
         },
 
         ExpressionKind::Block(expressions) => {
             let old_owner_id = ctx.owner_id.clone();
-            ctx.owner_id = ctx.insert_symbol(
-                node_id,
-                Symbol {
-                    owner_id: old_owner_id.clone(),
-                },
-            );
+            ctx.owner_id = ctx.insert_symbol(node_id, Symbol::new(old_owner_id.clone()));
 
             let new_block = Expression {
                 id: ctx.owner_id.clone(),
@@ -143,18 +98,8 @@ fn visit_expression(
             initializer,
         } => {
             let initializer = visit_expression(initializer, ctx, None);
-            let identifier_id = ctx.insert_symbol(
-                None,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            );
-            let declaration_id = ctx.insert_symbol(
-                node_id,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            );
+            let identifier_id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
+            let declaration_id = ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone()));
             Expression {
                 id: declaration_id,
                 kind: ExpressionKind::VariableDeclaration {
@@ -176,33 +121,18 @@ fn visit_expression(
             body,
         } => {
             let name = Identifier {
-                id: ctx.insert_symbol(
-                    None,
-                    Symbol {
-                        owner_id: ctx.owner_id.clone(),
-                    },
-                ),
+                id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
                 name: name.name.clone(),
                 span: name.span.clone(),
             };
-            let func_def_id = ctx.insert_symbol(
-                node_id,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            );
+            let func_def_id = ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone()));
 
             let block_id = ctx.symbol_table.generate_id();
             let parameters = parameters
                 .clone()
                 .iter()
                 .map(|param| {
-                    let id = ctx.insert_symbol(
-                        None,
-                        Symbol {
-                            owner_id: block_id.clone(),
-                        },
-                    );
+                    let id = ctx.insert_symbol(None, Symbol::new(block_id.clone()));
                     Parameter {
                         id,
                         ..param.clone()
@@ -224,12 +154,7 @@ fn visit_expression(
         }
 
         ExpressionKind::BinaryExpression(left, op, right) => {
-            let expression_id = ctx.insert_symbol(
-                None,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            );
+            let expression_id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
 
             let left = visit_expression(left, ctx, None);
             let right = visit_expression(right, ctx, None);
@@ -242,12 +167,7 @@ fn visit_expression(
         }
 
         ExpressionKind::FunctionCall { callee, arguments } => {
-            let id = ctx.insert_symbol(
-                None,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            );
+            let id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
             let callee = Box::new(visit_expression(callee, ctx, None));
             let arguments = arguments
                 .clone()
@@ -267,12 +187,7 @@ fn visit_expression(
             body,
             else_,
         } => {
-            let id = ctx.insert_symbol(
-                None,
-                Symbol {
-                    owner_id: ctx.owner_id.clone(),
-                },
-            );
+            let id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
             let condition = Box::new(visit_expression(condition, ctx, None));
             let body = Box::new(visit_expression(body, ctx, None));
             let else_ = else_

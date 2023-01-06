@@ -1,6 +1,7 @@
 use chumsky::prelude::Simple;
 
 mod generate_symbols;
+pub mod shared;
 mod validate_ast;
 
 use crate::parser::Program;
