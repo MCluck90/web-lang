@@ -7,7 +7,7 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::{prelude::*, Stream};
 use lexer::lexer;
 use parser::main_parser;
-use passes::id_gen_and_reference_validation::generate_ids_and_validate_references;
+use passes::transform_ast;
 
 fn main() {
     let file_path = std::env::args().nth(1).unwrap();
@@ -32,7 +32,7 @@ fn main() {
 
         if let Some(program) = program {
             if lex_errs.is_empty() && parse_errs.is_empty() {
-                let (program, ctx) = generate_ids_and_validate_references(&program);
+                let (program, ctx) = transform_ast(&program);
 
                 if !ctx.errors.is_empty() {
                     let mut gen_errors = ctx

@@ -6,7 +6,6 @@ use crate::parser::{Expression, ExpressionKind, Identifier, NodeId, Parameter, P
 
 pub struct Context {
     pub symbol_table: SymbolTable,
-    pub scopes: Vec<Scope>,
     pub errors: Vec<Simple<Expression>>,
     pub owner_id: NodeId,
 }
@@ -14,26 +13,17 @@ impl Context {
     pub fn new() -> Self {
         Context {
             symbol_table: SymbolTable::new(),
-            scopes: vec![Scope::new()],
             errors: Vec::new(),
             owner_id: NodeId::from_u32(0),
         }
     }
 
-    fn insert_symbol(
-        &mut self,
-        id: Option<NodeId>,
-        ident: Option<String>,
-        metadata: Symbol,
-    ) -> NodeId {
+    fn insert_symbol(&mut self, id: Option<NodeId>, symbol: Symbol) -> NodeId {
         let id = match id {
             Some(id) => id,
             None => self.symbol_table.generate_id(),
         };
-        self.symbol_table.insert(id.clone(), metadata);
-        if let Some(ident) = ident {
-            add_to_scope(self, id.clone(), ident);
-        }
+        self.symbol_table.insert(id.clone(), symbol);
         id
     }
 }
@@ -68,45 +58,8 @@ impl SymbolTable {
     }
 }
 
-pub struct Scope {
-    pub symbols: HashMap<String, Vec<NodeId>>,
-}
-
-impl Scope {
-    fn new() -> Self {
-        Scope {
-            symbols: HashMap::new(),
-        }
-    }
-}
-
-fn current_scope<'a>(ctx: &'a mut Context) -> &'a mut Scope {
-    ctx.scopes.last_mut().unwrap()
-}
-
-fn get_node_id<'a>(ctx: &'a Context, ident: &String) -> Option<&'a NodeId> {
-    let scopes = &ctx.scopes;
-    for scope in scopes.into_iter().rev() {
-        if let Some(node_ids) = scope.symbols.get(ident) {
-            return node_ids.last();
-        }
-    }
-    None
-}
-
-fn add_to_scope<'a>(ctx: &'a mut Context, id: NodeId, ident: String) {
-    let scope = current_scope(ctx);
-    if scope.symbols.get(&ident) == None {
-        scope.symbols.insert(ident.clone(), Vec::new());
-    }
-
-    let node_ids = scope.symbols.get_mut(&ident).unwrap();
-    if !node_ids.contains(&id) {
-        node_ids.push(id);
-    }
-}
-
-pub fn generate_ids_and_validate_references(program: &Program) -> (Program, Context) {
+/// Generate the initial symbols.
+pub fn generate_symbols(program: &Program) -> (Program, Context) {
     let mut ctx = Context::new();
 
     let program = visit_program(&program, &mut ctx);
@@ -132,7 +85,6 @@ fn visit_expression(
         ExpressionKind::Boolean(_) | ExpressionKind::Integer(_) | ExpressionKind::String(_) => {
             let id = ctx.insert_symbol(
                 node_id,
-                None,
                 Symbol {
                     owner_id: ctx.owner_id.clone(),
                 },
@@ -143,32 +95,24 @@ fn visit_expression(
             }
         }
 
-        ExpressionKind::Identifier(ident) => {
-            // Look for invalid references
-            if let Some(id) = get_node_id(ctx, &ident.name) {
-                Expression {
-                    id: id.clone(),
-                    ..expression.clone()
-                }
-            } else {
-                ctx.errors.push(Simple::custom(
-                    expression.span.clone(),
-                    format!("{} has not been defined", ident.name),
-                ));
-                expression.clone()
-            }
-        }
+        ExpressionKind::Identifier(_) => Expression {
+            id: ctx.insert_symbol(
+                node_id,
+                Symbol {
+                    owner_id: ctx.owner_id.clone(),
+                },
+            ),
+            ..expression.clone()
+        },
 
         ExpressionKind::Block(expressions) => {
             let old_owner_id = ctx.owner_id.clone();
             ctx.owner_id = ctx.insert_symbol(
                 node_id,
-                None,
                 Symbol {
                     owner_id: old_owner_id.clone(),
                 },
             );
-            ctx.scopes.push(Scope::new());
 
             let new_block = Expression {
                 id: ctx.owner_id.clone(),
@@ -181,7 +125,6 @@ fn visit_expression(
                 ..expression.clone()
             };
 
-            ctx.scopes.pop();
             ctx.owner_id = old_owner_id;
             new_block
         }
@@ -194,14 +137,12 @@ fn visit_expression(
             let initializer = visit_expression(initializer, ctx, None);
             let identifier_id = ctx.insert_symbol(
                 None,
-                Some(identifier.name.clone()),
                 Symbol {
                     owner_id: ctx.owner_id.clone(),
                 },
             );
             let declaration_id = ctx.insert_symbol(
                 node_id,
-                None,
                 Symbol {
                     owner_id: ctx.owner_id.clone(),
                 },
@@ -229,7 +170,6 @@ fn visit_expression(
             let name = Identifier {
                 id: ctx.insert_symbol(
                     None,
-                    Some(name.name.clone()),
                     Symbol {
                         owner_id: ctx.owner_id.clone(),
                     },
@@ -239,7 +179,6 @@ fn visit_expression(
             };
             let func_def_id = ctx.insert_symbol(
                 node_id,
-                None,
                 Symbol {
                     owner_id: ctx.owner_id.clone(),
                 },
@@ -252,7 +191,6 @@ fn visit_expression(
                 .map(|param| {
                     let id = ctx.insert_symbol(
                         None,
-                        Some(param.identifier.name.clone()),
                         Symbol {
                             owner_id: block_id.clone(),
                         },
@@ -280,7 +218,6 @@ fn visit_expression(
         ExpressionKind::BinaryExpression(left, op, right) => {
             let expression_id = ctx.insert_symbol(
                 None,
-                None,
                 Symbol {
                     owner_id: ctx.owner_id.clone(),
                 },
@@ -298,7 +235,6 @@ fn visit_expression(
 
         ExpressionKind::FunctionCall { callee, arguments } => {
             let id = ctx.insert_symbol(
-                None,
                 None,
                 Symbol {
                     owner_id: ctx.owner_id.clone(),
@@ -324,7 +260,6 @@ fn visit_expression(
             else_,
         } => {
             let id = ctx.insert_symbol(
-                None,
                 None,
                 Symbol {
                     owner_id: ctx.owner_id.clone(),

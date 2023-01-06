@@ -1,1 +1,9 @@
-pub mod id_gen_and_reference_validation;
+use crate::parser::Program;
+
+use self::generate_symbols::{generate_symbols, Context};
+
+mod generate_symbols;
+
+pub fn transform_ast(program: &Program) -> (Program, Context) {
+    generate_symbols(program)
+}
