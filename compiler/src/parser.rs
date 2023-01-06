@@ -123,6 +123,40 @@ pub enum ExpressionKind {
     Error,
 }
 
+impl ExpressionKind {
+    pub fn to_human_readable_name(&self) -> &str {
+        match self {
+            ExpressionKind::Boolean(_) => "a boolean",
+            ExpressionKind::Identifier(_) => "an identifier",
+            ExpressionKind::Integer(_) => "an integer",
+            ExpressionKind::String(_) => "a string",
+            ExpressionKind::Block(_) => "a block",
+            ExpressionKind::VariableDeclaration { .. } => "a variable declaration",
+            ExpressionKind::FunctionDefinition { .. } => "a function definition",
+            ExpressionKind::BinaryExpression(_, op, _) => match op {
+                Operator::Add => "an addition expression",
+                Operator::Sub => "a subtraction expression",
+                Operator::Mul => "a multiplication expression",
+                Operator::Div => "a division operation",
+                Operator::Dot => "a property access",
+                Operator::Not => "a negation expression",
+                Operator::NotEqual => "an equality expression",
+                Operator::Equal => "an equality expression",
+                Operator::LessThan => "a comparison expression",
+                Operator::LessThanOrEqual => "a comparison expression",
+                Operator::GreaterThan => "a comparison expression",
+                Operator::GreaterThanOrEqual => "a comparison expression",
+                Operator::And => "a comparison expression",
+                Operator::Or => "a comparison expression",
+                Operator::Assignment => "an assignment expression",
+            },
+            ExpressionKind::FunctionCall { .. } => "a function call",
+            ExpressionKind::If { .. } => "an if expression",
+            ExpressionKind::Error => "an error",
+        }
+    }
+}
+
 fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> + Clone {
     recursive(|expr| {
         let parenthesized_expr: chumsky::combinator::DelimitedBy<

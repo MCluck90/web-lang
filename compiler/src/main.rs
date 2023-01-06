@@ -118,11 +118,41 @@ fn main() {
                             ))
                             .with_color(Color::Red),
                     ),
-                chumsky::error::SimpleReason::Custom(msg) => report.with_message(msg).with_label(
-                    Label::new((&file_path, e.span()))
-                        .with_message(format!("{}", msg.fg(Color::Red)))
-                        .with_color(Color::Red),
-                ),
+                // chumsky::error::SimpleReason::Custom(msg) => report.with_message(msg).with_label(
+                //     Label::new((&file_path, e.span()))
+                //         .with_message(format!("{}", msg.fg(Color::Red)))
+                //         .with_color(Color::Red),
+                // ),
+                chumsky::error::SimpleReason::Custom(msg) => {
+                    let expected = e
+                        .expected()
+                        .map(|expected| {
+                            expected
+                                .clone()
+                                .map_or(String::new(), |expectation| expectation.to_string())
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let expected = if !expected.is_empty() {
+                        Some(expected)
+                    } else {
+                        None
+                    };
+                    let found = e.found().map(|e| e.to_string());
+
+                    report.with_message(msg).with_label(
+                        Label::new((&file_path, e.span()))
+                            .with_message(match (expected, found) {
+                                (Some(expected), Some(found)) => {
+                                    format!("expected: {}, found: {}", expected, found)
+                                }
+                                (Some(expected), None) => format!("expected {}", expected),
+                                (None, Some(found)) => format!("found {}", found),
+                                (None, None) => "".to_string(),
+                            })
+                            .with_color(Color::Red),
+                    )
+                }
             };
 
             report
