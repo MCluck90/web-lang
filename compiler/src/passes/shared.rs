@@ -26,6 +26,7 @@ pub const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
     Unknown,
+    Void,
     Bool,
     Int,
     String,
@@ -34,6 +35,7 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Unknown => write!(f, "unknown"),
+            Type::Void => write!(f, "void"),
             Type::Bool => write!(f, "bool"),
             Type::Int => write!(f, "int"),
             Type::String => write!(f, "string"),

@@ -1,7 +1,7 @@
 use chumsky::{prelude::Simple, Error};
 
 use crate::{
-    lexer::Operator,
+    lexer::{Operator, Span},
     parser::{Expression, ExpressionKind, Program},
 };
 
@@ -41,6 +41,20 @@ fn to_missing_node_error(expression: &Expression) -> Result<(), Simple<String>> 
     ))
 }
 
+fn create_type_mismatch_error(
+    span: &Span,
+    expected_type: &Type,
+    found_type: &Type,
+) -> Result<(), Simple<String>> {
+    Err(
+        Simple::custom(span.clone(), "Type mismatch").merge(Simple::expected_input_found(
+            span.clone(),
+            vec![Some(format!("{}, found {}", expected_type, found_type))],
+            None,
+        )),
+    )
+}
+
 fn visit_expression(
     expression: &Expression,
     symbol_table: &mut SymbolTable,
@@ -69,7 +83,16 @@ fn visit_expression(
         }
 
         ExpressionKind::Identifier(_) => Ok(()),
-        ExpressionKind::Block(_) => todo!(),
+        ExpressionKind::Block(expressions) => {
+            for expr in expressions {
+                visit_expression(expr, symbol_table)?;
+            }
+            let output_type = expressions.last().map_or(Type::Void, |expr| {
+                symbol_table.get(&expr.id).unwrap().type_.clone()
+            });
+            symbol_table.set_type(&expression.id, output_type);
+            Ok(())
+        }
         ExpressionKind::VariableDeclaration {
             identifier,
             initializer,
@@ -96,13 +119,7 @@ fn visit_expression(
                     if left.type_ == Type::Unknown {
                         left.type_ = right_type.clone();
                     } else {
-                        return Err(Simple::custom(right.span.clone(), "Type mismatch").merge(
-                            Simple::expected_input_found(
-                                right.span.clone(),
-                                vec![Some(format!("{}, found {}", left.type_, right_type))],
-                                None,
-                            ),
-                        ));
+                        return create_type_mismatch_error(&right.span, &left.type_, &right_type);
                     }
                     symbol_table.set_type(&expression.id, right_type);
                     Ok(())
@@ -128,7 +145,40 @@ fn visit_expression(
             condition,
             body,
             else_,
-        } => todo!(),
+        } => {
+            visit_expression(condition, symbol_table)?;
+            let condition_sym = symbol_table.get(&condition.id).unwrap();
+            if condition_sym.type_ != Type::Bool {
+                return create_type_mismatch_error(
+                    &condition.span,
+                    &Type::Bool,
+                    &condition_sym.type_,
+                );
+            }
+            visit_expression(body, symbol_table)?;
+            let body_type = &symbol_table.get(&body.id).unwrap().type_.clone();
+            let mut else_type = &Type::Void;
+            if let Some(else_) = else_ {
+                visit_expression(else_, symbol_table)?;
+                else_type = &symbol_table.get(&else_.id).unwrap().type_;
+            }
+            if body_type != else_type {
+                Err(
+                    Simple::custom(expression.span.clone(), "Branch type mismatch").merge(
+                        Simple::expected_input_found(
+                            expression.span.clone(),
+                            vec![Some(format!(
+                                "else branch to have type {}, found {}",
+                                body_type, else_type
+                            ))],
+                            None,
+                        ),
+                    ),
+                )
+            } else {
+                Ok(())
+            }
+        }
         ExpressionKind::Error => todo!(),
     }
 }
