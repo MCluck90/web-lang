@@ -181,6 +181,7 @@ fn visit_expression(
             name,
             parameters,
             body,
+            return_type,
         } => {
             let name = Identifier {
                 id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
@@ -216,6 +217,7 @@ fn visit_expression(
                 kind: ExpressionKind::FunctionDefinition {
                     name,
                     parameters,
+                    return_type: return_type.clone(),
                     body: Box::new(body),
                 },
                 ..expression.clone()

@@ -82,6 +82,7 @@ pub enum ExpressionKind {
     FunctionDefinition {
         name: Identifier,
         parameters: Vec<Parameter>,
+        return_type: String,
         body: Box<Expression>,
     },
 
@@ -138,6 +139,11 @@ impl ExpressionKind {
 }
 
 fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> + Clone {
+    let type_parser = select! {
+        Token::Identifier(i) => i,
+        Token::BuiltInType(t) => format!("{}", t)
+    };
+
     recursive(|expr| {
         let parenthesized_expr: chumsky::combinator::DelimitedBy<
             Recursive<Token, Expression, Simple<Token>>,
@@ -170,10 +176,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         let parameters = identifier
             .clone()
             .then_ignore(just(Token::KeyValueSeparator))
-            .then(select! {
-                Token::Identifier(i) => i,
-                Token::BuiltInType(t) => format!("{}", t)
-            })
+            .then(type_parser)
             .map(|(identifier, type_)| {
                 Parameter::new(DUMMY_NODE_ID, identifier.clone().span, identifier, type_)
             })
@@ -193,13 +196,16 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         let function_definition = just(Token::Let)
             .ignore_then(identifier.clone())
             .then(parameters)
+            .then_ignore(just(Token::KeyValueSeparator))
+            .then(type_parser)
             .then(block.clone())
-            .map_with_span(|((name, parameters), body), span| {
+            .map_with_span(|(((name, parameters), return_type), body), span| {
                 Expression::new(
                     DUMMY_NODE_ID,
                     ExpressionKind::FunctionDefinition {
                         name,
                         parameters: parameters.0,
+                        return_type,
                         body: Box::new(body),
                     },
                     span,

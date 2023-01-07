@@ -109,13 +109,28 @@ fn visit_expression(
         }
 
         ExpressionKind::FunctionDefinition {
-            parameters, body, ..
+            parameters,
+            body,
+            return_type,
+            ..
         } => {
             let parameter_types = parameters
                 .iter()
                 .map(|p| visit_parameter(p, symbol_table))
                 .collect::<Vec<_>>();
-            let return_type = visit_expression(body, symbol_table)?;
+            let body_type = visit_expression(body, symbol_table)?;
+            let return_type = string_to_type(return_type);
+
+            if return_type != body_type {
+                return Err(Simple::custom(
+                    body.span.clone(),
+                    format!(
+                        "Function expected to return type {} but instead returned {}",
+                        return_type, body_type
+                    ),
+                ));
+            }
+
             let function_type = Type::Function {
                 parameters: parameter_types,
                 return_type: Box::new(return_type),
@@ -419,6 +434,15 @@ mod tests {
             }
             _ => unreachable!(),
         }
+    }
+}
+
+fn string_to_type(str: &String) -> Type {
+    match str.as_str() {
+        "bool" => Type::Bool,
+        "int" => Type::Int,
+        "string" => Type::String,
+        _ => Type::Custom(str.clone()),
     }
 }
 
