@@ -34,7 +34,7 @@ fn visit_program(
     }
 }
 
-fn to_missing_node_error(expression: &Expression) -> Result<(), Simple<String>> {
+fn to_missing_node_error(expression: &Expression) -> Result<Type, Simple<String>> {
     Err(Simple::custom(
         expression.span.clone(),
         "Node is not available in the symbol table",
@@ -45,7 +45,7 @@ fn create_type_mismatch_error(
     span: &Span,
     expected_type: &Type,
     found_type: &Type,
-) -> Result<(), Simple<String>> {
+) -> Result<Type, Simple<String>> {
     Err(
         Simple::custom(span.clone(), "Type mismatch").merge(Simple::expected_input_found(
             span.clone(),
@@ -58,31 +58,35 @@ fn create_type_mismatch_error(
 fn visit_expression(
     expression: &Expression,
     symbol_table: &mut SymbolTable,
-) -> Result<(), Simple<String>> {
+) -> Result<Type, Simple<String>> {
     match &expression.kind {
         ExpressionKind::Boolean(_) => {
             if !symbol_table.set_type(&expression.id, Type::Bool) {
                 to_missing_node_error(expression)
             } else {
-                Ok(())
+                Ok(Type::Bool)
             }
         }
         ExpressionKind::Integer(_) => {
             if !symbol_table.set_type(&expression.id, Type::Int) {
                 to_missing_node_error(expression)
             } else {
-                Ok(())
+                Ok(Type::Int)
             }
         }
         ExpressionKind::String(_) => {
             if !symbol_table.set_type(&expression.id, Type::String) {
                 to_missing_node_error(expression)
             } else {
-                Ok(())
+                Ok(Type::String)
             }
         }
 
-        ExpressionKind::Identifier(_) => Ok(()),
+        ExpressionKind::Identifier(_) => Ok(symbol_table
+            .get(&expression.id)
+            .map(|i| i.type_.clone())
+            .unwrap_or(Type::Unknown)),
+
         ExpressionKind::Block(expressions) => {
             for expr in expressions {
                 visit_expression(expr, symbol_table)?;
@@ -90,18 +94,17 @@ fn visit_expression(
             let output_type = expressions.last().map_or(Type::Void, |expr| {
                 symbol_table.get(&expr.id).unwrap().type_.clone()
             });
-            symbol_table.set_type(&expression.id, output_type);
-            Ok(())
+            symbol_table.set_type(&expression.id, output_type.clone());
+            Ok(output_type)
         }
         ExpressionKind::VariableDeclaration {
             identifier,
             initializer,
             ..
         } => {
-            visit_expression(initializer, symbol_table)?;
-            let initializer_symbol = symbol_table.get(&initializer.id).unwrap();
-            symbol_table.set_type(&identifier.id, initializer_symbol.type_.clone());
-            Ok(())
+            let initializer_type = visit_expression(initializer, symbol_table)?;
+            symbol_table.set_type(&identifier.id, initializer_type.clone());
+            Ok(initializer_type)
         }
         ExpressionKind::FunctionDefinition {
             name,
@@ -115,7 +118,7 @@ fn visit_expression(
             let right_type = symbol_table.get_mut(&right.id).unwrap().type_.clone();
             let mut left_sym = symbol_table.get_mut(&left.id).unwrap();
             // TODO: Generally handle when types are unknown
-            match &op {
+            let result_type = match &op {
                 BinaryOperator::Assignment => {
                     if left_sym.type_ == Type::Unknown {
                         left_sym.type_ = right_type.clone();
@@ -126,8 +129,7 @@ fn visit_expression(
                             &right_type,
                         );
                     }
-                    symbol_table.set_type(&expression.id, right_type);
-                    Ok(())
+                    right_type
                 }
                 BinaryOperator::Add
                 | BinaryOperator::Sub
@@ -136,17 +138,17 @@ fn visit_expression(
                     // TODO: Infer when either are `Unknown`
                     // TODO: Add support for string concatenation
                     if left_sym.type_ != Type::Int {
-                        create_type_mismatch_error(&left.span, &Type::Int, &left_sym.type_)
+                        return create_type_mismatch_error(&left.span, &Type::Int, &left_sym.type_);
                     } else if right_type != Type::Int {
-                        create_type_mismatch_error(&right.span, &Type::Int, &right_type)
+                        return create_type_mismatch_error(&right.span, &Type::Int, &right_type);
                     } else {
-                        Ok(())
+                        left_sym.type_.clone()
                     }
                 }
                 BinaryOperator::Dot => todo!(),
                 BinaryOperator::NotEqual | BinaryOperator::Equal => {
                     if left_sym.type_ != right_type {
-                        Err(
+                        return Err(
                             Simple::custom(expression.span.clone(), "Invalid comparison").merge(
                                 Simple::expected_input_found(
                                     expression.span.clone(),
@@ -157,19 +159,44 @@ fn visit_expression(
                                     None,
                                 ),
                             ),
-                        )
+                        );
                     } else {
-                        Ok(())
+                        Type::Bool
                     }
                 }
-                BinaryOperator::LessThan => todo!(),
-                BinaryOperator::LessThanOrEqual => todo!(),
-                BinaryOperator::GreaterThan => todo!(),
-                BinaryOperator::GreaterThanOrEqual => todo!(),
-                BinaryOperator::And => todo!(),
-                BinaryOperator::Or => todo!(),
-            }
+                BinaryOperator::LessThan
+                | BinaryOperator::LessThanOrEqual
+                | BinaryOperator::GreaterThan
+                | BinaryOperator::GreaterThanOrEqual => {
+                    // TODO: Infer when either are `Unknown`
+                    if left_sym.type_ != Type::Int {
+                        return create_type_mismatch_error(&left.span, &Type::Int, &left_sym.type_);
+                    } else if right_type != Type::Int {
+                        return create_type_mismatch_error(&right.span, &Type::Int, &right_type);
+                    } else {
+                        Type::Bool
+                    }
+                }
+
+                BinaryOperator::And | BinaryOperator::Or => {
+                    // TODO: Infer when either are `Unknown`
+                    if left_sym.type_ != Type::Bool {
+                        return create_type_mismatch_error(
+                            &left.span,
+                            &Type::Bool,
+                            &left_sym.type_,
+                        );
+                    } else if right_type != Type::Bool {
+                        return create_type_mismatch_error(&right.span, &Type::Bool, &right_type);
+                    } else {
+                        Type::Bool
+                    }
+                }
+            };
+            symbol_table.set_type(&expression.id, result_type.clone());
+            Ok(result_type)
         }
+
         ExpressionKind::FunctionCall { callee, arguments } => todo!(),
         ExpressionKind::If {
             condition,
@@ -206,7 +233,7 @@ fn visit_expression(
                     ),
                 )
             } else {
-                Ok(())
+                Ok(body_type.clone())
             }
         }
         ExpressionKind::Error => todo!(),

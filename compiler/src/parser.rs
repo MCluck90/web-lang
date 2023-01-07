@@ -377,9 +377,24 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 )
             });
 
+        let operator = just(Token::Operator(BinaryOperator::And))
+            .to(BinaryOperator::And)
+            .or(just(Token::Operator(BinaryOperator::Or)).to(BinaryOperator::Or));
+        let logical = equality
+            .clone()
+            .then(operator.then(equality.clone()).repeated())
+            .foldl(|left, (op, right)| {
+                let span = left.span.start..right.span.end;
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
+                    span,
+                )
+            });
+
         let operator =
             just(Token::Operator(BinaryOperator::Assignment)).to(BinaryOperator::Assignment);
-        let assignment = equality
+        let assignment = logical
             .clone()
             .then(operator.then(equality).repeated())
             .foldl(|left, (op, right)| {
