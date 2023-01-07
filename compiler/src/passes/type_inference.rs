@@ -210,7 +210,60 @@ fn visit_expression(
             Ok(result_type)
         }
 
-        ExpressionKind::FunctionCall { callee, arguments } => todo!(),
+        ExpressionKind::FunctionCall { callee, arguments } => {
+            let callee_type = symbol_table.get(&callee.id).unwrap().type_.clone();
+            let (parameter_types, return_type) = match callee_type {
+                Type::Function {
+                    parameters,
+                    return_type,
+                } => (parameters, return_type.clone()),
+                _ => {
+                    return Err(Simple::custom(
+                        callee.span.clone(),
+                        format!("Type {} is not callable", callee_type),
+                    ));
+                }
+            };
+
+            let mut argument_types = Vec::<(Type, Span)>::new();
+            for arg in arguments {
+                let arg_type = visit_expression(arg, symbol_table)?;
+                argument_types.push((arg_type, arg.span.clone()));
+            }
+
+            if argument_types.len() != parameter_types.len() {
+                return Err(Simple::custom(
+                    expression.span.clone(),
+                    format!(
+                        "Expected arguments to be: ({}), received: ({})",
+                        parameter_types
+                            .iter()
+                            .map(|param| format!("{}", param))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        argument_types
+                            .iter()
+                            .map(|(arg, _)| format!("{}", arg))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                ));
+            }
+
+            for i in 0..argument_types.len() {
+                let (argument_type, arg_span) = argument_types.get(i).unwrap();
+                let parameter_type = parameter_types.get(i).unwrap();
+                if argument_type != parameter_type {
+                    return Err(Simple::custom(
+                        arg_span.clone(),
+                        format!("Expected {}, received {}", parameter_type, argument_type),
+                    ));
+                }
+            }
+
+            symbol_table.set_type(&expression.id, *return_type.clone());
+            Ok(*return_type)
+        }
 
         ExpressionKind::If {
             condition,
