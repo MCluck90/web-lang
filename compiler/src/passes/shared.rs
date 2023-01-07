@@ -30,6 +30,11 @@ pub enum Type {
     Bool,
     Int,
     String,
+    Function {
+        parameters: Vec<Type>,
+        return_type: Box<Type>,
+    },
+    Custom(String),
 }
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -39,6 +44,20 @@ impl fmt::Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Int => write!(f, "int"),
             Type::String => write!(f, "string"),
+            Type::Function {
+                parameters,
+                return_type,
+            } => write!(
+                f,
+                "({}) -> {}",
+                parameters
+                    .iter()
+                    .map(|p| format!("{}", p))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                format!("{}", return_type)
+            ),
+            Type::Custom(custom) => write!(f, "{}", custom),
         }
     }
 }

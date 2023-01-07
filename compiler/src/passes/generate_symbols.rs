@@ -187,7 +187,8 @@ fn visit_expression(
                 name: name.name.clone(),
                 span: name.span.clone(),
             };
-            let func_def_id = ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone()));
+            ctx.add_to_scope(&name.name, &name.id);
+            let func_def_id = name.id.clone();
 
             let block_id = ctx.symbol_table.generate_id();
             let parameters = parameters
@@ -202,7 +203,13 @@ fn visit_expression(
                 })
                 .collect::<Vec<Parameter>>();
 
+            // Create the scope for containing the parameters
+            ctx.push_scope(Scope::new());
+            for param in &parameters {
+                ctx.add_to_scope(&param.identifier.name, &param.id);
+            }
             let body = visit_expression(body, ctx, Some(block_id));
+            ctx.pop_scope();
 
             Expression {
                 id: func_def_id,

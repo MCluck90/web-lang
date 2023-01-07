@@ -2,7 +2,7 @@ use chumsky::{prelude::Simple, Error};
 
 use crate::{
     lexer::{BinaryOperator, Span},
-    parser::{Expression, ExpressionKind, Program},
+    parser::{Expression, ExpressionKind, Parameter, Program},
 };
 
 use super::shared::{SymbolTable, Type};
@@ -97,6 +97,7 @@ fn visit_expression(
             symbol_table.set_type(&expression.id, output_type.clone());
             Ok(output_type)
         }
+
         ExpressionKind::VariableDeclaration {
             identifier,
             initializer,
@@ -106,11 +107,23 @@ fn visit_expression(
             symbol_table.set_type(&identifier.id, initializer_type.clone());
             Ok(initializer_type)
         }
+
         ExpressionKind::FunctionDefinition {
-            name,
-            parameters,
-            body,
-        } => todo!(),
+            parameters, body, ..
+        } => {
+            let parameter_types = parameters
+                .iter()
+                .map(|p| visit_parameter(p, symbol_table))
+                .collect::<Vec<_>>();
+            let return_type = visit_expression(body, symbol_table)?;
+            let function_type = Type::Function {
+                parameters: parameter_types,
+                return_type: Box::new(return_type),
+            };
+            symbol_table.set_type(&expression.id, function_type.clone());
+            Ok(function_type)
+        }
+
         ExpressionKind::BinaryExpression(left, op, right) => {
             visit_expression(left, symbol_table)?;
             visit_expression(right, symbol_table)?;
@@ -198,6 +211,7 @@ fn visit_expression(
         }
 
         ExpressionKind::FunctionCall { callee, arguments } => todo!(),
+
         ExpressionKind::If {
             condition,
             body,
@@ -236,7 +250,7 @@ fn visit_expression(
                 Ok(body_type.clone())
             }
         }
-        ExpressionKind::Error => todo!(),
+        ExpressionKind::Error => unreachable!(),
     }
 }
 
@@ -353,4 +367,16 @@ mod tests {
             _ => unreachable!(),
         }
     }
+}
+
+fn visit_parameter(parameter: &Parameter, symbol_table: &mut SymbolTable) -> Type {
+    let type_ = match parameter.type_.as_str() {
+        "bool" => Type::Bool,
+        "int" => Type::Int,
+        "string" => Type::String,
+        _ => Type::Custom(parameter.type_.clone()),
+    };
+
+    symbol_table.set_type(&parameter.id, type_.clone());
+    type_
 }

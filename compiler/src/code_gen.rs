@@ -81,7 +81,8 @@ fn visit_expression(expression: &Expression) -> String {
             parameters,
             body,
         } => format!(
-            "const {} = ({}) => {}",
+            "const /* {} */ {} = ({}) => {}",
+            expression.id,
             name,
             parameters
                 .iter()
@@ -92,7 +93,7 @@ fn visit_expression(expression: &Expression) -> String {
         ),
 
         ExpressionKind::Identifier(ident) => {
-            format!("{}", ident.name.clone())
+            format!("/* {} */ {}", expression.id, ident.name.clone())
         }
 
         // TODO: How do early returns work when everything is an expression?
