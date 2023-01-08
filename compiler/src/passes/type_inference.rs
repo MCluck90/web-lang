@@ -243,6 +243,7 @@ fn visit_expression(
         }
 
         ExpressionKind::FunctionCall { callee, arguments } => {
+            visit_expression(callee, symbol_table)?;
             let callee_type = symbol_table.get(&callee.id).unwrap().type_.clone();
             let (parameter_types, return_type) = match callee_type {
                 Type::Function {
