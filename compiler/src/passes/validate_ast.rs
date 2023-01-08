@@ -2,7 +2,7 @@ use chumsky::{prelude::Simple, Error};
 
 use crate::{
     lexer::BinaryOperator,
-    parser::{Expression, ExpressionKind, Program},
+    parser::{Expression, ExpressionKind, Program, Statement, StatementKind},
 };
 
 /// Validate essential semantics about the shape of the AST.
@@ -11,9 +11,9 @@ use crate::{
 /// This step does not handle things like type checking.
 pub fn validate_ast(program: Program) -> Result<Program, Vec<Simple<String>>> {
     let errors = program
-        .expressions
+        .statements
         .iter()
-        .map(validate_expression)
+        .map(validate_statement)
         .filter(|r| r.is_err())
         .map(|r| r.unwrap_err())
         .collect::<Vec<Simple<String>>>();
@@ -24,22 +24,33 @@ pub fn validate_ast(program: Program) -> Result<Program, Vec<Simple<String>>> {
     }
 }
 
+fn validate_statement(statement: &Statement) -> Result<(), Simple<String>> {
+    match &statement.kind {
+        StatementKind::Expression(expr) => validate_expression(expr),
+        StatementKind::FunctionDefinition { body, .. } => validate_expression(&body),
+    }
+}
+
 fn validate_expression(expression: &Expression) -> Result<(), Simple<String>> {
     match &expression.kind {
         ExpressionKind::Boolean(_) => Ok(()),
         ExpressionKind::Identifier(_) => Ok(()),
         ExpressionKind::Integer(_) => Ok(()),
         ExpressionKind::String(_) => Ok(()),
-        ExpressionKind::Block(body) => {
-            for expr in body {
-                if let Err(err) = validate_expression(expr) {
+        ExpressionKind::Block(block) => {
+            for statement in &block.statements {
+                validate_statement(statement)?;
+            }
+
+            if let Some(expr) = &block.return_expression {
+                if let Err(err) = validate_expression(&expr) {
                     return Err(err);
                 }
             }
+
             Ok(())
         }
         ExpressionKind::VariableDeclaration { initializer, .. } => validate_expression(initializer),
-        ExpressionKind::FunctionDefinition { body, .. } => validate_expression(&body),
         ExpressionKind::BinaryExpression(left, op, _) => match &op {
             BinaryOperator::Assignment => {
                 if is_property_access_or_identifier(left) {

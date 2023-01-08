@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use chumsky::prelude::Simple;
 
-use crate::parser::{Expression, ExpressionKind, Identifier, Parameter, Program};
+use crate::parser::{
+    Block, Expression, ExpressionKind, Identifier, Parameter, Program, Statement, StatementKind,
+};
 
 use super::shared::{NodeId, Symbol, SymbolTable};
 
@@ -94,11 +96,69 @@ pub fn generate_symbols(program: Program) -> Result<(Program, SymbolTable), Vec<
 
 fn visit_program(program: Program, ctx: &mut Context) -> Program {
     Program {
-        expressions: program
-            .expressions
+        statements: program
+            .statements
             .iter()
-            .map(|expr| visit_expression(expr, ctx, None))
+            .map(|statement| visit_statement(statement, ctx))
             .collect(),
+    }
+}
+
+fn visit_statement(statement: &Statement, ctx: &mut Context) -> Statement {
+    match &statement.kind {
+        StatementKind::Expression(expression) => {
+            let expression = visit_expression(expression, ctx, None);
+            Statement {
+                id: expression.id.clone(),
+                kind: StatementKind::Expression(expression),
+                ..statement.clone()
+            }
+        }
+        StatementKind::FunctionDefinition {
+            name,
+            parameters,
+            return_type,
+            body,
+        } => {
+            let name = Identifier {
+                id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
+                name: name.name.clone(),
+                span: name.span.clone(),
+            };
+            ctx.add_to_scope(&name.name, &name.id);
+
+            let block_id = ctx.symbol_table.generate_id();
+            let parameters = parameters
+                .clone()
+                .iter()
+                .map(|param| {
+                    let id = ctx.insert_symbol(None, Symbol::new(block_id.clone()));
+                    Parameter {
+                        id,
+                        ..param.clone()
+                    }
+                })
+                .collect::<Vec<Parameter>>();
+
+            // Create the scope for containing the parameters
+            ctx.push_scope(Scope::new());
+            for param in &parameters {
+                ctx.add_to_scope(&param.identifier.name, &param.id);
+            }
+            let body = visit_expression(body, ctx, Some(block_id));
+            ctx.pop_scope();
+
+            Statement {
+                id: name.id.clone(),
+                kind: StatementKind::FunctionDefinition {
+                    name,
+                    parameters,
+                    return_type: return_type.clone(),
+                    body: Box::new(body),
+                },
+                ..statement.clone()
+            }
+        }
     }
 }
 
@@ -132,19 +192,14 @@ fn visit_expression(
             }
         }
 
-        ExpressionKind::Block(expressions) => {
+        ExpressionKind::Block(block) => {
             let old_owner_id = ctx.owner_id.clone();
             ctx.owner_id = ctx.insert_symbol(node_id, Symbol::new(old_owner_id.clone()));
 
             ctx.push_scope(Scope::new());
             let new_block = Expression {
                 id: ctx.owner_id.clone(),
-                kind: ExpressionKind::Block(
-                    expressions
-                        .into_iter()
-                        .map(|expr| visit_expression(expr, ctx, None))
-                        .collect(),
-                ),
+                kind: ExpressionKind::Block(Box::new(visit_block(block, ctx, None))),
                 ..expression.clone()
             };
             ctx.pop_scope();
@@ -172,53 +227,6 @@ fn visit_expression(
                         span: identifier.span.clone(),
                     },
                     initializer: Box::new(initializer.clone()),
-                },
-                ..expression.clone()
-            }
-        }
-
-        ExpressionKind::FunctionDefinition {
-            name,
-            parameters,
-            body,
-            return_type,
-        } => {
-            let name = Identifier {
-                id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
-                name: name.name.clone(),
-                span: name.span.clone(),
-            };
-            ctx.add_to_scope(&name.name, &name.id);
-            let func_def_id = name.id.clone();
-
-            let block_id = ctx.symbol_table.generate_id();
-            let parameters = parameters
-                .clone()
-                .iter()
-                .map(|param| {
-                    let id = ctx.insert_symbol(None, Symbol::new(block_id.clone()));
-                    Parameter {
-                        id,
-                        ..param.clone()
-                    }
-                })
-                .collect::<Vec<Parameter>>();
-
-            // Create the scope for containing the parameters
-            ctx.push_scope(Scope::new());
-            for param in &parameters {
-                ctx.add_to_scope(&param.identifier.name, &param.id);
-            }
-            let body = visit_expression(body, ctx, Some(block_id));
-            ctx.pop_scope();
-
-            Expression {
-                id: func_def_id,
-                kind: ExpressionKind::FunctionDefinition {
-                    name,
-                    parameters,
-                    return_type: return_type.clone(),
-                    body: Box::new(body),
                 },
                 ..expression.clone()
             }
@@ -282,6 +290,22 @@ fn visit_expression(
     }
 }
 
+fn visit_block(block: &Block, ctx: &mut Context, node_id: Option<NodeId>) -> Block {
+    Block {
+        id: node_id.unwrap_or(block.id.clone()),
+        span: block.span.clone(),
+        statements: block
+            .statements
+            .iter()
+            .map(|statement| visit_statement(statement, ctx))
+            .collect(),
+        return_expression: block
+            .return_expression
+            .clone()
+            .map(|expr| visit_expression(&expr, ctx, None)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chumsky::{Parser, Stream};
@@ -298,10 +322,10 @@ mod tests {
         let (program, _) = main_parser()
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
         let (program, _) = generate_symbols(program.unwrap()).unwrap();
-        assert_eq!(program.expressions.len(), 2);
+        assert_eq!(program.statements.len(), 2);
 
-        let first = program.expressions.first().unwrap();
-        let last = program.expressions.last().unwrap();
+        let first = program.statements.first().unwrap();
+        let last = program.statements.last().unwrap();
         assert_eq!(first.id, last.id);
     }
 }

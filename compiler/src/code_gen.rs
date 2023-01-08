@@ -1,4 +1,4 @@
-use crate::parser::{Expression, ExpressionKind, Program};
+use crate::parser::{Expression, ExpressionKind, Program, Statement, StatementKind};
 
 pub struct CodeGenOutput {
     pub html: Option<String>,
@@ -31,10 +31,34 @@ pub fn generate_code(program: &Program) -> CodeGenOutput {
 }
 
 fn visit_program(program: &Program, output: &mut OutputBuilder) {
-    for expression in &program.expressions {
-        output.js.push_str(visit_expression(&expression).as_str());
-        output.js.push_str(";\n");
+    for statement in &program.statements {
+        output.js.push_str(&visit_statement(&statement).as_str());
     }
+}
+
+fn visit_statement(statement: &Statement) -> String {
+    format!(
+        "{};\n",
+        match &statement.kind {
+            StatementKind::Expression(expr) => visit_expression(expr),
+            StatementKind::FunctionDefinition {
+                name,
+                parameters,
+                body,
+                ..
+            } => format!(
+                "const {}_{} = ({}) => {}",
+                name,
+                statement.id,
+                parameters
+                    .iter()
+                    .map(|p| format!("{}_{}", p.identifier.name.clone(), p.id))
+                    .collect::<Vec<String>>()
+                    .join(","),
+                visit_expression(&body),
+            ),
+        }
+    )
 }
 
 fn visit_expression(expression: &Expression) -> String {
@@ -49,20 +73,20 @@ fn visit_expression(expression: &Expression) -> String {
 
         ExpressionKind::Boolean(b) => b.to_string(),
 
-        ExpressionKind::Block(expressions) => {
-            let num_of_expressions = expressions.len();
+        ExpressionKind::Block(block) => {
             format!(
-                "(()=>{{\n{}\n}})()",
-                expressions
+                "(()=>{{\n{}{};}})()",
+                block
+                    .statements
                     .iter()
-                    .enumerate()
-                    .map(|(index, expr)| if index < num_of_expressions - 1 {
-                        visit_expression(expr)
-                    } else {
-                        format!("return {}", visit_expression(expr))
-                    })
-                    .collect::<Vec<String>>()
-                    .join(";\n")
+                    .map(|statement| visit_statement(statement))
+                    .collect::<Vec<_>>()
+                    .join(""),
+                block
+                    .return_expression
+                    .clone()
+                    .map(|expr| format!("return {}", visit_expression(&expr)))
+                    .unwrap_or(String::new())
             )
         }
 
@@ -74,23 +98,6 @@ fn visit_expression(expression: &Expression) -> String {
                 .map(visit_expression)
                 .collect::<Vec<String>>()
                 .join(",")
-        ),
-
-        ExpressionKind::FunctionDefinition {
-            name,
-            parameters,
-            body,
-            ..
-        } => format!(
-            "const {}_{} = ({}) => {}",
-            name,
-            expression.id,
-            parameters
-                .iter()
-                .map(|p| format!("{}_{}", p.identifier.name.clone(), p.id))
-                .collect::<Vec<String>>()
-                .join(","),
-            visit_expression(&body),
         ),
 
         ExpressionKind::Identifier(ident) => {

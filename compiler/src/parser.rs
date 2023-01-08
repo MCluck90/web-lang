@@ -8,15 +8,14 @@ use chumsky::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Program {
-    pub expressions: Vec<Expression>,
+    pub statements: Vec<Statement>,
 }
 
 pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clone {
-    expression_parser()
-        .then_ignore(just(Token::Terminator).or_not())
+    statement_parser()
         .repeated()
         .then_ignore(end())
-        .map(|expressions| Program { expressions })
+        .map(|statements| Program { statements })
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -51,6 +50,52 @@ impl fmt::Display for Identifier {
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Statement {
+    pub id: NodeId,
+    pub span: Span,
+    pub kind: StatementKind,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum StatementKind {
+    FunctionDefinition {
+        name: Identifier,
+        parameters: Vec<Parameter>,
+        return_type: String,
+        body: Box<Expression>,
+    },
+    Expression(Expression),
+}
+
+impl From<Expression> for Statement {
+    fn from(expression: Expression) -> Self {
+        let clone = expression.clone();
+        Statement {
+            id: expression.id,
+            span: expression.span,
+            kind: StatementKind::Expression(clone),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Block {
+    pub id: NodeId,
+    pub span: Span,
+    pub statements: Vec<Statement>,
+    pub return_expression: Option<Expression>,
+}
+impl From<Block> for Expression {
+    fn from(block: Block) -> Self {
+        Expression {
+            id: block.id.clone(),
+            span: block.span.clone(),
+            kind: ExpressionKind::Block(Box::new(block)),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expression {
     pub id: NodeId,
     pub kind: ExpressionKind,
@@ -70,7 +115,7 @@ pub enum ExpressionKind {
     Identifier(Identifier),
     Integer(i64),
     String(String),
-    Block(Vec<Expression>),
+    Block(Box<Block>),
 
     // Ex: `Todo { title: "Write a compiler" }`
     // ObjectLiteral(String, HashMap<String, Expression>),
@@ -78,12 +123,6 @@ pub enum ExpressionKind {
         is_mutable: bool,
         identifier: Identifier,
         initializer: Box<Expression>,
-    },
-    FunctionDefinition {
-        name: Identifier,
-        parameters: Vec<Parameter>,
-        return_type: String,
-        body: Box<Expression>,
     },
 
     // UnaryExpression(Operator, Box<Expression>),
@@ -114,7 +153,6 @@ impl ExpressionKind {
             ExpressionKind::String(_) => "a string",
             ExpressionKind::Block(_) => "a block",
             ExpressionKind::VariableDeclaration { .. } => "a variable declaration",
-            ExpressionKind::FunctionDefinition { .. } => "a function definition",
             ExpressionKind::BinaryExpression(_, op, _) => match op {
                 BinaryOperator::Add => "an addition expression",
                 BinaryOperator::Sub => "a subtraction expression",
@@ -138,12 +176,89 @@ impl ExpressionKind {
     }
 }
 
-fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> + Clone {
-    let type_parser = select! {
+fn identifier_parser() -> impl Parser<Token, Identifier, Error = Simple<Token>> + Clone {
+    select! {
+        Token::Identifier(i) => i
+    }
+    .labelled("identifier")
+    .map_with_span(|name, span| Identifier {
+        id: DUMMY_NODE_ID,
+        name,
+        span,
+    })
+}
+
+fn type_parser() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
+    select! {
         Token::Identifier(i) => i,
         Token::BuiltInType(t) => format!("{}", t)
-    };
+    }
+}
 
+fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + Clone {
+    recursive(|statement| {
+        let block = just(Token::OpenBlock)
+            .ignore_then(statement.clone().repeated())
+            .then(expression_parser(statement.clone()).or_not())
+            .then_ignore(just(Token::CloseBlock))
+            .map_with_span(|(statements, return_expression), span| {
+                Expression::new(
+                    DUMMY_NODE_ID,
+                    ExpressionKind::Block(Box::new(Block {
+                        id: DUMMY_NODE_ID,
+                        span: span.clone(),
+                        statements,
+                        return_expression,
+                    })),
+                    span,
+                )
+            });
+
+        let parameters = identifier_parser()
+            .then_ignore(just(Token::KeyValueSeparator))
+            .then(type_parser())
+            .map(|(identifier, type_)| {
+                Parameter::new(DUMMY_NODE_ID, identifier.clone().span, identifier, type_)
+            })
+            .labelled("parameter")
+            .separated_by(just(Token::ListSeparator))
+            .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
+            .map_with_span(|parameters, span| (parameters, span));
+
+        let function_definition = just(Token::Let)
+            .ignore_then(identifier_parser())
+            .then(parameters)
+            .then_ignore(just(Token::FunctionArrow))
+            .then(type_parser())
+            .then(block)
+            .map_with_span(
+                |(((name, parameters), return_type), body), span| Statement {
+                    id: DUMMY_NODE_ID,
+                    span,
+                    kind: StatementKind::FunctionDefinition {
+                        name,
+                        parameters: parameters.0,
+                        return_type,
+                        body: Box::new(body.into()),
+                    },
+                },
+            );
+
+        let expression = expression_parser(statement)
+            .then_ignore(just(Token::Terminator))
+            .map(|expression| Statement {
+                id: DUMMY_NODE_ID,
+                span: expression.span.clone(),
+                kind: StatementKind::Expression(expression),
+            });
+
+        function_definition.or(expression)
+    })
+}
+
+fn expression_parser<'a>(
+    statement: Recursive<'a, Token, Statement, Simple<Token>>,
+) -> impl Parser<Token, Expression, Error = Simple<Token>> + Clone + 'a {
     recursive(|expr| {
         let parenthesized_expr: chumsky::combinator::DelimitedBy<
             Recursive<Token, Expression, Simple<Token>>,
@@ -163,51 +278,19 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         .labelled("value")
         .map_with_span(|kind, span| Expression::new(DUMMY_NODE_ID, kind, span));
 
-        let identifier = select! {
-            Token::Identifier(i) => i
-        }
-        .labelled("identifier")
-        .map_with_span(|name, span| Identifier {
-            id: DUMMY_NODE_ID,
-            name,
-            span,
-        });
-
-        let parameters = identifier
-            .clone()
-            .then_ignore(just(Token::KeyValueSeparator))
-            .then(type_parser)
-            .map(|(identifier, type_)| {
-                Parameter::new(DUMMY_NODE_ID, identifier.clone().span, identifier, type_)
-            })
-            .labelled("parameter")
-            .separated_by(just(Token::ListSeparator))
-            .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
-            .map_with_span(|parameters, span| (parameters, span));
-
-        let block = expr
-            .clone()
-            .repeated()
-            .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock))
-            .map_with_span(|e, span| {
-                Expression::new(DUMMY_NODE_ID, ExpressionKind::Block(e), span)
-            });
-
-        let function_definition = just(Token::Let)
-            .ignore_then(identifier.clone())
-            .then(parameters)
-            .then_ignore(just(Token::FunctionArrow))
-            .then(type_parser)
-            .then(block.clone())
-            .map_with_span(|(((name, parameters), return_type), body), span| {
+        let block = just(Token::OpenBlock)
+            .ignore_then(statement.repeated())
+            .then(expr.clone().or_not())
+            .then_ignore(just(Token::CloseBlock))
+            .map_with_span(|(statements, return_expression), span| {
                 Expression::new(
                     DUMMY_NODE_ID,
-                    ExpressionKind::FunctionDefinition {
-                        name,
-                        parameters: parameters.0,
-                        return_type,
-                        body: Box::new(body),
-                    },
+                    ExpressionKind::Block(Box::new(Block {
+                        id: DUMMY_NODE_ID,
+                        span: span.clone(),
+                        statements,
+                        return_expression,
+                    })),
                     span,
                 )
             });
@@ -215,7 +298,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         let variable_declaration = just(Token::Let)
             .to(false)
             .or(just(Token::Mut).to(true))
-            .then(identifier)
+            .then(identifier_parser())
             .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
             .then(expr.clone())
             .map_with_span(|((is_mutable, identifier), initializer), span| {
@@ -252,15 +335,14 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
             });
 
         let atom = value
-            .or(block.clone())
-            .or(identifier.clone().map(|ident| {
+            .or(block)
+            .or(identifier_parser().map(|ident| {
                 Expression::new(
                     DUMMY_NODE_ID,
                     ExpressionKind::Identifier(ident.clone()),
                     ident.span,
                 )
             }))
-            .or(function_definition)
             .or(variable_declaration)
             .or(if_)
             // Attempt to recover anything that looks like a list but contains errors
@@ -278,7 +360,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         let operator = just(Token::Operator(BinaryOperator::Dot)).to(BinaryOperator::Dot);
         let dot_member = atom
             .clone()
-            .then(operator.then(identifier.clone()).repeated())
+            .then(operator.then(identifier_parser()).repeated())
             .foldl(|left, (op, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(
@@ -412,6 +494,6 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
                 )
             });
 
-        assignment.then_ignore(just(Token::Terminator).or_not())
+        assignment
     })
 }

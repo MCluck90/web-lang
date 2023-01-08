@@ -2,7 +2,7 @@ use chumsky::{prelude::Simple, Error};
 
 use crate::{
     lexer::{BinaryOperator, Span},
-    parser::{Expression, ExpressionKind, Parameter, Program},
+    parser::{Expression, ExpressionKind, Parameter, Program, Statement, StatementKind},
 };
 
 use super::shared::{SymbolTable, Type};
@@ -18,19 +18,60 @@ fn visit_program(
     program: Program,
     mut symbol_table: SymbolTable,
 ) -> Result<(Program, SymbolTable), Vec<Simple<String>>> {
-    let expression_results = program
-        .expressions
+    let statement_results = program
+        .statements
         .iter()
-        .map(|expr| visit_expression(expr, &mut symbol_table))
+        .map(|statement| visit_statement(statement, &mut symbol_table))
         .collect::<Vec<_>>();
-    let expression_errors = expression_results
+    let statement_errors = statement_results
         .iter()
         .filter_map(|res| res.clone().err())
         .collect::<Vec<_>>();
-    if !expression_errors.is_empty() {
-        Err(expression_errors)
+    if !statement_errors.is_empty() {
+        Err(statement_errors)
     } else {
         Ok((program, symbol_table))
+    }
+}
+
+fn visit_statement(
+    statement: &Statement,
+    symbol_table: &mut SymbolTable,
+) -> Result<(), Simple<String>> {
+    match &statement.kind {
+        StatementKind::Expression(expression) => {
+            visit_expression(expression, symbol_table).map(|_| ())
+        }
+        StatementKind::FunctionDefinition {
+            name,
+            parameters,
+            return_type,
+            body,
+        } => {
+            let parameter_types = parameters
+                .iter()
+                .map(|p| visit_parameter(p, symbol_table))
+                .collect::<Vec<_>>();
+            let return_type = string_to_type(return_type);
+            let function_type = Type::Function {
+                parameters: parameter_types,
+                return_type: Box::new(return_type.clone()),
+            };
+            symbol_table.set_type(&name.id, function_type.clone());
+
+            let body_type = visit_expression(body, symbol_table)?;
+
+            if return_type != body_type {
+                return Err(Simple::custom(
+                    body.span.clone(),
+                    format!(
+                        "Function expected to return type {} but instead returned {}",
+                        return_type, body_type
+                    ),
+                ));
+            }
+            Ok(())
+        }
     }
 }
 
@@ -87,14 +128,17 @@ fn visit_expression(
             .map(|i| i.type_.clone())
             .unwrap_or(Type::Unknown),
 
-        ExpressionKind::Block(expressions) => {
-            for expr in expressions {
-                visit_expression(expr, symbol_table)?;
+        ExpressionKind::Block(block) => {
+            for statement in &block.statements {
+                visit_statement(statement, symbol_table)?;
             }
 
-            expressions.last().map_or(Type::Void, |expr| {
-                symbol_table.get(&expr.id).unwrap().type_.clone()
-            })
+            let mut output_type = Type::Void;
+            if let Some(expr) = &block.return_expression {
+                output_type = visit_expression(&expr, symbol_table)?;
+            }
+
+            output_type
         }
 
         ExpressionKind::VariableDeclaration {
@@ -105,38 +149,6 @@ fn visit_expression(
             let initializer_type = visit_expression(initializer, symbol_table)?;
             symbol_table.set_type(&identifier.id, initializer_type.clone());
             initializer_type
-        }
-
-        ExpressionKind::FunctionDefinition {
-            name,
-            parameters,
-            body,
-            return_type,
-        } => {
-            let parameter_types = parameters
-                .iter()
-                .map(|p| visit_parameter(p, symbol_table))
-                .collect::<Vec<_>>();
-            let return_type = string_to_type(return_type);
-            let function_type = Type::Function {
-                parameters: parameter_types,
-                return_type: Box::new(return_type.clone()),
-            };
-            symbol_table.set_type(&name.id, function_type.clone());
-
-            let body_type = visit_expression(body, symbol_table)?;
-
-            if return_type != body_type {
-                return Err(Simple::custom(
-                    body.span.clone(),
-                    format!(
-                        "Function expected to return type {} but instead returned {}",
-                        return_type, body_type
-                    ),
-                ));
-            }
-
-            function_type
         }
 
         ExpressionKind::BinaryExpression(left, op, right) => {
@@ -330,7 +342,7 @@ mod tests {
 
     use crate::{
         lexer::lexer,
-        parser::{main_parser, ExpressionKind},
+        parser::{main_parser, ExpressionKind, StatementKind},
         passes::{
             generate_symbols::generate_symbols,
             shared::{NodeId, Type},
@@ -383,16 +395,19 @@ mod tests {
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
         let (program, symbol_table) =
             infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
-        let binary_expression = program.expressions.first().unwrap();
-        match &binary_expression.kind {
-            ExpressionKind::BinaryExpression(left, _, right) => {
-                let bin_exp_symbol = symbol_table.get(&binary_expression.id).unwrap();
-                let identifier = symbol_table.get(&left.id).unwrap();
-                let integer = symbol_table.get(&right.id).unwrap();
-                assert_eq!(integer.type_, Type::Int);
-                assert_eq!(identifier.type_, Type::Int);
-                assert_eq!(bin_exp_symbol.type_, Type::Int);
-            }
+        let statement = program.statements.first().unwrap();
+        match &statement.kind {
+            StatementKind::Expression(expr) => match &expr.kind {
+                ExpressionKind::BinaryExpression(left, _, right) => {
+                    let bin_exp_symbol = symbol_table.get(&statement.id).unwrap();
+                    let identifier = symbol_table.get(&left.id).unwrap();
+                    let integer = symbol_table.get(&right.id).unwrap();
+                    assert_eq!(integer.type_, Type::Int);
+                    assert_eq!(identifier.type_, Type::Int);
+                    assert_eq!(bin_exp_symbol.type_, Type::Int);
+                }
+                _ => unreachable!(),
+            },
             _ => unreachable!(),
         }
     }
@@ -406,12 +421,15 @@ mod tests {
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
         let (program, symbol_table) =
             infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
-        let identifier = program.expressions.last().unwrap();
-        match &identifier.kind {
-            ExpressionKind::Identifier(_) => {
-                let symbol = symbol_table.get(&identifier.id).unwrap();
-                assert_eq!(symbol.type_, Type::Int);
-            }
+        let statement = program.statements.last().unwrap();
+        match &statement.kind {
+            StatementKind::Expression(expr) => match &expr.kind {
+                ExpressionKind::Identifier(_) => {
+                    let symbol = symbol_table.get(&expr.id).unwrap();
+                    assert_eq!(symbol.type_, Type::Int);
+                }
+                _ => unreachable!(),
+            },
             _ => unreachable!(),
         }
     }
@@ -428,12 +446,15 @@ mod tests {
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
         let (program, symbol_table) =
             infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
-        let identifier = program.expressions.last().unwrap();
-        match &identifier.kind {
-            ExpressionKind::Identifier(_) => {
-                let symbol = symbol_table.get(&identifier.id).unwrap();
-                assert_eq!(symbol.type_, Type::Bool);
-            }
+        let statement = program.statements.last().unwrap();
+        match &statement.kind {
+            StatementKind::Expression(expr) => match &expr.kind {
+                ExpressionKind::Identifier(_) => {
+                    let symbol = symbol_table.get(&expr.id).unwrap();
+                    assert_eq!(symbol.type_, Type::Bool);
+                }
+                _ => unreachable!(),
+            },
             _ => unreachable!(),
         }
     }
