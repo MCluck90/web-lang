@@ -228,8 +228,11 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
         let function_definition = just(Token::Let)
             .ignore_then(identifier_parser())
             .then(parameters)
-            .then_ignore(just(Token::FunctionArrow))
-            .then(type_parser())
+            .then(
+                just(Token::FunctionArrow)
+                    .ignore_then(type_parser())
+                    .or_not(),
+            )
             .then(block)
             .map_with_span(
                 |(((name, parameters), return_type), body), span| Statement {
@@ -238,7 +241,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
                     kind: StatementKind::FunctionDefinition {
                         name,
                         parameters: parameters.0,
-                        return_type,
+                        return_type: return_type.unwrap_or("void".into()),
                         body: Box::new(body.into()),
                     },
                 },

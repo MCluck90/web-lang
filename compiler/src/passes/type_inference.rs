@@ -465,6 +465,7 @@ fn string_to_type(str: &String) -> Type {
         "bool" => Type::Bool,
         "int" => Type::Int,
         "string" => Type::String,
+        "void" => Type::Void,
         _ => Type::Custom(str.clone()),
     }
 }
