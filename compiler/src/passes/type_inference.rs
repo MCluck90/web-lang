@@ -109,17 +109,24 @@ fn visit_expression(
         }
 
         ExpressionKind::FunctionDefinition {
+            name,
             parameters,
             body,
             return_type,
-            ..
         } => {
             let parameter_types = parameters
                 .iter()
                 .map(|p| visit_parameter(p, symbol_table))
                 .collect::<Vec<_>>();
-            let body_type = visit_expression(body, symbol_table)?;
             let return_type = string_to_type(return_type);
+            let function_type = Type::Function {
+                parameters: parameter_types,
+                return_type: Box::new(return_type.clone()),
+            };
+            symbol_table.set_type(&expression.id, function_type.clone());
+            symbol_table.set_type(&name.id, function_type.clone());
+
+            let body_type = visit_expression(body, symbol_table)?;
 
             if return_type != body_type {
                 return Err(Simple::custom(
@@ -131,11 +138,6 @@ fn visit_expression(
                 ));
             }
 
-            let function_type = Type::Function {
-                parameters: parameter_types,
-                return_type: Box::new(return_type),
-            };
-            symbol_table.set_type(&expression.id, function_type.clone());
             Ok(function_type)
         }
 
@@ -315,6 +317,7 @@ fn visit_expression(
                     ),
                 )
             } else {
+                symbol_table.set_type(&expression.id, body_type.clone());
                 Ok(body_type.clone())
             }
         }
