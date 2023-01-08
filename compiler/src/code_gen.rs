@@ -38,7 +38,7 @@ fn visit_program(program: &Program, output: &mut OutputBuilder) {
 
 fn visit_statement(statement: &Statement) -> String {
     format!(
-        "{};\n",
+        "{};",
         match &statement.kind {
             StatementKind::Expression(expr) => visit_expression(expr),
             StatementKind::FunctionDefinition {
@@ -47,12 +47,12 @@ fn visit_statement(statement: &Statement) -> String {
                 body,
                 ..
             } => format!(
-                "const {}_{} = ({}) => {}",
+                "const {}${}=({})=>{}",
                 name,
                 statement.id,
                 parameters
                     .iter()
-                    .map(|p| format!("{}_{}", p.identifier.name.clone(), p.id))
+                    .map(|p| format!("{}${}", p.identifier.name.clone(), p.id))
                     .collect::<Vec<String>>()
                     .join(","),
                 visit_expression(&body),
@@ -75,7 +75,7 @@ fn visit_expression(expression: &Expression) -> String {
 
         ExpressionKind::Block(block) => {
             format!(
-                "(()=>{{\n{}{};}})()",
+                "(()=>{{{}{}}})()",
                 block
                     .statements
                     .iter()
@@ -101,7 +101,7 @@ fn visit_expression(expression: &Expression) -> String {
         ),
 
         ExpressionKind::Identifier(ident) => {
-            format!("{}_{}", ident.name.clone(), expression.id)
+            format!("{}${}", ident.name.clone(), expression.id)
         }
 
         // TODO: How do early returns work when everything is an expression?
@@ -110,7 +110,7 @@ fn visit_expression(expression: &Expression) -> String {
             body,
             else_,
         } => format!(
-            "({}) ? {} : {}",
+            "({})?{}:{}",
             visit_expression(&condition),
             visit_expression(&body),
             else_
@@ -128,7 +128,7 @@ fn visit_expression(expression: &Expression) -> String {
             identifier,
             initializer,
         } => format!(
-            "{} {}_{}={}",
+            "{} {}${}={}",
             if *is_mutable { "let" } else { "const" },
             identifier,
             identifier.id,
