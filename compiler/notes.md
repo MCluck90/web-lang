@@ -132,7 +132,7 @@ loop (i < 10) {
 
 // Loop with initializer and condition
 loop (let i = 0; i < 10) {
-    i; // 0, 1, 2, 3, ...
+    i += 1; // 0, 1, 2, 3, ...
 }
 
 // Loop with initializer, condition, and post-loop expression
