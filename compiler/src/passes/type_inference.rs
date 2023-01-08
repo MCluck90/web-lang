@@ -52,7 +52,6 @@ fn visit_statement(
                 .iter()
                 .map(|p| visit_parameter(p, symbol_table))
                 .collect::<Vec<_>>();
-            let return_type = string_to_type(return_type);
             let function_type = Type::Function {
                 parameters: parameter_types,
                 return_type: Box::new(return_type.clone()),
@@ -61,7 +60,7 @@ fn visit_statement(
 
             let body_type = visit_expression(body, symbol_table)?;
 
-            if return_type != body_type {
+            if *return_type != body_type {
                 return Err(Simple::custom(
                     body.span.clone(),
                     format!(
@@ -466,24 +465,7 @@ mod tests {
     }
 }
 
-fn string_to_type(str: &String) -> Type {
-    match str.as_str() {
-        "bool" => Type::Bool,
-        "int" => Type::Int,
-        "string" => Type::String,
-        "void" => Type::Void,
-        _ => Type::Custom(str.clone()),
-    }
-}
-
 fn visit_parameter(parameter: &Parameter, symbol_table: &mut SymbolTable) -> Type {
-    let type_ = match parameter.type_.as_str() {
-        "bool" => Type::Bool,
-        "int" => Type::Int,
-        "string" => Type::String,
-        _ => Type::Custom(parameter.type_.clone()),
-    };
-
-    symbol_table.set_type(&parameter.id, type_.clone());
-    type_
+    symbol_table.set_type(&parameter.id, parameter.type_.clone());
+    parameter.type_.clone()
 }

@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::{
     lexer::*,
-    passes::shared::{NodeId, DUMMY_NODE_ID},
+    passes::shared::{NodeId, Type, DUMMY_NODE_ID},
 };
 use chumsky::prelude::*;
 
@@ -23,11 +23,11 @@ pub struct Parameter {
     pub id: NodeId,
     pub span: Span,
     pub identifier: Identifier,
-    pub type_: String,
+    pub type_: Type,
 }
 
 impl Parameter {
-    fn new(id: NodeId, span: Span, identifier: Identifier, type_: String) -> Parameter {
+    fn new(id: NodeId, span: Span, identifier: Identifier, type_: Type) -> Parameter {
         Parameter {
             id,
             span,
@@ -61,7 +61,7 @@ pub enum StatementKind {
     FunctionDefinition {
         name: Identifier,
         parameters: Vec<Parameter>,
-        return_type: String,
+        return_type: Type,
         body: Box<Expression>,
     },
     Expression(Expression),
@@ -189,11 +189,30 @@ fn identifier_parser() -> impl Parser<Token, Identifier, Error = Simple<Token>> 
     })
 }
 
-fn type_parser() -> impl Parser<Token, String, Error = Simple<Token>> + Clone {
-    select! {
-        Token::Identifier(i) => i,
-        Token::BuiltInType(t) => format!("{}", t)
-    }
+fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> + Clone {
+    recursive(|type_parser| {
+        let simple_type = select! {
+            Token::Identifier(i) => Type::Custom(i),
+            Token::BuiltInType(t) =>
+                match t {
+                    BuiltInTypeToken::Bool => Type::Bool,
+                    BuiltInTypeToken::Int => Type::Int,
+                    BuiltInTypeToken::String => Type::String
+                }
+        };
+        let function_type = type_parser
+            .clone()
+            .separated_by(just(Token::ListSeparator))
+            .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
+            .then_ignore(just(Token::FunctionArrow))
+            .then(type_parser.clone())
+            .map(|(parameters, return_type)| Type::Function {
+                parameters,
+                return_type: Box::new(return_type),
+            });
+
+        simple_type.or(function_type)
+    })
 }
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + Clone {
@@ -242,7 +261,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
                     kind: StatementKind::FunctionDefinition {
                         name,
                         parameters: parameters.0,
-                        return_type: return_type.unwrap_or("void".into()),
+                        return_type: return_type.unwrap_or(Type::Void),
                         body: Box::new(body.into()),
                     },
                 },

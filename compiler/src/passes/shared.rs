@@ -23,7 +23,7 @@ impl fmt::Display for NodeId {
 // give the same ID.
 pub const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Type {
     Unknown,
     Void,
