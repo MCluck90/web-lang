@@ -159,6 +159,16 @@ fn visit_statement(statement: &Statement, ctx: &mut Context) -> Statement {
                 ..statement.clone()
             }
         }
+        StatementKind::JsBlock(expressions) => Statement {
+            id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
+            kind: StatementKind::JsBlock(
+                expressions
+                    .iter()
+                    .map(|expr| visit_expression(expr, ctx, None))
+                    .collect::<Vec<_>>(),
+            ),
+            ..statement.clone()
+        },
     }
 }
 

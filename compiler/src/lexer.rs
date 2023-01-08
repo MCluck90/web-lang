@@ -87,6 +87,9 @@ pub enum Token {
     Struct,
     Use,
 
+    // JS Interop
+    StartJsBlock, // #js
+
     // Values and types
     Boolean(bool),
     BuiltInType(BuiltInTypeToken),
@@ -120,6 +123,7 @@ impl fmt::Display for Token {
             Token::Pub => write!(f, "pub"),
             Token::Struct => write!(f, "struct"),
             Token::Use => write!(f, "use"),
+            Token::StartJsBlock => write!(f, "#js"),
             Token::Boolean(b) => write!(f, "{}", b),
             Token::BuiltInType(t) => write!(f, "{}", t),
             Token::Identifier(i) => write!(f, "{}", i),
@@ -147,6 +151,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         just(";").to(Token::Terminator),
         just("@").to(Token::AbsolutePathMarker),
         just("~").to(Token::PackagePathMarker),
+        just("#js").to(Token::StartJsBlock),
     ));
 
     let single_quote_string = just('\'')

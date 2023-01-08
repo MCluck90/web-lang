@@ -57,6 +57,19 @@ fn visit_statement(statement: &Statement) -> String {
                     .join(","),
                 visit_expression(&body),
             ),
+            StatementKind::JsBlock(expressions) => {
+                expressions
+                    .iter()
+                    .map(|expr| {
+                        if let ExpressionKind::String(contents) = &expr.kind {
+                            contents.clone()
+                        } else {
+                            visit_expression(expr)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join("")
+            }
         }
     )
 }

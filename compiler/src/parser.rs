@@ -65,6 +65,7 @@ pub enum StatementKind {
         body: Box<Expression>,
     },
     Expression(Expression),
+    JsBlock(Vec<Expression>),
 }
 
 impl From<Expression> for Statement {
@@ -247,6 +248,18 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
                 },
             );
 
+        let js_block = just(Token::StartJsBlock)
+            .ignore_then(
+                expression_parser(statement.clone())
+                    .repeated()
+                    .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock)),
+            )
+            .map_with_span(|expressions, span| Statement {
+                id: DUMMY_NODE_ID,
+                span,
+                kind: StatementKind::JsBlock(expressions),
+            });
+
         let expression = expression_parser(statement)
             .then_ignore(just(Token::Terminator))
             .map(|expression| Statement {
@@ -255,7 +268,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
                 kind: StatementKind::Expression(expression),
             });
 
-        function_definition.or(expression)
+        function_definition.or(js_block).or(expression)
     })
 }
 

@@ -72,6 +72,12 @@ fn visit_statement(
             }
             Ok(())
         }
+        StatementKind::JsBlock(expressions) => {
+            for expr in expressions {
+                visit_expression(expr, symbol_table)?;
+            }
+            Ok(())
+        }
     }
 }
 

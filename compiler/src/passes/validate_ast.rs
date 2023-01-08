@@ -28,6 +28,12 @@ fn validate_statement(statement: &Statement) -> Result<(), Simple<String>> {
     match &statement.kind {
         StatementKind::Expression(expr) => validate_expression(expr),
         StatementKind::FunctionDefinition { body, .. } => validate_expression(&body),
+        StatementKind::JsBlock(expressions) => {
+            for expr in expressions {
+                validate_expression(expr)?;
+            }
+            Ok(())
+        }
     }
 }
 
