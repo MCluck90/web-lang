@@ -196,7 +196,7 @@ fn expression_parser() -> impl Parser<Token, Expression, Error = Simple<Token>> 
         let function_definition = just(Token::Let)
             .ignore_then(identifier.clone())
             .then(parameters)
-            .then_ignore(just(Token::KeyValueSeparator))
+            .then_ignore(just(Token::FunctionArrow))
             .then(type_parser)
             .then(block.clone())
             .map_with_span(|(((name, parameters), return_type), body), span| {

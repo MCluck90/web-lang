@@ -87,7 +87,7 @@ fn visit_expression(expression: &Expression) -> String {
             expression.id,
             parameters
                 .iter()
-                .map(|p| p.identifier.name.clone())
+                .map(|p| format!("{}_{}", p.identifier.name.clone(), p.id))
                 .collect::<Vec<String>>()
                 .join(","),
             visit_expression(&body),
