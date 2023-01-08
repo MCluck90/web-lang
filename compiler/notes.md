@@ -105,3 +105,38 @@ const checkErrors = () => {
     // ...
 }
 ```
+
+## Loops
+
+```rust
+// Loop over a container
+loop list {
+    operationOnItem(it);
+}
+
+// Loop over a range
+loop 0..10 {
+    it; // 0, 1, 2, 3, ...
+}
+
+// Assign a name to the loop element
+loop i: 0..10 {
+    i == it;
+}
+
+// Custom loop condition
+mut i = 0;
+loop (i < 10) {
+    i += 1;
+}
+
+// Loop with initializer and condition
+loop (let i = 0; i < 10) {
+    i; // 0, 1, 2, 3, ...
+}
+
+// Loop with initializer, condition, and post-loop expression
+loop (let i = 0; i < 10; i++) {
+    i; // 0, 1, 2, 3, ...
+}
+```
