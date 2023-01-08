@@ -52,7 +52,7 @@ fn visit_expression(expression: &Expression) -> String {
         ExpressionKind::Block(expressions) => {
             let num_of_expressions = expressions.len();
             format!(
-                "(()=>{{{}}})()",
+                "(()=>{{\n{}\n}})()",
                 expressions
                     .iter()
                     .enumerate()
@@ -82,8 +82,9 @@ fn visit_expression(expression: &Expression) -> String {
             body,
             ..
         } => format!(
-            "const {}=({})=>{}",
+            "const {}_{} = ({}) => {}",
             name,
+            expression.id,
             parameters
                 .iter()
                 .map(|p| p.identifier.name.clone())
@@ -93,7 +94,7 @@ fn visit_expression(expression: &Expression) -> String {
         ),
 
         ExpressionKind::Identifier(ident) => {
-            format!("{}", ident.name.clone())
+            format!("{}_{}", ident.name.clone(), expression.id)
         }
 
         // TODO: How do early returns work when everything is an expression?
@@ -120,9 +121,10 @@ fn visit_expression(expression: &Expression) -> String {
             identifier,
             initializer,
         } => format!(
-            "{} {}={}",
+            "{} {}_{}={}",
             if *is_mutable { "let" } else { "const" },
             identifier,
+            identifier.id,
             visit_expression(&initializer)
         ),
 
