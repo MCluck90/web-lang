@@ -49,7 +49,7 @@ impl fmt::Display for Type {
                 return_type,
             } => write!(
                 f,
-                "({}) -> {}",
+                "({}): {}",
                 parameters
                     .iter()
                     .map(|p| format!("{}", p))

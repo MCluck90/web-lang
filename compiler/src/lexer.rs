@@ -84,6 +84,7 @@ pub enum Token {
     Let,
     Mut,
     Pub,
+    Return,
     Struct,
     Use,
 
@@ -121,6 +122,7 @@ impl fmt::Display for Token {
             Token::Let => write!(f, "let"),
             Token::Mut => write!(f, "mut"),
             Token::Pub => write!(f, "pub"),
+            Token::Return => write!(f, "return"),
             Token::Struct => write!(f, "struct"),
             Token::Use => write!(f, "use"),
             Token::StartJsBlock => write!(f, "#js"),
@@ -193,6 +195,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         "let" => Token::Let,
         "mut" => Token::Mut,
         "pub" => Token::Pub,
+        "return" => Token::Return,
         "struct" => Token::Struct,
         "use" => Token::Use,
 

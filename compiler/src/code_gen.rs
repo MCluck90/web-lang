@@ -70,6 +70,10 @@ fn visit_statement(statement: &Statement) -> String {
                     .collect::<Vec<_>>()
                     .join("")
             }
+            StatementKind::Return(expr) => match expr {
+                Some(expr) => format!("return {}", visit_expression(expr)),
+                None => "".into(),
+            },
         }
     )
 }

@@ -34,6 +34,12 @@ fn validate_statement(statement: &Statement) -> Result<(), Simple<String>> {
             }
             Ok(())
         }
+        StatementKind::Return(expr) => {
+            if let Some(expr) = expr {
+                validate_expression(expr)?;
+            }
+            Ok(())
+        }
     }
 }
 

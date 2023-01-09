@@ -169,6 +169,15 @@ fn visit_statement(statement: &Statement, ctx: &mut Context) -> Statement {
             ),
             ..statement.clone()
         },
+        StatementKind::Return(expression) => Statement {
+            id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
+            kind: StatementKind::Return(
+                expression
+                    .clone()
+                    .map(|expr| visit_expression(&expr, ctx, None)),
+            ),
+            ..statement.clone()
+        },
     }
 }
 
