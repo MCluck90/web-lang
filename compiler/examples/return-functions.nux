@@ -1,0 +1,18 @@
+let log(msg: int) {
+  #js { 
+    "console.log(" msg ")"
+  }
+}
+
+let createAdder(x: int): (int) -> int {
+  let adder(y: int): int { x + y }
+  adder
+}
+
+let add10 = createAdder(10);
+
+// 25
+log(add10(15));
+
+// 100
+log(add10(90));

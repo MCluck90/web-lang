@@ -1,0 +1,12 @@
+let log(msg: string) {
+  #js { 
+    "console.log(" msg ")"
+  }
+}
+
+// 'True branch'
+log(if true {
+  'True branch'
+} else {
+  'False branch'
+}); 
