@@ -88,6 +88,10 @@ fn visit_expression(expression: &Expression) -> String {
         )
         .to_string(),
 
+        ExpressionKind::PropertyAccess(left, right) => {
+            format!("{}.{}", visit_expression(left), right.name)
+        }
+
         ExpressionKind::Boolean(b) => b.to_string(),
 
         ExpressionKind::Block(block) => {

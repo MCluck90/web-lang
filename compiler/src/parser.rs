@@ -129,6 +129,7 @@ pub enum ExpressionKind {
 
     // UnaryExpression(Operator, Box<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
+    PropertyAccess(Box<Expression>, Identifier),
     FunctionCall {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
@@ -171,6 +172,7 @@ impl ExpressionKind {
                 BinaryOperator::Or => "a comparison expression",
                 BinaryOperator::Assignment => "an assignment expression",
             },
+            ExpressionKind::PropertyAccess(_, _) => "a property access",
             ExpressionKind::FunctionCall { .. } => "a function call",
             ExpressionKind::If { .. } => "an if expression",
             ExpressionKind::Error => "an error",
@@ -409,19 +411,11 @@ fn expression_parser<'a>(
         let dot_member = atom
             .clone()
             .then(operator.then(identifier_parser()).repeated())
-            .foldl(|left, (op, right)| {
+            .foldl(|left, (_, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(
                     DUMMY_NODE_ID,
-                    ExpressionKind::BinaryExpression(
-                        Box::new(left),
-                        op,
-                        Box::new(Expression::new(
-                            DUMMY_NODE_ID,
-                            ExpressionKind::Identifier(right.clone()),
-                            right.span,
-                        )),
-                    ),
+                    ExpressionKind::PropertyAccess(Box::new(left), right.clone()),
                     span,
                 )
             });

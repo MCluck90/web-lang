@@ -23,13 +23,29 @@ impl fmt::Display for NodeId {
 // give the same ID.
 pub const DUMMY_NODE_ID: NodeId = NodeId::from_u32(u32::MAX);
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectType {
+    pub key_to_type: HashMap<String, Box<Type>>,
+}
+
+impl std::hash::Hash for ObjectType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (key, value) in &self.key_to_type {
+            state.write(key.as_bytes());
+            value.hash(state);
+        }
+    }
+}
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[allow(dead_code)] // TODO: Construct `Object` types
 pub enum Type {
     Unknown,
     Void,
     Bool,
     Int,
     String,
+    Object(ObjectType),
     Function {
         parameters: Vec<Type>,
         return_type: Box<Type>,
@@ -58,6 +74,15 @@ impl fmt::Display for Type {
                 format!("{}", return_type)
             ),
             Type::Custom(custom) => write!(f, "{}", custom),
+            Type::Object(ObjectType { key_to_type }) => write!(
+                f,
+                "{{ {} }}",
+                key_to_type
+                    .iter()
+                    .map(|(key, type_)| format!("{}: {}", key, type_))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
         }
     }
 }

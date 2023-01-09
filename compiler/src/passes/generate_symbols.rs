@@ -266,6 +266,16 @@ fn visit_expression(
             }
         }
 
+        ExpressionKind::PropertyAccess(left, right) => {
+            let left = visit_expression(left, ctx, None);
+            let id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
+            Expression {
+                id,
+                kind: ExpressionKind::PropertyAccess(Box::new(left), right.clone()),
+                ..expression.clone()
+            }
+        }
+
         ExpressionKind::FunctionCall { callee, arguments } => {
             let id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
             let callee = Box::new(visit_expression(callee, ctx, None));

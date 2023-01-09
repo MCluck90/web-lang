@@ -48,7 +48,7 @@ fn run_test(path_to_file: &Path, mode: &Mode) {
     };
 
     let cargo = Command::new("cargo")
-        .args(["run", path_to_file.to_str().unwrap()])
+        .args(["run", "-q", path_to_file.to_str().unwrap()])
         .output()
         .unwrap();
 

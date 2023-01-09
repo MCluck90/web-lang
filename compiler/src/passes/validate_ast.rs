@@ -84,6 +84,7 @@ fn validate_expression(expression: &Expression) -> Result<(), Simple<String>> {
             }
             _ => Ok(()),
         },
+        ExpressionKind::PropertyAccess(left, _) => validate_expression(left),
         ExpressionKind::FunctionCall { callee, arguments } => {
             validate_expression(&callee)?;
             for arg in arguments {

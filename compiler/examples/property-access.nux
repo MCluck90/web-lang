@@ -1,0 +1,8 @@
+let log(msg: string) {
+  #js { 
+    "console.log(" msg ")"
+  }
+}
+
+let x = 5;
+log(x.toString());

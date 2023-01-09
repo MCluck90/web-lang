@@ -7,7 +7,7 @@ use crate::{
     parser::{Expression, ExpressionKind, Parameter, Program, Statement, StatementKind},
 };
 
-use super::shared::{NodeId, SymbolTable, Type};
+use super::shared::{NodeId, ObjectType, SymbolTable, Type};
 
 struct TypeContext {
     pub return_expressions: HashMap<NodeId, Vec<NodeId>>,
@@ -262,6 +262,41 @@ fn visit_expression(
                 }
             };
             result_type
+        }
+
+        ExpressionKind::PropertyAccess(left, right) => {
+            visit_expression(left, symbol_table, type_context)?;
+            let left_type = &symbol_table.get(&left.id).unwrap().type_;
+            match left_type {
+                Type::Object(ObjectType { key_to_type }) => {
+                    if let Some(type_) = key_to_type.get(&right.name) {
+                        *type_.clone()
+                    } else {
+                        return Err(Simple::custom(
+                            expression.span.clone(),
+                            format!("Unrecognized property `{}`", right.name),
+                        ));
+                    }
+                }
+                Type::Int => match right.name.as_str() {
+                    "toString" => Type::Function {
+                        parameters: Vec::new(),
+                        return_type: Box::new(Type::String),
+                    },
+                    _ => {
+                        return Err(Simple::custom(
+                            expression.span.clone(),
+                            "TODO: Improve message. Cannot access property of non-object type",
+                        ))
+                    }
+                },
+                _ => {
+                    return Err(Simple::custom(
+                        expression.span.clone(),
+                        "TODO: Improve message. Cannot access property of non-object type",
+                    ))
+                }
+            }
         }
 
         ExpressionKind::FunctionCall { callee, arguments } => {
