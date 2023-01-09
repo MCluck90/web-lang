@@ -2,7 +2,19 @@
 name = "web-compiler"
 version = "0.1.0"
 edition = "2021"
+default-run = "compiler"
 
 [dependencies]
 chumsky = "0.8.0"
 ariadne = "0.1.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+prettydiff = "0.6.2"
+
+[[bin]]
+name = "compiler"
+path = "src/main.rs"
+
+[[bin]]
+name = "integration-tests"
+path = "src/bin/integration_tests.rs"

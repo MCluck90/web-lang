@@ -1,0 +1,7 @@
+let log(msg: string) {
+  #js { 
+    "console.log(" msg ")"
+  }
+}
+
+log('Hello world!');

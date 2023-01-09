@@ -1,0 +1,7 @@
+let add(x: int, y: int): int { x + y }
+
+// good
+add(2, 3);
+
+// bad
+add("2", "3");
