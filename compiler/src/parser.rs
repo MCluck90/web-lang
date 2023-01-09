@@ -268,32 +268,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
                 },
             );
 
-        // Technically this is already handled as part of the expression parser
-        // but having to put a semicolon at the end of an if expression when you
-        // aren't using the value is gross.
-        let if_ = just(Token::If)
-            .ignore_then(expression_parser(statement.clone()))
-            .then(expression_parser(statement.clone()))
-            .then(
-                just(Token::Else)
-                    .ignore_then(expression_parser(statement.clone()))
-                    .map(Box::new)
-                    .or_not(),
-            )
-            .map_with_span(|((condition, body), else_), span| Statement {
-                id: DUMMY_NODE_ID,
-                span: span.clone(),
-                kind: StatementKind::Expression(Expression::new(
-                    DUMMY_NODE_ID,
-                    ExpressionKind::If {
-                        condition: Box::new(condition),
-                        body: Box::new(body),
-                        else_,
-                    },
-                    span,
-                )),
-            });
-
         let return_statement = just(Token::Return)
             .ignore_then(expression_parser(statement.clone()).or_not())
             .then_ignore(just(Token::Terminator))
@@ -324,7 +298,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
             });
 
         function_definition
-            .or(if_)
             .or(return_statement)
             .or(js_block)
             .or(expression)

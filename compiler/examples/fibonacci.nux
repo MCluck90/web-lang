@@ -1,0 +1,15 @@
+let log(msg: int) {
+  #js { 
+    "console.log(" msg ")"
+  }
+}
+
+let fibonacci(n: int): int {
+    if n < 2 {
+        1
+    } else {
+        fibonacci(n - 1) + fibonacci(n - 2)
+    }
+}
+
+log(fibonacci(5));
