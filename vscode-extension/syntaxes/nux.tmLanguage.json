@@ -1,0 +1,144 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Nux",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#parameters"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash",
+          "match": "//.*"
+        },
+        {
+          "name": "comment.block.nux",
+          "begin": "(\\/\\*)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.comment.begin.c"
+            }
+          },
+          "end": "(\\*\\/)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.comment.end.c"
+            }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.nux",
+          "match": "\\b(if|loop|return)\\b"
+        },
+        {
+          "comment": "storage keywords",
+          "name": "keyword.other.nux storage.type.nux",
+          "match": "\\b(let|mut)\\b"
+        },
+        {
+          "comment": "function arrow",
+          "name": "keyword.operator.arrow.nux",
+          "match": "->"
+        },
+        {
+          "comment": "JS interpolation",
+          "name": "keyword.control.directive.nux",
+          "match": "^\\s*#js"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.single.nux",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.nux",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.double.nux",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.nux",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "comment": "primitive types",
+          "name": "entity.name.type.primitive.nux",
+          "match": "\\b(bool|int|string)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "comment": "ALL CAPS constants",
+          "name": "constant.other.caps.nux",
+          "match": "\\b[A-Z]{2}[A-Z0-9_]*\\b"
+        },
+        {
+          "comment": "decimal integers and floats",
+          "name": "constant.numeric.decimal.nux",
+          "match": "\\b\\d[\\d_]*(\\.?)[\\d_]*(?:(E)([+-])([\\d_]+))?(f32|f64|i128|i16|i32|i64|i8|isize|u128|u16|u32|u64|u8|usize)?\\b",
+          "captures": {
+            "1": {
+              "name": "punctuation.separator.dot.decimal.nux"
+            },
+            "2": {
+              "name": "keyword.operator.exponent.nux"
+            },
+            "3": {
+              "name": "keyword.operator.exponent.sign.nux"
+            },
+            "4": {
+              "name": "constant.numeric.decimal.exponent.mantissa.nux"
+            },
+            "5": {
+              "name": "entity.name.type.numeric.nux"
+            }
+          }
+        },
+        {
+          "comment": "booleans",
+          "name": "constant.language.bool.nux",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    }
+  },
+  "scopeName": "source.nux"
+}

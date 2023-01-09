@@ -1,0 +1,25 @@
+{
+  "name": "nux-lang",
+  "displayName": "nux-lang",
+  "description": "Language support for the Nux programming language",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "nux",
+      "aliases": ["Nux", "nux"],
+      "extensions": ["nux"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "nux",
+      "scopeName": "source.nux",
+      "path": "./syntaxes/nux.tmLanguage.json"
+    }]
+  }
+}
