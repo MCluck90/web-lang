@@ -90,13 +90,22 @@ impl fmt::Display for Type {
 #[derive(Clone, Debug)]
 pub struct Symbol {
     pub owner_id: NodeId,
+    pub is_mutable: bool,
     pub type_: Type,
 }
 impl Symbol {
     pub fn new(owner_id: NodeId) -> Self {
         Symbol {
             owner_id,
+            is_mutable: false,
             type_: Type::Unknown,
+        }
+    }
+
+    pub fn and_is_mutable(self) -> Self {
+        Symbol {
+            is_mutable: true,
+            ..self
         }
     }
 }

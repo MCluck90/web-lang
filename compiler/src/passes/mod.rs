@@ -12,8 +12,8 @@ use self::type_inference::infer_types;
 use self::validate_ast::validate_ast;
 
 pub fn transform_ast(program: Program) -> Result<Program, Vec<Simple<String>>> {
-    validate_ast(program)
-        .and_then(generate_symbols)
+    generate_symbols(program)
+        .and_then(validate_ast)
         .and_then(infer_types)
         .map(|(program, _)| program)
 }

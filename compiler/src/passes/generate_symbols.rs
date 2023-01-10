@@ -233,7 +233,11 @@ fn visit_expression(
             initializer,
         } => {
             let initializer = visit_expression(initializer, ctx, None);
-            let identifier_id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
+            let identifier_id = if *is_mutable {
+                ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()).and_is_mutable())
+            } else {
+                ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()))
+            };
             let declaration_id = ctx.insert_symbol(node_id, Symbol::new(ctx.owner_id.clone()));
             ctx.add_to_scope(&identifier.name, &identifier_id);
             Expression {
