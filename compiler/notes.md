@@ -140,3 +140,7 @@ loop (let i = 0; i < 10; i++) {
     i; // 0, 1, 2, 3, ...
 }
 ```
+
+### Problem
+Harder to talk about in real life. It's easier to say "you should use a for loop" than it is to say "you should use a
+loop with an initializer, condition, and post-loop expression."
