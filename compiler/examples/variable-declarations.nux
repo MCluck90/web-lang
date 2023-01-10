@@ -1,0 +1,7 @@
+// Variables declared with `mut` are mutable and can be reassigned
+mut mutable = 'hello';
+mutable = 'world';
+
+// Variables declared with `let` are constants and cannot be reassigned
+let constant = 10;
+constant = 20; // Error!
