@@ -1,0 +1,1 @@
+{"stdout":"","stderr":"thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Os { code: 21, kind: IsADirectory, message: \"Is a directory\" }', src/main.rs:17:51\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n","exit_code":101}

@@ -28,15 +28,18 @@ fn main() {
         .read_dir()
         .unwrap()
         .map(|f| f.unwrap().path())
-        .filter(|f| f.extension().map(|p| p.to_str().unwrap()).unwrap_or("") != "snapshot");
+        .filter(|f| f.extension().map(|p| p.to_str().unwrap()).unwrap_or("") != "snapshot")
+        .map(|f| f.file_name().unwrap().to_str().unwrap().to_string());
 
-    for file in example_files {
-        run_test(&file, &mode);
+    for file_name in example_files {
+        run_test(&file_name, &mode);
     }
 }
 
-fn run_test(path_to_file: &Path, mode: &Mode) {
-    let path_to_snapshot = format!("{}.snapshot", path_to_file.to_str().unwrap());
+fn run_test(file_name: &String, mode: &Mode) {
+    let path_to_file = format!("examples/{}", file_name);
+    let path_to_file = Path::new(path_to_file.as_str());
+    let path_to_snapshot = format!("examples/snapshots/{}.snapshot", file_name);
     let path_to_snapshot = Path::new(&path_to_snapshot);
     let maybe_old_snapshot = if path_to_snapshot.exists() {
         Some(
