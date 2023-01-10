@@ -4,5 +4,5 @@ let log(msg: string) {
   }
 }
 
-let x = 5;
-log(x.toString());
+log(true.toString());
+log("What a lovely day!".length.toString());

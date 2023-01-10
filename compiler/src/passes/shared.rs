@@ -37,8 +37,8 @@ impl std::hash::Hash for ObjectType {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-#[allow(dead_code)] // TODO: Construct `Object` types
 pub enum Type {
     Unknown,
     Void,

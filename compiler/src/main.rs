@@ -2,6 +2,7 @@ mod code_gen;
 mod lexer;
 mod parser;
 mod passes;
+mod types;
 
 use std::process;
 

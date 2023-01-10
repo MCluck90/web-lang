@@ -5,12 +5,14 @@ use chumsky::{prelude::Simple, Error};
 use crate::{
     lexer::{BinaryOperator, Span},
     parser::{Expression, ExpressionKind, Parameter, Program, Statement, StatementKind},
+    types::primitives::build_primitive_types,
 };
 
 use super::shared::{NodeId, ObjectType, SymbolTable, Type};
 
 struct TypeContext {
     pub return_expressions: HashMap<NodeId, Vec<NodeId>>,
+    pub primitive_types: HashMap<Type, ObjectType>,
 }
 
 pub fn infer_types(
@@ -19,6 +21,7 @@ pub fn infer_types(
     let (program, symbol_table) = ctx;
     let type_context = TypeContext {
         return_expressions: HashMap::new(),
+        primitive_types: build_primitive_types(),
     };
     visit_program(program, symbol_table, type_context)
 }
@@ -267,6 +270,7 @@ fn visit_expression(
         ExpressionKind::PropertyAccess(left, right) => {
             visit_expression(left, symbol_table, type_context)?;
             let left_type = &symbol_table.get(&left.id).unwrap().type_;
+
             match left_type {
                 Type::Object(ObjectType { key_to_type }) => {
                     if let Some(type_) = key_to_type.get(&right.name) {
@@ -274,22 +278,32 @@ fn visit_expression(
                     } else {
                         return Err(Simple::custom(
                             expression.span.clone(),
-                            format!("Unrecognized property `{}`", right.name),
+                            format!("TODO: Unrecognized property `{}`", right.name),
                         ));
                     }
                 }
-                Type::Int => match right.name.as_str() {
-                    "toString" => Type::Function {
-                        parameters: Vec::new(),
-                        return_type: Box::new(Type::String),
-                    },
-                    _ => {
-                        return Err(Simple::custom(
-                            expression.span.clone(),
-                            "TODO: Improve message. Cannot access property of non-object type",
-                        ))
+
+                // Access properties on primitive types
+                Type::Bool | Type::Int | Type::String => {
+                    match type_context.primitive_types.get(&left_type) {
+                        None => {
+                            return Err(Simple::custom(
+                                left.span.clone(),
+                                format!("TODO: No primitive type entry for {}", left_type),
+                            ))
+                        }
+                        Some(left_type) => {
+                            if let Some(type_) = left_type.key_to_type.get(&right.name) {
+                                *type_.clone()
+                            } else {
+                                return Err(Simple::custom(
+                                    expression.span.clone(),
+                                    format!("TODO: Unrecognized property `{}`", right.name),
+                                ));
+                            }
+                        }
                     }
-                },
+                }
                 _ => {
                     return Err(Simple::custom(
                         expression.span.clone(),
