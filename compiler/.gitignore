@@ -2,5 +2,5 @@
 target/
 
 # I use these files when quickly trying things out
-debug.web
+debug.nux
 debug.js
