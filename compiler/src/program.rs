@@ -3,9 +3,10 @@ use std::{collections::HashMap, path::Path};
 use chumsky::{prelude::*, Stream};
 
 use crate::{
+    asts::source::{ImportKind, ModuleAST},
     errors::{print_error_report, CompilerError},
     lexer,
-    parser::{module_parser, ImportKind, ModuleAST},
+    parser::module_parser,
 };
 
 pub struct Module {

@@ -1,3 +1,4 @@
+mod asts;
 mod code_gen;
 mod errors;
 mod lexer;

@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use chumsky::{prelude::Simple, Error};
 
 use crate::{
+    asts::source::{Expression, ExpressionKind, ModuleAST, Parameter, Statement, StatementKind},
     lexer::{BinaryOperator, Span},
-    parser::{Expression, ExpressionKind, ModuleAST, Parameter, Statement, StatementKind},
     types::primitives::build_primitive_types,
 };
 
@@ -418,8 +418,9 @@ mod tests {
     use chumsky::{Parser, Stream};
 
     use crate::{
+        asts::source::{ExpressionKind, StatementKind},
         lexer::lexer,
-        parser::{module_parser, ExpressionKind, StatementKind},
+        parser::module_parser,
         passes::{
             generate_symbols::generate_symbols,
             shared::{NodeId, Type},

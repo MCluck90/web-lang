@@ -5,7 +5,7 @@ pub mod shared;
 mod type_inference;
 mod validate_ast;
 
-use crate::parser::ModuleAST;
+use crate::asts::source::ModuleAST;
 
 use self::generate_symbols::generate_symbols;
 use self::type_inference::infer_types;

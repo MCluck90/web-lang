@@ -1,8 +1,8 @@
 use chumsky::{prelude::Simple, Error};
 
 use crate::{
+    asts::source::{Expression, ExpressionKind, ModuleAST, Statement, StatementKind},
     lexer::BinaryOperator,
-    parser::{Expression, ExpressionKind, ModuleAST, Statement, StatementKind},
 };
 
 use super::shared::SymbolTable;
