@@ -5,8 +5,8 @@ use crate::{
     passes::shared::{NodeId, Type},
 };
 
-// The original source AST.
-// Directly taken from the source code.
+/// The original source AST.
+/// Directly taken from the source code.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModuleAST {
     pub path: String,
