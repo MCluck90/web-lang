@@ -1,4 +1,4 @@
-use crate::parser::{Expression, ExpressionKind, Module, Statement, StatementKind};
+use crate::parser::{Expression, ExpressionKind, ModuleAST, Statement, StatementKind};
 
 pub struct CodeGenOutput {
     pub html: Option<String>,
@@ -10,7 +10,7 @@ struct OutputBuilder {
     js: String,
 }
 
-pub fn generate_code(program: &Module) -> CodeGenOutput {
+pub fn generate_code(program: &ModuleAST) -> CodeGenOutput {
     let mut builder = OutputBuilder {
         html: String::new(),
         js: String::new(),
@@ -30,7 +30,7 @@ pub fn generate_code(program: &Module) -> CodeGenOutput {
     }
 }
 
-fn visit_program(program: &Module, output: &mut OutputBuilder) {
+fn visit_program(program: &ModuleAST, output: &mut OutputBuilder) {
     for statement in &program.statements {
         output.js.push_str(&visit_statement(&statement).as_str());
     }

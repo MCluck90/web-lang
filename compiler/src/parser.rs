@@ -7,17 +7,17 @@ use crate::{
 use chumsky::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Module {
+pub struct ModuleAST {
     pub path: String,
     pub imports: Vec<Import>,
     pub statements: Vec<Statement>,
 }
 
-pub fn module_parser(path: String) -> impl Parser<Token, Module, Error = Simple<Token>> + Clone {
+pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = Simple<Token>> + Clone {
     import_parser()
         .repeated()
         .then(statement_parser().repeated().then_ignore(end()))
-        .map(move |(imports, statements)| Module {
+        .map(move |(imports, statements)| ModuleAST {
             path: path.clone(),
             imports,
             statements,

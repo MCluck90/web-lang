@@ -4,7 +4,7 @@ use chumsky::{prelude::Simple, Error};
 
 use crate::{
     lexer::{BinaryOperator, Span},
-    parser::{Expression, ExpressionKind, Module, Parameter, Statement, StatementKind},
+    parser::{Expression, ExpressionKind, ModuleAST, Parameter, Statement, StatementKind},
     types::primitives::build_primitive_types,
 };
 
@@ -16,8 +16,8 @@ struct TypeContext {
 }
 
 pub fn infer_types(
-    ctx: (Module, SymbolTable),
-) -> Result<(Module, SymbolTable), Vec<Simple<String>>> {
+    ctx: (ModuleAST, SymbolTable),
+) -> Result<(ModuleAST, SymbolTable), Vec<Simple<String>>> {
     let (module, symbol_table) = ctx;
     let type_context = TypeContext {
         return_expressions: HashMap::new(),
@@ -27,10 +27,10 @@ pub fn infer_types(
 }
 
 fn visit_module(
-    module: Module,
+    module: ModuleAST,
     mut symbol_table: SymbolTable,
     mut type_context: TypeContext,
-) -> Result<(Module, SymbolTable), Vec<Simple<String>>> {
+) -> Result<(ModuleAST, SymbolTable), Vec<Simple<String>>> {
     let statement_results = module
         .statements
         .iter()

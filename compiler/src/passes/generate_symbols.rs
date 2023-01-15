@@ -4,7 +4,7 @@ use chumsky::prelude::Simple;
 
 use crate::parser::{
     Block, Expression, ExpressionKind, Identifier, Import, ImportKind, ImportSelector,
-    ImportSelectorKind, Module, Parameter, Statement, StatementKind,
+    ImportSelectorKind, ModuleAST, Parameter, Statement, StatementKind,
 };
 
 use super::shared::{NodeId, Symbol, SymbolTable};
@@ -80,7 +80,9 @@ impl Context {
 }
 
 /// Generate the initial symbols.
-pub fn generate_symbols(module: Module) -> Result<(Module, SymbolTable), Vec<Simple<String>>> {
+pub fn generate_symbols(
+    module: ModuleAST,
+) -> Result<(ModuleAST, SymbolTable), Vec<Simple<String>>> {
     let mut ctx = Context::new();
 
     let module = visit_module(module, &mut ctx);
@@ -95,8 +97,8 @@ pub fn generate_symbols(module: Module) -> Result<(Module, SymbolTable), Vec<Sim
     }
 }
 
-fn visit_module(module: Module, ctx: &mut Context) -> Module {
-    Module {
+fn visit_module(module: ModuleAST, ctx: &mut Context) -> ModuleAST {
+    ModuleAST {
         path: module.path,
         imports: module
             .imports
