@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use chumsky::prelude::Simple;
 
 use crate::parser::{
-    Block, Expression, ExpressionKind, Identifier, Parameter, Program, Statement, StatementKind,
+    Block, Expression, ExpressionKind, Identifier, Import, ImportKind, ImportSelector,
+    ImportSelectorKind, Parameter, Program, Statement, StatementKind,
 };
 
 use super::shared::{NodeId, Symbol, SymbolTable};
@@ -96,11 +97,48 @@ pub fn generate_symbols(program: Program) -> Result<(Program, SymbolTable), Vec<
 
 fn visit_program(program: Program, ctx: &mut Context) -> Program {
     Program {
+        imports: program
+            .imports
+            .iter()
+            .map(|import| visit_import(import, ctx))
+            .collect(),
         statements: program
             .statements
             .iter()
             .map(|statement| visit_statement(statement, ctx))
             .collect(),
+    }
+}
+
+fn visit_import(import: &Import, ctx: &mut Context) -> Import {
+    match &import.kind {
+        ImportKind::Package {
+            scope,
+            package,
+            selectors,
+        } => Import {
+            id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
+            span: import.span.clone(),
+            kind: ImportKind::Package {
+                scope: scope.clone(),
+                package: package.clone(),
+                selectors: selectors
+                    .iter()
+                    .map(|selector| match &selector.kind {
+                        ImportSelectorKind::Name(name) => {
+                            let id = ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone()));
+                            ctx.add_to_scope(name, &id);
+                            ImportSelector {
+                                id,
+                                ..selector.clone()
+                            }
+                        }
+                        ImportSelectorKind::Aliased { original, alias } => todo!(),
+                        ImportSelectorKind::All(_) => todo!(),
+                    })
+                    .collect(),
+            },
+        },
     }
 }
 

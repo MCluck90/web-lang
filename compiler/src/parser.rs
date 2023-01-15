@@ -8,14 +8,18 @@ use chumsky::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Program {
+    pub imports: Vec<Import>,
     pub statements: Vec<Statement>,
 }
 
 pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clone {
-    statement_parser()
+    import_parser()
         .repeated()
-        .then_ignore(end())
-        .map(|statements| Program { statements })
+        .then(statement_parser().repeated().then_ignore(end()))
+        .map(|(imports, statements)| Program {
+            imports,
+            statements,
+        })
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -78,6 +82,36 @@ impl From<Expression> for Statement {
             kind: StatementKind::Expression(clone),
         }
     }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct Import {
+    pub id: NodeId,
+    pub span: Span,
+    pub kind: ImportKind,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ImportKind {
+    Package {
+        scope: Identifier,
+        package: Identifier,
+        selectors: Vec<ImportSelector>,
+    },
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct ImportSelector {
+    pub id: NodeId,
+    pub span: Span,
+    pub kind: ImportSelectorKind,
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum ImportSelectorKind {
+    Name(String),
+    Aliased { original: String, alias: String },
+    All(String), // Alias
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -216,6 +250,37 @@ fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> + Clone {
 
         simple_type.or(function_type)
     })
+}
+
+fn import_parser() -> impl Parser<Token, Import, Error = Simple<Token>> + Clone {
+    let named_selector_parser = identifier_parser().map_with_span(|ident, span| ImportSelector {
+        id: DUMMY_NODE_ID,
+        span,
+        kind: ImportSelectorKind::Name(ident.name),
+    });
+    let selector_parser = named_selector_parser
+        .separated_by(just(Token::ListSeparator))
+        .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock));
+
+    let package_parser = just(Token::PackagePathMarker)
+        .ignore_then(identifier_parser())
+        .then_ignore(just(Token::KeyValueSeparator))
+        .then(identifier_parser())
+        .then_ignore(just(Token::Operator(BinaryOperator::Div)))
+        .then(selector_parser)
+        .map_with_span(|((scope, package), selectors), span| Import {
+            id: DUMMY_NODE_ID,
+            span,
+            kind: ImportKind::Package {
+                scope,
+                package,
+                selectors,
+            },
+        });
+
+    just(Token::Use)
+        .ignore_then(package_parser)
+        .then_ignore(just(Token::Terminator))
 }
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + Clone {

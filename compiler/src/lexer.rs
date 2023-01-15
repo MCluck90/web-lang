@@ -151,8 +151,8 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         just(")").to(Token::CloseParen),
         just(":").to(Token::KeyValueSeparator),
         just(";").to(Token::Terminator),
-        just("@").to(Token::AbsolutePathMarker),
-        just("~").to(Token::PackagePathMarker),
+        just("~").to(Token::AbsolutePathMarker),
+        just("@").to(Token::PackagePathMarker),
         just("#js").to(Token::StartJsBlock),
     ));
 
