@@ -9,12 +9,14 @@ use std::process;
 use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::{prelude::*, Stream};
 use lexer::lexer;
-use parser::main_parser;
+use parser::module_parser;
 use passes::transform_ast;
 
 fn main() {
-    let file_path = std::env::args().nth(1).unwrap();
-    let src = std::fs::read_to_string(&file_path).unwrap();
+    let file_path_arg = std::env::args().nth(1).unwrap();
+    let file_path = std::path::Path::new(&file_path_arg);
+    let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
+    let src = std::fs::read_to_string(&file_path_arg).unwrap();
     let (tokens, lex_errs) = lexer().parse_recovery(src.as_str());
     let mut errors = lex_errs
         .clone()
@@ -23,8 +25,8 @@ fn main() {
         .collect::<Vec<Simple<String>>>();
     let parse_errors = if let Some(tokens) = tokens {
         let len = src.chars().count();
-        let (program, parse_errs) =
-            main_parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
+        let (program, parse_errs) = module_parser(file_name)
+            .parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
 
         let mut parse_errs = parse_errs
             .into_iter()
@@ -68,7 +70,7 @@ fn main() {
 
     let has_errors = !all_errors.is_empty();
     all_errors.iter().for_each(|e| {
-        let report = Report::build(ReportKind::Error, &file_path, e.span().start);
+        let report = Report::build(ReportKind::Error, &file_path_arg, e.span().start);
 
         let report = match e.reason() {
             chumsky::error::SimpleReason::Unclosed { span, delimiter } => report
@@ -77,7 +79,7 @@ fn main() {
                     delimiter.fg(Color::Yellow)
                 ))
                 .with_label(
-                    Label::new((&file_path, span.clone()))
+                    Label::new((&file_path_arg, span.clone()))
                         .with_message(format!(
                             "Unclosed delimiter {}",
                             delimiter.fg(Color::Yellow)
@@ -85,7 +87,7 @@ fn main() {
                         .with_color(Color::Yellow),
                 )
                 .with_label(
-                    Label::new((&file_path, e.span()))
+                    Label::new((&file_path_arg, e.span()))
                         .with_message(format!(
                             "Must be closed before this {}",
                             e.found()
@@ -115,7 +117,7 @@ fn main() {
                     }
                 ))
                 .with_label(
-                    Label::new((&file_path, e.span()))
+                    Label::new((&file_path_arg, e.span()))
                         .with_message(format!(
                             "Unexpected token {}",
                             e.found()
@@ -147,7 +149,7 @@ fn main() {
                 let found = e.found().map(|e| e.to_string());
 
                 report.with_message(msg).with_label(
-                    Label::new((&file_path, e.span()))
+                    Label::new((&file_path_arg, e.span()))
                         .with_message(match (expected, found) {
                             (Some(expected), Some(found)) => {
                                 format!("expected: {}, found: {}", expected, found)
@@ -163,7 +165,7 @@ fn main() {
 
         report
             .finish()
-            .eprint((&file_path, Source::from(&src)))
+            .eprint((&file_path_arg, Source::from(&src)))
             .unwrap();
     });
 

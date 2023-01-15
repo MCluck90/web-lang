@@ -4,7 +4,7 @@ use chumsky::prelude::Simple;
 
 use crate::parser::{
     Block, Expression, ExpressionKind, Identifier, Import, ImportKind, ImportSelector,
-    ImportSelectorKind, Parameter, Program, Statement, StatementKind,
+    ImportSelectorKind, Module, Parameter, Statement, StatementKind,
 };
 
 use super::shared::{NodeId, Symbol, SymbolTable};
@@ -80,10 +80,10 @@ impl Context {
 }
 
 /// Generate the initial symbols.
-pub fn generate_symbols(program: Program) -> Result<(Program, SymbolTable), Vec<Simple<String>>> {
+pub fn generate_symbols(module: Module) -> Result<(Module, SymbolTable), Vec<Simple<String>>> {
     let mut ctx = Context::new();
 
-    let program = visit_program(program, &mut ctx);
+    let module = visit_module(module, &mut ctx);
     if !ctx.errors.is_empty() {
         Err(ctx
             .errors
@@ -91,18 +91,19 @@ pub fn generate_symbols(program: Program) -> Result<(Program, SymbolTable), Vec<
             .map(|e| e.map(|f| f.id.to_string()))
             .collect::<Vec<Simple<String>>>())
     } else {
-        Ok((program, ctx.symbol_table))
+        Ok((module, ctx.symbol_table))
     }
 }
 
-fn visit_program(program: Program, ctx: &mut Context) -> Program {
-    Program {
-        imports: program
+fn visit_module(module: Module, ctx: &mut Context) -> Module {
+    Module {
+        path: module.path,
+        imports: module
             .imports
             .iter()
             .map(|import| visit_import(import, ctx))
             .collect(),
-        statements: program
+        statements: module
             .statements
             .iter()
             .map(|statement| visit_statement(statement, ctx))
@@ -133,8 +134,6 @@ fn visit_import(import: &Import, ctx: &mut Context) -> Import {
                                 ..selector.clone()
                             }
                         }
-                        ImportSelectorKind::Aliased { original, alias } => todo!(),
-                        ImportSelectorKind::All(_) => todo!(),
                     })
                     .collect(),
             },
@@ -381,7 +380,7 @@ fn visit_block(block: &Block, ctx: &mut Context, node_id: Option<NodeId>) -> Blo
 mod tests {
     use chumsky::{Parser, Stream};
 
-    use crate::{lexer::lexer, parser::main_parser};
+    use crate::{lexer::lexer, parser::module_parser};
 
     use super::generate_symbols;
 
@@ -390,13 +389,13 @@ mod tests {
         let src = "a;a;";
         let len = src.chars().count();
         let (tokens, _) = lexer().parse_recovery(src);
-        let (program, _) = main_parser()
+        let (module, _) = module_parser("test.nux".into())
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
-        let (program, _) = generate_symbols(program.unwrap()).unwrap();
-        assert_eq!(program.statements.len(), 2);
+        let (module, _) = generate_symbols(module.unwrap()).unwrap();
+        assert_eq!(module.statements.len(), 2);
 
-        let first = program.statements.first().unwrap();
-        let last = program.statements.last().unwrap();
+        let first = module.statements.first().unwrap();
+        let last = module.statements.last().unwrap();
         assert_eq!(first.id, last.id);
     }
 }

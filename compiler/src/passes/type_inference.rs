@@ -4,7 +4,7 @@ use chumsky::{prelude::Simple, Error};
 
 use crate::{
     lexer::{BinaryOperator, Span},
-    parser::{Expression, ExpressionKind, Parameter, Program, Statement, StatementKind},
+    parser::{Expression, ExpressionKind, Module, Parameter, Statement, StatementKind},
     types::primitives::build_primitive_types,
 };
 
@@ -16,22 +16,22 @@ struct TypeContext {
 }
 
 pub fn infer_types(
-    ctx: (Program, SymbolTable),
-) -> Result<(Program, SymbolTable), Vec<Simple<String>>> {
-    let (program, symbol_table) = ctx;
+    ctx: (Module, SymbolTable),
+) -> Result<(Module, SymbolTable), Vec<Simple<String>>> {
+    let (module, symbol_table) = ctx;
     let type_context = TypeContext {
         return_expressions: HashMap::new(),
         primitive_types: build_primitive_types(),
     };
-    visit_program(program, symbol_table, type_context)
+    visit_module(module, symbol_table, type_context)
 }
 
-fn visit_program(
-    program: Program,
+fn visit_module(
+    module: Module,
     mut symbol_table: SymbolTable,
     mut type_context: TypeContext,
-) -> Result<(Program, SymbolTable), Vec<Simple<String>>> {
-    let statement_results = program
+) -> Result<(Module, SymbolTable), Vec<Simple<String>>> {
+    let statement_results = module
         .statements
         .iter()
         .map(|statement| visit_statement(statement, &mut symbol_table, &mut type_context))
@@ -43,7 +43,7 @@ fn visit_program(
     if !statement_errors.is_empty() {
         Err(statement_errors)
     } else {
-        Ok((program, symbol_table))
+        Ok((module, symbol_table))
     }
 }
 
@@ -419,7 +419,7 @@ mod tests {
 
     use crate::{
         lexer::lexer,
-        parser::{main_parser, ExpressionKind, StatementKind},
+        parser::{module_parser, ExpressionKind, StatementKind},
         passes::{
             generate_symbols::generate_symbols,
             shared::{NodeId, Type},
@@ -432,9 +432,9 @@ mod tests {
         let src = "true";
         let len = src.chars().count();
         let (tokens, _) = lexer().parse_recovery(src);
-        let (program, _) = crate::parser::main_parser()
+        let (module, _) = module_parser("test".into())
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
-        let (_, symbol_table) = infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
+        let (_, symbol_table) = infer_types(generate_symbols(module.unwrap()).unwrap()).unwrap();
         let symbol = symbol_table.get(&NodeId::from_u32(0)).unwrap();
         assert_eq!(symbol.type_, Type::Bool);
     }
@@ -444,9 +444,9 @@ mod tests {
         let src = "123";
         let len = src.chars().count();
         let (tokens, _) = lexer().parse_recovery(src);
-        let (program, _) = main_parser()
+        let (module, _) = module_parser("test".into())
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
-        let (_, symbol_table) = infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
+        let (_, symbol_table) = infer_types(generate_symbols(module.unwrap()).unwrap()).unwrap();
         let symbol = symbol_table.get(&NodeId::from_u32(0)).unwrap();
         assert_eq!(symbol.type_, Type::Int);
     }
@@ -456,9 +456,9 @@ mod tests {
         let src = "'string'";
         let len = src.chars().count();
         let (tokens, _) = lexer().parse_recovery(src);
-        let (program, _) = main_parser()
+        let (module, _) = module_parser("test".into())
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
-        let (_, symbol_table) = infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
+        let (_, symbol_table) = infer_types(generate_symbols(module.unwrap()).unwrap()).unwrap();
         let symbol = symbol_table.get(&NodeId::from_u32(0)).unwrap();
         assert_eq!(symbol.type_, Type::String);
     }
@@ -468,11 +468,11 @@ mod tests {
         let src = "a = 1";
         let len = src.chars().count();
         let (tokens, _) = lexer().parse_recovery(src);
-        let (program, _) = main_parser()
+        let (module, _) = module_parser("test".into())
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
-        let (program, symbol_table) =
-            infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
-        let statement = program.statements.first().unwrap();
+        let (module, symbol_table) =
+            infer_types(generate_symbols(module.unwrap()).unwrap()).unwrap();
+        let statement = module.statements.first().unwrap();
         match &statement.kind {
             StatementKind::Expression(expr) => match &expr.kind {
                 ExpressionKind::BinaryExpression(left, _, right) => {
@@ -494,11 +494,11 @@ mod tests {
         let src = "a = 1; a";
         let len = src.chars().count();
         let (tokens, _) = lexer().parse_recovery(src);
-        let (program, _) = main_parser()
+        let (module, _) = module_parser("test".into())
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
-        let (program, symbol_table) =
-            infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
-        let statement = program.statements.last().unwrap();
+        let (module, symbol_table) =
+            infer_types(generate_symbols(module.unwrap()).unwrap()).unwrap();
+        let statement = module.statements.last().unwrap();
         match &statement.kind {
             StatementKind::Expression(expr) => match &expr.kind {
                 ExpressionKind::Identifier(_) => {
@@ -519,11 +519,11 @@ mod tests {
         ";
         let len = src.chars().count();
         let (tokens, _) = lexer().parse_recovery(src);
-        let (program, _) = main_parser()
+        let (module, _) = module_parser("test".into())
             .parse_recovery(Stream::from_iter(len..len + 1, tokens.unwrap().into_iter()));
-        let (program, symbol_table) =
-            infer_types(generate_symbols(program.unwrap()).unwrap()).unwrap();
-        let statement = program.statements.last().unwrap();
+        let (module, symbol_table) =
+            infer_types(generate_symbols(module.unwrap()).unwrap()).unwrap();
+        let statement = module.statements.last().unwrap();
         match &statement.kind {
             StatementKind::Expression(expr) => match &expr.kind {
                 ExpressionKind::Identifier(_) => {

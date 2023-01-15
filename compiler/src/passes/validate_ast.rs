@@ -2,7 +2,7 @@ use chumsky::{prelude::Simple, Error};
 
 use crate::{
     lexer::BinaryOperator,
-    parser::{Expression, ExpressionKind, Program, Statement, StatementKind},
+    parser::{Expression, ExpressionKind, Module, Statement, StatementKind},
 };
 
 use super::shared::SymbolTable;
@@ -12,8 +12,8 @@ use super::shared::SymbolTable;
 /// Ex: `1 = 2`
 /// This step does not handle things like type checking.
 pub fn validate_ast(
-    ctx: (Program, SymbolTable),
-) -> Result<(Program, SymbolTable), Vec<Simple<String>>> {
+    ctx: (Module, SymbolTable),
+) -> Result<(Module, SymbolTable), Vec<Simple<String>>> {
     let (program, mut symbol_table) = ctx;
     let errors = program
         .statements

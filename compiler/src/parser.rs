@@ -7,16 +7,18 @@ use crate::{
 use chumsky::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Program {
+pub struct Module {
+    pub path: String,
     pub imports: Vec<Import>,
     pub statements: Vec<Statement>,
 }
 
-pub fn main_parser() -> impl Parser<Token, Program, Error = Simple<Token>> + Clone {
+pub fn module_parser(path: String) -> impl Parser<Token, Module, Error = Simple<Token>> + Clone {
     import_parser()
         .repeated()
         .then(statement_parser().repeated().then_ignore(end()))
-        .map(|(imports, statements)| Program {
+        .map(move |(imports, statements)| Module {
+            path: path.clone(),
             imports,
             statements,
         })
@@ -110,8 +112,8 @@ pub struct ImportSelector {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ImportSelectorKind {
     Name(String),
-    Aliased { original: String, alias: String },
-    All(String), // Alias
+    // TODO: Aliased { original: String, alias: String },
+    // TODO: All(String), // Alias
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
