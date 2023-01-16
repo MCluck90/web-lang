@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
 
 use chumsky::{prelude::*, Stream};
 
@@ -25,6 +28,7 @@ pub struct Program {
 impl Program {
     pub fn from_entry_point(entry_path: String) -> (Program, bool) {
         let mut module_paths = vec![entry_path.clone()];
+        let mut visited_modules = HashSet::<String>::new();
         let mut program = Program {
             modules: Vec::new(),
             module_by_path: HashMap::new(),
@@ -34,6 +38,7 @@ impl Program {
         while !module_paths.is_empty() {
             let module_path = module_paths.pop().unwrap();
             let module = program.parse_module(std::path::Path::new(&module_path));
+            visited_modules.insert(module_path);
             if !module.errors.is_empty() {
                 has_errors = true;
                 print_error_report(&module.path, &module.errors);
@@ -46,7 +51,9 @@ impl Program {
                             ImportKind::Package { scope, package, .. } => {
                                 let next_module_path =
                                     format!("./{}/{}.nux", scope.name, package.name);
-                                module_paths.push(next_module_path);
+                                if !visited_modules.contains(&next_module_path) {
+                                    module_paths.push(next_module_path);
+                                }
                             }
                         }
                     }
