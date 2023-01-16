@@ -118,6 +118,7 @@ fn visit_import(import: &Import, ctx: &mut Context) -> Import {
         ImportKind::Package {
             scope,
             package,
+            path,
             selectors,
         } => Import {
             id: ctx.insert_symbol(None, Symbol::new(ctx.owner_id.clone())),
@@ -125,6 +126,7 @@ fn visit_import(import: &Import, ctx: &mut Context) -> Import {
             kind: ImportKind::Package {
                 scope: scope.clone(),
                 package: package.clone(),
+                path: path.clone(),
                 selectors: selectors
                     .iter()
                     .map(|selector| match &selector.kind {

@@ -48,9 +48,22 @@ impl Program {
                 Some(ast) => {
                     for import in ast.imports.iter().rev() {
                         match &import.kind {
-                            ImportKind::Package { scope, package, .. } => {
-                                let next_module_path =
-                                    format!("./{}/{}.nux", scope.name, package.name);
+                            ImportKind::Package {
+                                scope,
+                                package,
+                                path,
+                                ..
+                            } => {
+                                let inner_path = path
+                                    .iter()
+                                    .map(|ident| ident.name.clone())
+                                    .collect::<Vec<_>>()
+                                    .join("/");
+                                let next_module_path = if inner_path.is_empty() {
+                                    format!("./{}/{}.nux", scope.name, package.name)
+                                } else {
+                                    format!("./{}/{}/{}.nux", scope.name, package.name, inner_path)
+                                };
                                 if !visited_modules.contains(&next_module_path) {
                                     module_paths.push(next_module_path);
                                 }

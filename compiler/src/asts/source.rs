@@ -26,6 +26,7 @@ pub enum ImportKind {
     Package {
         scope: Identifier,
         package: Identifier,
+        path: Vec<Identifier>,
         selectors: Vec<ImportSelector>,
     },
 }

@@ -58,6 +58,13 @@ fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> + Clone {
 }
 
 fn import_parser() -> impl Parser<Token, Import, Error = Simple<Token>> + Clone {
+    let path_parser = just(Token::Operator(BinaryOperator::Div))
+        .map(|_| Vec::<Identifier>::new())
+        .or(identifier_parser()
+            .separated_by(just(Token::ListSeparator))
+            .then_ignore(just(Token::Operator(BinaryOperator::Div))))
+        .or_not();
+
     let named_selector_parser = identifier_parser().map_with_span(|ident, span| ImportSelector {
         id: DUMMY_NODE_ID,
         span,
@@ -72,13 +79,15 @@ fn import_parser() -> impl Parser<Token, Import, Error = Simple<Token>> + Clone 
         .then_ignore(just(Token::KeyValueSeparator))
         .then(identifier_parser())
         .then_ignore(just(Token::Operator(BinaryOperator::Div)))
+        .then(path_parser)
         .then(selector_parser)
-        .map_with_span(|((scope, package), selectors), span| Import {
+        .map_with_span(|(((scope, package), path), selectors), span| Import {
             id: DUMMY_NODE_ID,
             span,
             kind: ImportKind::Package {
                 scope,
                 package,
+                path: path.unwrap_or(Vec::new()),
                 selectors,
             },
         });
