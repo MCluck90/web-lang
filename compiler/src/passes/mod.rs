@@ -1,6 +1,7 @@
 use chumsky::prelude::Simple;
 
 mod generate_symbols;
+pub mod name_resolution;
 pub mod shared;
 mod type_inference;
 mod validate_ast;

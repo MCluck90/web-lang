@@ -1,11 +1,18 @@
 use core::fmt;
 
 use crate::{
+    errors::CompilerError,
     lexer::{BinaryOperator, Span},
     passes::shared::Type,
 };
 
 use super::source;
+
+pub struct Module {
+    pub path: String,
+    pub ast: ModuleAST,
+    pub errors: Vec<CompilerError>,
+}
 
 /// An AST that contains information from the name resolution stage.
 pub struct ModuleAST {
@@ -98,8 +105,6 @@ pub enum ExpressionKind {
         body: Box<Expression>,
         else_: Option<Box<Expression>>,
     },
-
-    Error,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -114,11 +119,11 @@ impl fmt::Display for Identifier {
     }
 }
 impl Identifier {
-    pub fn from_source(identifier: source::Identifier, new_name: String) -> Identifier {
+    pub fn from_source(identifier: &source::Identifier, new_name: String) -> Identifier {
         Identifier {
             name: new_name,
-            original_name: identifier.name,
-            span: identifier.span,
+            original_name: identifier.name.clone(),
+            span: identifier.span.clone(),
         }
     }
 }

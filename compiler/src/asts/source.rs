@@ -1,9 +1,16 @@
 use core::fmt;
 
 use crate::{
+    errors::CompilerError,
     lexer::{BinaryOperator, Span},
     passes::shared::{NodeId, Type},
 };
+
+pub struct Module {
+    pub path: String,
+    pub ast: Option<ModuleAST>,
+    pub errors: Vec<CompilerError>,
+}
 
 /// The original source AST.
 /// Directly taken from the source code.
@@ -86,6 +93,9 @@ pub enum ExpressionKind {
 
     // Ex: `Todo { title: "Write a compiler" }`
     // ObjectLiteral(String, HashMap<String, Expression>),
+
+    // TODO: Lift out in to a statement
+    // TODO: It doesn't make sense to allow a variable declaration to be the result for a block, for example
     VariableDeclaration {
         is_mutable: bool,
         identifier: Identifier,

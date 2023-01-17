@@ -6,23 +6,18 @@ use std::{
 use chumsky::{prelude::*, Stream};
 
 use crate::{
-    asts::source::{ImportKind, ModuleAST},
+    asts::source::{ImportKind, Module},
     errors::{print_error_report, CompilerError},
     lexer,
     parser::module_parser,
 };
 
-pub struct Module {
-    pub path: String,
-    pub ast: Option<ModuleAST>,
-    pub errors: Vec<CompilerError>,
-}
-
 pub struct Program {
     // Collection of module paths.
     // Contents of the module can be found in `module_by_path`
-    modules: Vec<String>,
-    module_by_path: HashMap<String, Module>,
+    // TODO: Expose the modules in the order that they were imported
+    pub modules_in_order: Vec<String>,
+    pub module_by_path: HashMap<String, Module>,
 }
 
 impl Program {
@@ -30,7 +25,7 @@ impl Program {
         let mut module_paths = vec![entry_path.clone()];
         let mut visited_modules = HashSet::<String>::new();
         let mut program = Program {
-            modules: Vec::new(),
+            modules_in_order: Vec::new(),
             module_by_path: HashMap::new(),
         };
         let mut has_errors = false;
@@ -38,13 +33,14 @@ impl Program {
         while !module_paths.is_empty() {
             let module_path = module_paths.pop().unwrap();
             let module = program.parse_module(std::path::Path::new(&module_path));
-            visited_modules.insert(module_path);
+            visited_modules.insert(module_path.clone());
+            program.modules_in_order.push(module_path.clone());
             if !module.errors.is_empty() {
                 has_errors = true;
                 print_error_report(&module.path, &module.errors);
             }
 
-            match module.ast {
+            match &module.ast {
                 Some(ast) => {
                     for import in ast.imports.iter().rev() {
                         match &import.kind {
@@ -72,9 +68,11 @@ impl Program {
                     }
                 }
                 None => {}
-            }
+            };
+            program.module_by_path.insert(module_path, module);
         }
 
+        program.modules_in_order.reverse();
         (program, has_errors)
     }
 
