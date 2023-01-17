@@ -2,6 +2,7 @@ mod asts;
 mod code_gen;
 mod errors;
 mod lexer;
+mod module_paths;
 mod parser;
 mod passes;
 mod program;
@@ -27,6 +28,8 @@ fn main() {
             has_errors = true;
             print_error_report(&module.path, &module.errors);
         }
+        println!("Module: {}", module.path);
+        println!("{:#?}", module.ast);
     }
 
     if has_errors {

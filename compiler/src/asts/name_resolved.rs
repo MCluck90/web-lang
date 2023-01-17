@@ -15,17 +15,28 @@ pub struct Module {
 }
 
 /// An AST that contains information from the name resolution stage.
+#[derive(Debug)]
 pub struct ModuleAST {
     pub path: String,
     pub imports: Vec<Import>,
     pub statements: Vec<Statement>,
 }
 
+#[derive(Debug)]
 pub struct Import {
     pub span: Span,
     pub kind: ImportKind,
 }
+impl Import {
+    pub fn from_source(import: &source::Import) -> Self {
+        Import {
+            span: import.span.clone(),
+            kind: ImportKind::from_source(&import.kind),
+        }
+    }
+}
 
+#[derive(Debug)]
 pub enum ImportKind {
     Package {
         scope: Identifier,
@@ -33,23 +44,53 @@ pub enum ImportKind {
         selectors: Vec<ImportSelector>,
     },
 }
+impl ImportKind {
+    pub fn from_source(kind: &source::ImportKind) -> Self {
+        match kind {
+            source::ImportKind::Package {
+                scope,
+                package,
+                selectors,
+                ..
+            } => ImportKind::Package {
+                scope: Identifier::from_source(scope, scope.name.clone()),
+                package: Identifier::from_source(package, package.name.clone()),
+                selectors: selectors.iter().map(ImportSelector::from_source).collect(),
+            },
+        }
+    }
+}
 
+#[derive(Debug)]
 pub struct ImportSelector {
     pub span: Span,
     pub kind: ImportSelectorKind,
 }
+impl ImportSelector {
+    pub fn from_source(selector: &source::ImportSelector) -> Self {
+        ImportSelector {
+            span: selector.span.clone(),
+            kind: match &selector.kind {
+                source::ImportSelectorKind::Name(name) => ImportSelectorKind::Name(name.clone()),
+            },
+        }
+    }
+}
 
+#[derive(Debug)]
 pub enum ImportSelectorKind {
     Name(String),
     // TODO: Aliased { original: String, alias: String },
     // TODO: All(String), // Alias
 }
 
+#[derive(Debug)]
 pub struct Statement {
     pub span: Span,
     pub kind: StatementKind,
 }
 
+#[derive(Debug)]
 pub enum StatementKind {
     FunctionDefinition {
         name: Identifier,
@@ -62,17 +103,20 @@ pub enum StatementKind {
     Return(Option<Expression>),
 }
 
+#[derive(Debug)]
 pub struct Parameter {
     pub span: Span,
     pub identifier: Identifier,
     pub type_: Type,
 }
 
+#[derive(Debug)]
 pub struct Expression {
     pub kind: ExpressionKind,
     pub span: Span,
 }
 
+#[derive(Debug)]
 pub enum ExpressionKind {
     // Primitives
     Boolean(bool),
@@ -128,6 +172,7 @@ impl Identifier {
     }
 }
 
+#[derive(Debug)]
 pub struct Block {
     pub span: Span,
     pub statements: Vec<Statement>,

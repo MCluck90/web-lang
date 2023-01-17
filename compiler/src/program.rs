@@ -9,13 +9,13 @@ use crate::{
     asts::source::{ImportKind, Module},
     errors::{print_error_report, CompilerError},
     lexer,
+    module_paths::from_package_import,
     parser::module_parser,
 };
 
 pub struct Program {
     // Collection of module paths.
     // Contents of the module can be found in `module_by_path`
-    // TODO: Expose the modules in the order that they were imported
     pub modules_in_order: Vec<String>,
     pub module_by_path: HashMap<String, Module>,
 }
@@ -50,16 +50,11 @@ impl Program {
                                 path,
                                 ..
                             } => {
-                                let inner_path = path
-                                    .iter()
-                                    .map(|ident| ident.name.clone())
-                                    .collect::<Vec<_>>()
-                                    .join("/");
-                                let next_module_path = if inner_path.is_empty() {
-                                    format!("./{}/{}.nux", scope.name, package.name)
-                                } else {
-                                    format!("./{}/{}/{}.nux", scope.name, package.name, inner_path)
-                                };
+                                let next_module_path = from_package_import(
+                                    &scope.name,
+                                    &package.name,
+                                    &path.iter().map(|ident| ident.name.clone()).collect(),
+                                );
                                 if !visited_modules.contains(&next_module_path) {
                                     module_paths.push(next_module_path);
                                 }
@@ -73,6 +68,7 @@ impl Program {
         }
 
         program.modules_in_order.reverse();
+
         (program, has_errors)
     }
 

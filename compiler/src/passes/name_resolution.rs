@@ -5,6 +5,7 @@ use chumsky::prelude::Simple;
 use crate::{
     asts::{name_resolved, source},
     errors::CompilerError,
+    module_paths,
 };
 
 struct IdCounter {
@@ -38,13 +39,17 @@ impl Scope {
     /// Returns the new identifier.
     fn set(&mut self, identifier: &String, id_counter: &mut IdCounter) -> String {
         let new_identifier = format!("${}", id_counter.next()).to_string();
+        self.set_direct(identifier, &new_identifier);
+        new_identifier
+    }
+
+    fn set_direct(&mut self, identifier: &String, new_identifier: &String) {
         if let Some(identifiers) = self.rename_table.get_mut(identifier) {
             identifiers.push(new_identifier.clone());
         } else {
             self.rename_table
                 .insert(identifier.clone(), vec![new_identifier.clone()]);
         }
-        new_identifier
     }
 }
 
@@ -73,6 +78,20 @@ impl Context {
             .unwrap()
             .set(&identifier.name, &mut self.id_counter);
         name_resolved::Identifier::from_source(identifier, new_identifier)
+    }
+
+    fn add_from_module_to_scope(&mut self, module_path: &String, identifier: &String) {
+        match self.exports.get(module_path) {
+            Some(exports) => {
+                if let Some(resolved_name) = exports.get(identifier) {
+                    self.scopes
+                        .last_mut()
+                        .unwrap()
+                        .set_direct(identifier, resolved_name);
+                }
+            }
+            None => {}
+        }
     }
 
     fn start_scope(&mut self) {
@@ -106,7 +125,7 @@ pub fn resolve_names(source_modules: Vec<&source::Module>) -> Vec<name_resolved:
     let mut resolved_modules = Vec::<name_resolved::Module>::new();
 
     for module in &source_modules {
-        let (mut module, exports) = resolve_module(&mut ctx, module);
+        let (module, exports) = resolve_module(&mut ctx, module);
         ctx.exports.insert(module.path.clone(), exports);
         resolved_modules.push(module);
     }
@@ -170,7 +189,22 @@ fn resolve_import(
             package,
             path,
             selectors,
-        } => todo!("TODO: Look at ctx.exports['scope:package/path'] for 'selectors' identifiers and insert in to scope")
+        } => {
+            let module_path = module_paths::from_package_import(
+                &scope.name,
+                &package.name,
+                &path.iter().map(|i| i.name.clone()).collect(),
+            );
+            let new_import = name_resolved::Import::from_source(&import);
+            for selector in selectors {
+                match &selector.kind {
+                    source::ImportSelectorKind::Name(name) => {
+                        ctx.add_from_module_to_scope(&module_path, name);
+                    }
+                }
+            }
+            (new_import, Vec::new())
+        }
     }
 }
 
