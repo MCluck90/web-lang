@@ -1,6 +1,6 @@
 use chumsky::prelude::*;
 
-use crate::phases::shared::{Type, DUMMY_NODE_ID};
+use crate::phases::shared::Type;
 
 use super::{ast::*, BinaryOperator, BuiltInTypeToken, Token};
 
@@ -20,11 +20,7 @@ fn identifier_parser() -> impl Parser<Token, Identifier, Error = Simple<Token>> 
         Token::Identifier(i) => i
     }
     .labelled("identifier")
-    .map_with_span(|name, span| Identifier {
-        id: DUMMY_NODE_ID,
-        name,
-        span,
-    })
+    .map_with_span(|name, span| Identifier { name, span })
 }
 
 fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> + Clone {
@@ -62,7 +58,6 @@ fn import_parser() -> impl Parser<Token, Import, Error = Simple<Token>> + Clone 
         .or_not();
 
     let named_selector_parser = identifier_parser().map_with_span(|ident, span| ImportSelector {
-        id: DUMMY_NODE_ID,
         span,
         kind: ImportSelectorKind::Name(ident.name),
     });
@@ -78,7 +73,6 @@ fn import_parser() -> impl Parser<Token, Import, Error = Simple<Token>> + Clone 
         .then(path_parser)
         .then(selector_parser)
         .map_with_span(|(((scope, package), path), selectors), span| Import {
-            id: DUMMY_NODE_ID,
             span,
             kind: ImportKind::Package {
                 scope,
@@ -101,9 +95,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
             .then_ignore(just(Token::CloseBlock))
             .map_with_span(|(statements, return_expression), span| {
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::Block(Box::new(Block {
-                        id: DUMMY_NODE_ID,
                         span: span.clone(),
                         statements,
                         return_expression,
@@ -115,9 +107,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
         let parameters = identifier_parser()
             .then_ignore(just(Token::KeyValueSeparator))
             .then(type_parser())
-            .map(|(identifier, type_)| {
-                Parameter::new(DUMMY_NODE_ID, identifier.clone().span, identifier, type_)
-            })
+            .map(|(identifier, type_)| Parameter::new(identifier.clone().span, identifier, type_))
             .labelled("parameter")
             .separated_by(just(Token::ListSeparator))
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
@@ -134,7 +124,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
             .then(block)
             .map_with_span(
                 |(((name, parameters), return_type), body), span| Statement {
-                    id: DUMMY_NODE_ID,
                     span,
                     kind: StatementKind::FunctionDefinition {
                         name,
@@ -149,7 +138,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
             .ignore_then(expression_parser(statement.clone()).or_not())
             .then_ignore(just(Token::Terminator))
             .map_with_span(|expression, span| Statement {
-                id: DUMMY_NODE_ID,
                 span,
                 kind: StatementKind::Return(expression),
             });
@@ -161,7 +149,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
                     .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock)),
             )
             .map_with_span(|expressions, span| Statement {
-                id: DUMMY_NODE_ID,
                 span,
                 kind: StatementKind::JsBlock(expressions),
             });
@@ -169,7 +156,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
         let expression = expression_parser(statement)
             .then_ignore(just(Token::Terminator))
             .map(|expression| Statement {
-                id: DUMMY_NODE_ID,
                 span: expression.span.clone(),
                 kind: StatementKind::Expression(expression),
             });
@@ -201,7 +187,7 @@ fn expression_parser<'a>(
             Token::String(s) => ExpressionKind::String(s)
         }
         .labelled("value")
-        .map_with_span(|kind, span| Expression::new(DUMMY_NODE_ID, kind, span));
+        .map_with_span(|kind, span| Expression::new(kind, span));
 
         let block = just(Token::OpenBlock)
             .ignore_then(statement.repeated())
@@ -209,9 +195,7 @@ fn expression_parser<'a>(
             .then_ignore(just(Token::CloseBlock))
             .map_with_span(|(statements, return_expression), span| {
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::Block(Box::new(Block {
-                        id: DUMMY_NODE_ID,
                         span: span.clone(),
                         statements,
                         return_expression,
@@ -228,7 +212,6 @@ fn expression_parser<'a>(
             .then(expr.clone())
             .map_with_span(|((is_mutable, identifier), initializer), span| {
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::VariableDeclaration {
                         is_mutable,
                         identifier,
@@ -249,7 +232,6 @@ fn expression_parser<'a>(
             )
             .map_with_span(|((condition, body), else_), span| {
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::If {
                         condition: Box::new(condition),
                         body: Box::new(body),
@@ -262,11 +244,7 @@ fn expression_parser<'a>(
         let atom = value
             .or(block)
             .or(identifier_parser().map(|ident| {
-                Expression::new(
-                    DUMMY_NODE_ID,
-                    ExpressionKind::Identifier(ident.clone()),
-                    ident.span,
-                )
+                Expression::new(ExpressionKind::Identifier(ident.clone()), ident.span)
             }))
             .or(variable_declaration)
             .or(if_)
@@ -278,7 +256,7 @@ fn expression_parser<'a>(
                     (Token::OpenParen, Token::CloseParen),
                     (Token::OpenBlock, Token::CloseBlock),
                 ],
-                |span| Expression::new(DUMMY_NODE_ID, ExpressionKind::Error, span),
+                |span| Expression::new(ExpressionKind::Error, span),
             ))
             .or(parenthesized_expr);
 
@@ -289,7 +267,6 @@ fn expression_parser<'a>(
             .foldl(|left, (_, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::PropertyAccess(Box::new(left), right.clone()),
                     span,
                 )
@@ -308,7 +285,6 @@ fn expression_parser<'a>(
                 .foldl(|callee, (arguments, arg_span)| {
                     let span = callee.span.start..arg_span.end;
                     Expression::new(
-                        DUMMY_NODE_ID,
                         ExpressionKind::FunctionCall {
                             callee: Box::new(callee),
                             arguments: arguments,
@@ -326,7 +302,6 @@ fn expression_parser<'a>(
             .foldl(|left, (op, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )
@@ -342,7 +317,6 @@ fn expression_parser<'a>(
                 .foldl(|left, (op, right)| {
                     let span = left.span.start..right.span.end;
                     Expression::new(
-                        DUMMY_NODE_ID,
                         ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                         span,
                     )
@@ -361,7 +335,6 @@ fn expression_parser<'a>(
                 .foldl(|left, (op, right)| {
                     let span = left.span.start..right.span.end;
                     Expression::new(
-                        DUMMY_NODE_ID,
                         ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                         span,
                     )
@@ -376,7 +349,6 @@ fn expression_parser<'a>(
             .foldl(|left, (op, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )
@@ -391,7 +363,6 @@ fn expression_parser<'a>(
             .foldl(|left, (op, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )
@@ -405,7 +376,6 @@ fn expression_parser<'a>(
             .foldl(|left, (op, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(
-                    DUMMY_NODE_ID,
                     ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
                     span,
                 )

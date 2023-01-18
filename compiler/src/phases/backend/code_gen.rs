@@ -1,5 +1,6 @@
-use crate::phases::middle_end::ast::{
-    Expression, ExpressionKind, ModuleAST, Statement, StatementKind,
+use crate::phases::middle_end::{
+    ast::{Expression, ExpressionKind, ModuleAST, Statement, StatementKind},
+    Program,
 };
 
 pub struct CodeGenOutput {
@@ -12,12 +13,12 @@ struct OutputBuilder {
     js: String,
 }
 
-pub fn generate_code(program: &ModuleAST) -> CodeGenOutput {
+pub fn generate_code(program: Program) -> CodeGenOutput {
     let mut builder = OutputBuilder {
         html: String::new(),
         js: String::new(),
     };
-    visit_program(program, &mut builder);
+    visit_program(&program, &mut builder);
     CodeGenOutput {
         html: if builder.html.is_empty() {
             None
@@ -32,9 +33,11 @@ pub fn generate_code(program: &ModuleAST) -> CodeGenOutput {
     }
 }
 
-fn visit_program(program: &ModuleAST, output: &mut OutputBuilder) {
-    for statement in &program.statements {
-        output.js.push_str(&visit_statement(&statement).as_str());
+fn visit_program(program: &Program, output: &mut OutputBuilder) {
+    for module in &program.modules {
+        for statement in &module.ast.statements {
+            output.js.push_str(&visit_statement(&statement).as_str());
+        }
     }
 }
 

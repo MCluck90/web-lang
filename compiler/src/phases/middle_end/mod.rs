@@ -2,16 +2,18 @@ use std::collections::HashMap;
 
 use crate::errors::print_error_report;
 
-use self::name_resolution::resolve_names;
+use self::{name_resolution::resolve_names, type_inference::infer_types};
 
 use super::frontend;
 
 pub mod ast;
+mod environment;
 mod name_resolution;
+mod symbol_table;
 mod type_inference;
 
 pub fn run_middle_end(program: frontend::Program) -> (Program, bool) {
-    let mut modules = resolve_names(
+    let (mut modules, mut symbol_table) = resolve_names(
         program
             .modules_in_order
             .iter()
@@ -20,6 +22,16 @@ pub fn run_middle_end(program: frontend::Program) -> (Program, bool) {
     );
 
     let mut has_errors = false;
+    for module in &mut modules {
+        if !module.errors.is_empty() {
+            has_errors = true;
+            print_error_report(&module.path, &module.errors);
+            // Empty out the errors since these have already been reported
+            module.errors.clear();
+        }
+    }
+
+    infer_types(&mut modules, &mut symbol_table);
     for module in &mut modules {
         if !module.errors.is_empty() {
             has_errors = true;

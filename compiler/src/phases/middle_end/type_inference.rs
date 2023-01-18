@@ -1,31 +1,173 @@
-use std::collections::HashMap;
-
 use chumsky::{prelude::Simple, Error};
 
 use crate::{
-    frontend::{BinaryOperator, Span},
-    middle_end::ast::{Expression, ExpressionKind, ModuleAST, Parameter, Statement, StatementKind},
-    types::primitives::build_primitive_types,
+    errors::CompilerError,
+    phases::{
+        frontend::{BinaryOperator, Span},
+        shared::Type,
+    },
 };
 
-use crate::phases::shared::{NodeId, ObjectType, SymbolTable, Type};
+use super::{
+    ast::{Expression, ExpressionKind, Module, Statement, StatementKind},
+    symbol_table::{SymbolTable, TypeId, ValueId, ValueSymbol},
+};
 
-struct TypeContext {
-    pub return_expressions: HashMap<NodeId, Vec<NodeId>>,
-    pub primitive_types: HashMap<Type, ObjectType>,
+pub fn infer_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
+    for module in modules {
+        visit_module(module, symbol_table);
+    }
 }
 
-pub fn infer_types(
-    ctx: (ModuleAST, SymbolTable),
-) -> Result<(ModuleAST, SymbolTable), Vec<Simple<String>>> {
-    todo!()
-    // let (module, symbol_table) = ctx;
-    // let type_context = TypeContext {
-    //     return_expressions: HashMap::new(),
-    //     primitive_types: build_primitive_types(),
-    // };
-    // visit_module(module, symbol_table, type_context)
+fn visit_module(module: &mut Module, symbol_table: &mut SymbolTable) {
+    for statement in module.ast.statements.iter() {
+        match visit_statement(&statement, symbol_table) {
+            Err(mut errors) => {
+                module.errors.append(&mut errors);
+            }
+            _ => {}
+        }
+    }
 }
+
+fn visit_statement(
+    statement: &Statement,
+    symbol_table: &mut SymbolTable,
+) -> Result<(), Vec<CompilerError>> {
+    match &statement.kind {
+        StatementKind::FunctionDefinition {
+            name,
+            parameters,
+            return_type,
+            body,
+        } => todo!(),
+        StatementKind::Expression(expression) => {
+            visit_expression(&expression, symbol_table).map(|_| ())
+        }
+        StatementKind::JsBlock(_) => todo!(),
+        StatementKind::Return(_) => todo!(),
+    }
+}
+
+fn visit_expression(
+    expression: &Expression,
+    symbol_table: &mut SymbolTable,
+) -> Result<TypeId, Vec<CompilerError>> {
+    match &expression.kind {
+        ExpressionKind::Boolean(_) => Ok("bool".into()),
+        ExpressionKind::Identifier(identifier) => Ok(symbol_table
+            .get_value(&identifier.name.clone().into())
+            .unwrap()
+            .type_
+            .clone()),
+        ExpressionKind::Integer(_) => Ok("int".into()),
+        ExpressionKind::String(_) => todo!(),
+        ExpressionKind::Block(_) => todo!(),
+        ExpressionKind::VariableDeclaration {
+            identifier,
+            initializer,
+            ..
+        } => {
+            let initializer_type = visit_expression(initializer, symbol_table)?;
+            symbol_table.set_value(
+                ValueId(identifier.name.clone()),
+                ValueSymbol {
+                    type_: initializer_type,
+                },
+            );
+            Ok("void".into())
+        }
+        ExpressionKind::BinaryExpression(left, op, right) => {
+            let left_type = visit_expression(left, symbol_table);
+            let right_type = visit_expression(right, symbol_table);
+            if left_type.is_err() || right_type.is_err() {
+                match (left_type, right_type) {
+                    (Err(mut a), Err(mut b)) => {
+                        a.append(&mut b);
+                        Err(a)
+                    }
+                    (Err(errs), Ok(_)) | (Ok(_), Err(errs)) => Err(errs),
+                    _ => unreachable!(),
+                }
+            } else {
+                let left_type = left_type.unwrap();
+                let right_type = right_type.unwrap();
+                match op {
+                    BinaryOperator::Add => todo!(),
+                    BinaryOperator::Sub => todo!(),
+                    BinaryOperator::Mul => todo!(),
+                    BinaryOperator::Div => todo!(),
+                    BinaryOperator::Dot => todo!(),
+                    BinaryOperator::NotEqual => todo!(),
+                    BinaryOperator::Equal => todo!(),
+                    BinaryOperator::LessThan => todo!(),
+                    BinaryOperator::LessThanOrEqual => todo!(),
+                    BinaryOperator::GreaterThan => todo!(),
+                    BinaryOperator::GreaterThanOrEqual => todo!(),
+                    BinaryOperator::And => todo!(),
+                    BinaryOperator::Or => todo!(),
+                    BinaryOperator::Assignment => match &left.kind {
+                        ExpressionKind::PropertyAccess(_, _) => todo!(),
+                        ExpressionKind::Identifier(identifier) => {
+                            if left_type.0 == "unknown" {
+                                symbol_table.set_value(
+                                    ValueId(identifier.name.clone()),
+                                    ValueSymbol {
+                                        type_: right_type.clone(),
+                                    },
+                                );
+                                Ok(right_type)
+                            } else if left_type.0 != right_type.0 {
+                                let left_type =
+                                    symbol_table.get_type(&left_type).unwrap().base_type.clone();
+                                let right_type = symbol_table
+                                    .get_type(&right_type)
+                                    .unwrap()
+                                    .base_type
+                                    .clone();
+                                Err(vec![create_type_mismatch_error(
+                                    &right.span,
+                                    &left_type,
+                                    &right_type,
+                                )])
+                            } else {
+                                Ok(right_type)
+                            }
+                        }
+                        ExpressionKind::Boolean(_) => todo!(),
+                        ExpressionKind::Integer(_) => todo!(),
+                        ExpressionKind::String(_) => todo!(),
+                        ExpressionKind::Block(_) => todo!(),
+                        ExpressionKind::VariableDeclaration {
+                            is_mutable,
+                            identifier,
+                            initializer,
+                        } => todo!(),
+                        ExpressionKind::BinaryExpression(_, _, _) => todo!(),
+                        ExpressionKind::FunctionCall { callee, arguments } => todo!(),
+                        ExpressionKind::If {
+                            condition,
+                            body,
+                            else_,
+                        } => todo!(),
+                    },
+                }
+            }
+        }
+        ExpressionKind::PropertyAccess(_, _) => todo!(),
+        ExpressionKind::FunctionCall { callee, arguments } => todo!(),
+        ExpressionKind::If {
+            condition,
+            body,
+            else_,
+        } => todo!(),
+    }
+}
+
+// struct TypeContext {
+//     pub return_expressions: HashMap<NodeId, Vec<NodeId>>,
+//     pub primitive_types: HashMap<Type, ObjectType>,
+// }
 
 // fn visit_module(
 //     module: ModuleAST,
@@ -113,19 +255,17 @@ pub fn infer_types(
 //     ))
 // }
 
-// fn create_type_mismatch_error(
-//     span: &Span,
-//     expected_type: &Type,
-//     found_type: &Type,
-// ) -> Result<Type, Simple<String>> {
-//     Err(
-//         Simple::custom(span.clone(), "Type mismatch").merge(Simple::expected_input_found(
-//             span.clone(),
-//             vec![Some(format!("{}, found {}", expected_type, found_type))],
-//             None,
-//         )),
-//     )
-// }
+fn create_type_mismatch_error(
+    span: &Span,
+    expected_type: &Type,
+    found_type: &Type,
+) -> CompilerError {
+    Simple::custom(span.clone(), "Type mismatch").merge(Simple::expected_input_found(
+        span.clone(),
+        vec![Some(format!("{}, found {}", expected_type, found_type))],
+        None,
+    ))
+}
 
 // fn visit_expression(
 //     expression: &Expression,

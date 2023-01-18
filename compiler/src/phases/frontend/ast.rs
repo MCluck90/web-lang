@@ -4,7 +4,7 @@ use crate::{
     errors::CompilerError,
     phases::{
         frontend::lexer::{BinaryOperator, Span},
-        shared::{NodeId, Type},
+        shared::Type,
     },
 };
 
@@ -25,7 +25,6 @@ pub struct ModuleAST {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Import {
-    pub id: NodeId,
     pub span: Span,
     pub kind: ImportKind,
 }
@@ -42,7 +41,6 @@ pub enum ImportKind {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ImportSelector {
-    pub id: NodeId,
     pub span: Span,
     pub kind: ImportSelectorKind,
 }
@@ -56,7 +54,6 @@ pub enum ImportSelectorKind {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Block {
-    pub id: NodeId,
     pub span: Span,
     pub statements: Vec<Statement>,
     pub return_expression: Option<Expression>,
@@ -64,7 +61,6 @@ pub struct Block {
 impl From<Block> for Expression {
     fn from(block: Block) -> Self {
         Expression {
-            id: block.id.clone(),
             span: block.span.clone(),
             kind: ExpressionKind::Block(Box::new(block)),
         }
@@ -73,14 +69,13 @@ impl From<Block> for Expression {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expression {
-    pub id: NodeId,
     pub kind: ExpressionKind,
     pub span: Span,
 }
 
 impl Expression {
-    pub fn new(id: NodeId, kind: ExpressionKind, span: Span) -> Expression {
-        Expression { id, kind, span }
+    pub fn new(kind: ExpressionKind, span: Span) -> Expression {
+        Expression { kind, span }
     }
 }
 
@@ -159,16 +154,14 @@ impl ExpressionKind {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Parameter {
-    pub id: NodeId,
     pub span: Span,
     pub identifier: Identifier,
     pub type_: Type,
 }
 
 impl Parameter {
-    pub fn new(id: NodeId, span: Span, identifier: Identifier, type_: Type) -> Parameter {
+    pub fn new(span: Span, identifier: Identifier, type_: Type) -> Parameter {
         Parameter {
-            id,
             span,
             identifier,
             type_,
@@ -178,7 +171,6 @@ impl Parameter {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Identifier {
-    pub id: NodeId,
     pub name: String,
     pub span: Span,
 }
@@ -190,7 +182,6 @@ impl fmt::Display for Identifier {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Statement {
-    pub id: NodeId,
     pub span: Span,
     pub kind: StatementKind,
 }
@@ -212,7 +203,6 @@ impl From<Expression> for Statement {
     fn from(expression: Expression) -> Self {
         let clone = expression.clone();
         Statement {
-            id: expression.id,
             span: expression.span,
             kind: StatementKind::Expression(clone),
         }

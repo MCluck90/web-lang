@@ -4,7 +4,11 @@ use chumsky::prelude::Simple;
 
 use crate::{errors::CompilerError, frontend, middle_end, module_paths};
 
-pub fn resolve_names(source_modules: Vec<&frontend::ast::Module>) -> Vec<middle_end::ast::Module> {
+use super::symbol_table::{SymbolTable, TypeId, ValueId, ValueSymbol};
+
+pub fn resolve_names(
+    source_modules: Vec<&frontend::ast::Module>,
+) -> (Vec<middle_end::ast::Module>, SymbolTable) {
     let mut ctx = Context::new();
     let mut resolved_modules = Vec::<middle_end::ast::Module>::new();
 
@@ -14,7 +18,7 @@ pub fn resolve_names(source_modules: Vec<&frontend::ast::Module>) -> Vec<middle_
         resolved_modules.push(module);
     }
 
-    resolved_modules
+    (resolved_modules, ctx.symbol_table)
 }
 
 struct IdCounter {
@@ -70,6 +74,7 @@ struct Context {
     scopes: Vec<Scope>,
     // Module path -> Original name -> New name
     exports: HashMap<String, Exports>,
+    symbol_table: SymbolTable,
 }
 impl Context {
     fn new() -> Context {
@@ -77,6 +82,7 @@ impl Context {
             id_counter: IdCounter::new(),
             scopes: Vec::new(),
             exports: HashMap::new(),
+            symbol_table: SymbolTable::new(),
         }
     }
 
@@ -84,12 +90,19 @@ impl Context {
         &mut self,
         identifier: &frontend::ast::Identifier,
     ) -> middle_end::ast::Identifier {
-        let new_identifier = self
+        let new_name = self
             .scopes
             .last_mut()
             .unwrap()
             .set(&identifier.name, &mut self.id_counter);
-        middle_end::ast::Identifier::from_source(identifier, new_identifier)
+        let new_identifier = middle_end::ast::Identifier::from_source(identifier, new_name.clone());
+        self.symbol_table.set_value(
+            ValueId(new_name),
+            ValueSymbol {
+                type_: TypeId("unknown".into()),
+            },
+        );
+        new_identifier
     }
 
     fn add_from_module_to_scope(&mut self, module_path: &String, identifier: &String) {

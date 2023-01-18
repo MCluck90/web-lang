@@ -5,7 +5,7 @@ mod types;
 
 use std::process;
 
-use phases::{frontend, middle_end};
+use phases::{backend, frontend, middle_end};
 
 fn main() {
     let file_path_arg = std::env::args().nth(1).unwrap();
@@ -14,5 +14,10 @@ fn main() {
     let has_errors = has_frontend_errors || has_middle_end_errors;
     if has_errors {
         process::exit(1);
+    }
+
+    let output = backend::run_backend(program);
+    if let Some(be_js) = output.js {
+        println!("{}", be_js);
     }
 }
