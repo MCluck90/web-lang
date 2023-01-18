@@ -2,11 +2,20 @@ use std::collections::HashMap;
 
 use chumsky::prelude::Simple;
 
-use crate::{
-    asts::{name_resolved, source},
-    errors::CompilerError,
-    module_paths,
-};
+use crate::{errors::CompilerError, frontend, middle_end, module_paths};
+
+pub fn resolve_names(source_modules: Vec<&frontend::ast::Module>) -> Vec<middle_end::ast::Module> {
+    let mut ctx = Context::new();
+    let mut resolved_modules = Vec::<middle_end::ast::Module>::new();
+
+    for module in &source_modules {
+        let (module, exports) = resolve_module(&mut ctx, module);
+        ctx.exports.insert(module.path.clone(), exports);
+        resolved_modules.push(module);
+    }
+
+    resolved_modules
+}
 
 struct IdCounter {
     next_id: u32,
@@ -71,13 +80,16 @@ impl Context {
         }
     }
 
-    fn add_and_rename(&mut self, identifier: &source::Identifier) -> name_resolved::Identifier {
+    fn add_and_rename(
+        &mut self,
+        identifier: &frontend::ast::Identifier,
+    ) -> middle_end::ast::Identifier {
         let new_identifier = self
             .scopes
             .last_mut()
             .unwrap()
             .set(&identifier.name, &mut self.id_counter);
-        name_resolved::Identifier::from_source(identifier, new_identifier)
+        middle_end::ast::Identifier::from_source(identifier, new_identifier)
     }
 
     fn add_from_module_to_scope(&mut self, module_path: &String, identifier: &String) {
@@ -106,11 +118,11 @@ impl Context {
 
     fn find_identifier(
         &self,
-        identifier: &source::Identifier,
-    ) -> Option<name_resolved::Identifier> {
+        identifier: &frontend::ast::Identifier,
+    ) -> Option<middle_end::ast::Identifier> {
         for scope in self.scopes.iter().rev() {
             if let Some(new_name) = scope.get(&identifier.name) {
-                return Some(name_resolved::Identifier::from_source(
+                return Some(middle_end::ast::Identifier::from_source(
                     identifier,
                     new_name.to_string(),
                 ));
@@ -120,25 +132,15 @@ impl Context {
     }
 }
 
-pub fn resolve_names(source_modules: Vec<&source::Module>) -> Vec<name_resolved::Module> {
-    let mut ctx = Context::new();
-    let mut resolved_modules = Vec::<name_resolved::Module>::new();
-
-    for module in &source_modules {
-        let (module, exports) = resolve_module(&mut ctx, module);
-        ctx.exports.insert(module.path.clone(), exports);
-        resolved_modules.push(module);
-    }
-
-    resolved_modules
-}
-
-fn resolve_module(ctx: &mut Context, module: &source::Module) -> (name_resolved::Module, Exports) {
+fn resolve_module(
+    ctx: &mut Context,
+    module: &frontend::ast::Module,
+) -> (middle_end::ast::Module, Exports) {
     ctx.start_scope();
 
     let mut exports = Exports::new();
-    let mut imports: Vec<name_resolved::Import> = Vec::new();
-    let mut statements: Vec<name_resolved::Statement> = Vec::new();
+    let mut imports: Vec<middle_end::ast::Import> = Vec::new();
+    let mut statements: Vec<middle_end::ast::Statement> = Vec::new();
     let mut errors: Vec<CompilerError> = module.errors.clone();
     let ast = module.ast.as_ref().unwrap();
 
@@ -153,22 +155,22 @@ fn resolve_module(ctx: &mut Context, module: &source::Module) -> (name_resolved:
         errors.append(&mut errs);
 
         match &statement.kind {
-            name_resolved::StatementKind::FunctionDefinition { name, .. } => {
+            middle_end::ast::StatementKind::FunctionDefinition { name, .. } => {
                 // Export all function definitions
                 exports.insert(name.original_name.clone(), name.name.clone());
             }
-            name_resolved::StatementKind::Expression(_) => {}
-            name_resolved::StatementKind::JsBlock(_) => {}
-            name_resolved::StatementKind::Return(_) => {}
+            middle_end::ast::StatementKind::Expression(_) => {}
+            middle_end::ast::StatementKind::JsBlock(_) => {}
+            middle_end::ast::StatementKind::Return(_) => {}
         }
         statements.push(statement);
     }
 
     ctx.end_scope();
     (
-        name_resolved::Module {
+        middle_end::ast::Module {
             path: module.path.clone(),
-            ast: name_resolved::ModuleAST {
+            ast: middle_end::ast::ModuleAST {
                 path: module.path.clone(),
                 imports,
                 statements,
@@ -181,10 +183,10 @@ fn resolve_module(ctx: &mut Context, module: &source::Module) -> (name_resolved:
 
 fn resolve_import(
     ctx: &mut Context,
-    import: &source::Import,
-) -> (name_resolved::Import, Vec<CompilerError>) {
+    import: &frontend::ast::Import,
+) -> (middle_end::ast::Import, Vec<CompilerError>) {
     match &import.kind {
-        source::ImportKind::Package {
+        frontend::ast::ImportKind::Package {
             scope,
             package,
             path,
@@ -195,10 +197,10 @@ fn resolve_import(
                 &package.name,
                 &path.iter().map(|i| i.name.clone()).collect(),
             );
-            let new_import = name_resolved::Import::from_source(&import);
+            let new_import = middle_end::ast::Import::from_source(&import);
             for selector in selectors {
                 match &selector.kind {
-                    source::ImportSelectorKind::Name(name) => {
+                    frontend::ast::ImportSelectorKind::Name(name) => {
                         ctx.add_from_module_to_scope(&module_path, name);
                     }
                 }
@@ -210,10 +212,10 @@ fn resolve_import(
 
 fn resolve_statement(
     ctx: &mut Context,
-    statement: &source::Statement,
-) -> (name_resolved::Statement, Vec<CompilerError>) {
+    statement: &frontend::ast::Statement,
+) -> (middle_end::ast::Statement, Vec<CompilerError>) {
     match &statement.kind {
-        source::StatementKind::FunctionDefinition {
+        frontend::ast::StatementKind::FunctionDefinition {
             name,
             parameters,
             return_type,
@@ -224,7 +226,7 @@ fn resolve_statement(
 
             let parameters = parameters
                 .iter()
-                .map(|p| name_resolved::Parameter {
+                .map(|p| middle_end::ast::Parameter {
                     span: p.span.clone(),
                     identifier: ctx.add_and_rename(&p.identifier),
                     type_: p.type_.clone(),
@@ -235,9 +237,9 @@ fn resolve_statement(
 
             ctx.end_scope();
             (
-                name_resolved::Statement {
+                middle_end::ast::Statement {
                     span: statement.span.clone(),
-                    kind: name_resolved::StatementKind::FunctionDefinition {
+                    kind: middle_end::ast::StatementKind::FunctionDefinition {
                         name: new_name,
                         parameters,
                         return_type: return_type.clone(),
@@ -247,76 +249,98 @@ fn resolve_statement(
                 errors,
             )
         }
-        source::StatementKind::Expression(expression) => {
+        frontend::ast::StatementKind::Expression(expression) => {
             let (expr, errors) = resolve_expression(ctx, expression);
             (
-                name_resolved::Statement {
+                middle_end::ast::Statement {
                     span: statement.span.clone(),
-                    kind: name_resolved::StatementKind::Expression(expr),
+                    kind: middle_end::ast::StatementKind::Expression(expr),
                 },
                 errors,
             )
         }
-        source::StatementKind::JsBlock(expressions) => {
+        frontend::ast::StatementKind::JsBlock(expressions) => {
             let mut errors: Vec<CompilerError> = Vec::new();
-            let mut resolved_expressions: Vec<name_resolved::Expression> = Vec::new();
+            let mut resolved_expressions: Vec<middle_end::ast::Expression> = Vec::new();
             for expr in expressions {
                 let (expr, mut errs) = resolve_expression(ctx, expr);
                 errors.append(&mut errs);
                 resolved_expressions.push(expr);
             }
             (
-                name_resolved::Statement {
+                middle_end::ast::Statement {
                     span: statement.span.clone(),
-                    kind: name_resolved::StatementKind::JsBlock(resolved_expressions),
+                    kind: middle_end::ast::StatementKind::JsBlock(resolved_expressions),
                 },
                 errors,
             )
         }
-        source::StatementKind::Return(_) => todo!(),
+        frontend::ast::StatementKind::Return(expression) => {
+            let (expr, errs) = expression
+                .as_ref()
+                .map(|expr| {
+                    let (expr, errs) = resolve_expression(ctx, expr);
+                    (Some(expr), errs)
+                })
+                .unwrap_or((None, Vec::new()));
+            (
+                middle_end::ast::Statement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ast::StatementKind::Return(expr),
+                },
+                errs,
+            )
+        }
     }
 }
 
 fn resolve_expression(
     ctx: &mut Context,
-    expression: &source::Expression,
-) -> (name_resolved::Expression, Vec<CompilerError>) {
+    expression: &frontend::ast::Expression,
+) -> (middle_end::ast::Expression, Vec<CompilerError>) {
     let span = expression.span.clone();
-    let to_expression = move |kind: name_resolved::ExpressionKind, errors: Vec<CompilerError>| {
-        (name_resolved::Expression { span, kind }, errors)
+    let to_expression = move |kind: middle_end::ast::ExpressionKind, errors: Vec<CompilerError>| {
+        (middle_end::ast::Expression { span, kind }, errors)
     };
     match &expression.kind {
-        source::ExpressionKind::Boolean(value) => {
-            to_expression(name_resolved::ExpressionKind::Boolean(*value), Vec::new())
+        frontend::ast::ExpressionKind::Boolean(value) => {
+            to_expression(middle_end::ast::ExpressionKind::Boolean(*value), Vec::new())
         }
-        source::ExpressionKind::Integer(value) => {
-            to_expression(name_resolved::ExpressionKind::Integer(*value), Vec::new())
+        frontend::ast::ExpressionKind::Integer(value) => {
+            to_expression(middle_end::ast::ExpressionKind::Integer(*value), Vec::new())
         }
-        source::ExpressionKind::String(value) => to_expression(
-            name_resolved::ExpressionKind::String(value.clone()),
+        frontend::ast::ExpressionKind::String(value) => to_expression(
+            middle_end::ast::ExpressionKind::String(value.clone()),
             Vec::new(),
         ),
-        source::ExpressionKind::Identifier(identifier) => match ctx.find_identifier(identifier) {
-            None => to_expression(
-                name_resolved::ExpressionKind::Identifier(name_resolved::Identifier::from_source(
-                    identifier,
-                    identifier.name.clone(),
-                )),
-                vec![Simple::custom(
-                    identifier.span.clone(),
-                    format!("Unknown identifier: {}", identifier.name),
-                )],
-            ),
-            Some(new_identifier) => to_expression(
-                name_resolved::ExpressionKind::Identifier(new_identifier),
-                Vec::new(),
-            ),
-        },
-        source::ExpressionKind::Block(block) => {
-            let (block, errs) = resolve_block(ctx, block);
-            to_expression(name_resolved::ExpressionKind::Block(Box::new(block)), errs)
+        frontend::ast::ExpressionKind::Identifier(identifier) => {
+            match ctx.find_identifier(identifier) {
+                None => to_expression(
+                    middle_end::ast::ExpressionKind::Identifier(
+                        middle_end::ast::Identifier::from_source(
+                            identifier,
+                            identifier.name.clone(),
+                        ),
+                    ),
+                    vec![Simple::custom(
+                        identifier.span.clone(),
+                        format!("Unknown identifier: {}", identifier.name),
+                    )],
+                ),
+                Some(new_identifier) => to_expression(
+                    middle_end::ast::ExpressionKind::Identifier(new_identifier),
+                    Vec::new(),
+                ),
+            }
         }
-        source::ExpressionKind::VariableDeclaration {
+        frontend::ast::ExpressionKind::Block(block) => {
+            let (block, errs) = resolve_block(ctx, block);
+            to_expression(
+                middle_end::ast::ExpressionKind::Block(Box::new(block)),
+                errs,
+            )
+        }
+        frontend::ast::ExpressionKind::VariableDeclaration {
             identifier,
             initializer,
             is_mutable,
@@ -324,7 +348,7 @@ fn resolve_expression(
             let new_identifier = ctx.add_and_rename(identifier);
             let (initializer, errs) = resolve_expression(ctx, initializer);
             to_expression(
-                name_resolved::ExpressionKind::VariableDeclaration {
+                middle_end::ast::ExpressionKind::VariableDeclaration {
                     is_mutable: *is_mutable,
                     identifier: new_identifier,
                     initializer: Box::new(initializer),
@@ -332,12 +356,12 @@ fn resolve_expression(
                 errs,
             )
         }
-        source::ExpressionKind::BinaryExpression(left, op, right) => {
+        frontend::ast::ExpressionKind::BinaryExpression(left, op, right) => {
             let (left, mut left_errors) = resolve_expression(ctx, left);
             let (right, right_errors) = resolve_expression(ctx, right);
             left_errors.extend(right_errors);
             to_expression(
-                name_resolved::ExpressionKind::BinaryExpression(
+                middle_end::ast::ExpressionKind::BinaryExpression(
                     Box::new(left),
                     op.clone(),
                     Box::new(right),
@@ -345,19 +369,19 @@ fn resolve_expression(
                 left_errors,
             )
         }
-        source::ExpressionKind::PropertyAccess(left, right) => {
+        frontend::ast::ExpressionKind::PropertyAccess(left, right) => {
             let (left, errors) = resolve_expression(ctx, left);
             to_expression(
-                name_resolved::ExpressionKind::PropertyAccess(
+                middle_end::ast::ExpressionKind::PropertyAccess(
                     Box::new(left),
-                    name_resolved::Identifier::from_source(right, right.name.clone()),
+                    middle_end::ast::Identifier::from_source(right, right.name.clone()),
                 ),
                 errors,
             )
         }
-        source::ExpressionKind::FunctionCall { callee, arguments } => {
+        frontend::ast::ExpressionKind::FunctionCall { callee, arguments } => {
             let (callee, mut errors) = resolve_expression(ctx, callee);
-            let mut args: Vec<name_resolved::Expression> = Vec::new();
+            let mut args: Vec<middle_end::ast::Expression> = Vec::new();
 
             for arg in arguments {
                 let (arg, mut errs) = resolve_expression(ctx, arg);
@@ -366,14 +390,14 @@ fn resolve_expression(
             }
 
             to_expression(
-                name_resolved::ExpressionKind::FunctionCall {
+                middle_end::ast::ExpressionKind::FunctionCall {
                     callee: Box::new(callee),
                     arguments: args,
                 },
                 errors,
             )
         }
-        source::ExpressionKind::If {
+        frontend::ast::ExpressionKind::If {
             condition,
             body,
             else_,
@@ -391,7 +415,7 @@ fn resolve_expression(
             };
 
             to_expression(
-                name_resolved::ExpressionKind::If {
+                middle_end::ast::ExpressionKind::If {
                     condition: Box::new(condition),
                     body: Box::new(body),
                     else_,
@@ -399,18 +423,18 @@ fn resolve_expression(
                 errors,
             )
         }
-        source::ExpressionKind::Error => unreachable!(),
+        frontend::ast::ExpressionKind::Error => unreachable!(),
     }
 }
 
 fn resolve_block(
     ctx: &mut Context,
-    block: &source::Block,
-) -> (name_resolved::Block, Vec<CompilerError>) {
+    block: &frontend::ast::Block,
+) -> (middle_end::ast::Block, Vec<CompilerError>) {
     ctx.start_scope();
 
     let mut errors: Vec<CompilerError> = Vec::new();
-    let mut statements: Vec<name_resolved::Statement> = Vec::new();
+    let mut statements: Vec<middle_end::ast::Statement> = Vec::new();
 
     for statement in &block.statements {
         let (statement, mut errs) = resolve_statement(ctx, statement);
@@ -430,7 +454,7 @@ fn resolve_block(
     ctx.end_scope();
 
     (
-        name_resolved::Block {
+        middle_end::ast::Block {
             span: block.span.clone(),
             statements,
             return_expression,

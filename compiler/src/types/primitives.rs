@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::passes::shared::{ObjectType, Type};
+use crate::phases::shared::{ObjectType, Type};
 
 pub fn build_primitive_types() -> HashMap<Type, ObjectType> {
     let mut hash_map: HashMap<Type, ObjectType> = HashMap::new();

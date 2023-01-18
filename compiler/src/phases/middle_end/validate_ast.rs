@@ -1,38 +1,33 @@
 use chumsky::{prelude::Simple, Error};
 
-use crate::{
-    asts::source::{Expression, ExpressionKind, ModuleAST, Statement, StatementKind},
+use crate::{errors::CompilerError, phases::shared::SymbolTable};
+
+use super::{
+    asts::name_resolved::{Expression, ExpressionKind, Module, Statement, StatementKind},
     lexer::BinaryOperator,
 };
-
-use super::shared::SymbolTable;
 
 /// Validate essential semantics about the shape of the AST.
 /// This step includes things like checking for invalid assignments.
 /// Ex: `1 = 2`
 /// This step does not handle things like type checking.
-pub fn validate_ast(
-    ctx: (ModuleAST, SymbolTable),
-) -> Result<(ModuleAST, SymbolTable), Vec<Simple<String>>> {
-    let (program, mut symbol_table) = ctx;
-    let errors = program
+pub fn validate_ast(ctx: (&mut Module, SymbolTable)) {
+    let (module, mut symbol_table) = ctx;
+    let mut errors = module
+        .ast
         .statements
         .iter()
         .map(|s| validate_statement(s, &mut symbol_table))
         .filter(|r| r.is_err())
         .map(|r| r.unwrap_err())
-        .collect::<Vec<Simple<String>>>();
-    if !errors.is_empty() {
-        Err(errors)
-    } else {
-        Ok((program, symbol_table))
-    }
+        .collect::<Vec<CompilerError>>();
+    module.errors.append(&mut errors);
 }
 
 fn validate_statement(
     statement: &Statement,
     symbol_table: &mut SymbolTable,
-) -> Result<(), Simple<String>> {
+) -> Result<(), CompilerError> {
     match &statement.kind {
         StatementKind::Expression(expr) => validate_expression(expr, symbol_table),
         StatementKind::FunctionDefinition { body, .. } => validate_expression(&body, symbol_table),
@@ -54,7 +49,7 @@ fn validate_statement(
 fn validate_expression(
     expression: &Expression,
     symbol_table: &mut SymbolTable,
-) -> Result<(), Simple<String>> {
+) -> Result<(), CompilerError> {
     match &expression.kind {
         ExpressionKind::Boolean(_) => Ok(()),
         ExpressionKind::Identifier(_) => Ok(()),
@@ -79,15 +74,18 @@ fn validate_expression(
         ExpressionKind::BinaryExpression(left, op, _) => match &op {
             BinaryOperator::Assignment => {
                 if is_property_access_or_identifier(left) {
-                    let symbol = symbol_table.get(&left.id).unwrap();
-                    if !symbol.is_mutable {
-                        Err(Simple::custom(
-                            expression.span.clone(),
-                            "Assignment to constant variable",
-                        ))
-                    } else {
-                        Ok(())
-                    }
+                    // TODO: Check if value is mutable
+                    // let symbol = symbol_table.get(&left.id).unwrap();
+                    // if !symbol.is_mutable {
+                    //     Err(Simple::custom(
+                    //         expression.span.clone(),
+                    //         "Assignment to constant variable",
+                    //     ))
+                    // } else {
+                    //     Ok(())
+                    // }
+                    eprintln!("TODO: Cannot verify if assigning to an immutable variable");
+                    Ok(())
                 } else {
                     Err(Simple::custom(
                         expression.span.clone(),
@@ -128,7 +126,6 @@ fn validate_expression(
                 Ok(())
             }
         }
-        ExpressionKind::Error => unreachable!(),
     }
 }
 

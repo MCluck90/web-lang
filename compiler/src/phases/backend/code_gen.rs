@@ -1,4 +1,6 @@
-use crate::asts::source::{Expression, ExpressionKind, ModuleAST, Statement, StatementKind};
+use crate::phases::middle_end::ast::{
+    Expression, ExpressionKind, ModuleAST, Statement, StatementKind,
+};
 
 pub struct CodeGenOutput {
     pub html: Option<String>,
@@ -47,12 +49,11 @@ fn visit_statement(statement: &Statement) -> String {
                 body,
                 ..
             } => format!(
-                "const {}${}=({})=>{}",
+                "const {}=({})=>{}",
                 name,
-                statement.id,
                 parameters
                     .iter()
-                    .map(|p| format!("{}${}", p.identifier.name.clone(), p.id))
+                    .map(|p| p.identifier.name.clone())
                     .collect::<Vec<String>>()
                     .join(","),
                 visit_expression(&body),
@@ -121,9 +122,7 @@ fn visit_expression(expression: &Expression) -> String {
                 .join(",")
         ),
 
-        ExpressionKind::Identifier(ident) => {
-            format!("{}${}", ident.name.clone(), expression.id)
-        }
+        ExpressionKind::Identifier(ident) => ident.name.clone(),
 
         // TODO: How do early returns work when everything is an expression?
         ExpressionKind::If {
@@ -149,13 +148,10 @@ fn visit_expression(expression: &Expression) -> String {
             identifier,
             initializer,
         } => format!(
-            "{} {}${}={}",
+            "{} {}={}",
             if *is_mutable { "let" } else { "const" },
             identifier,
-            identifier.id,
             visit_expression(&initializer)
         ),
-
-        ExpressionKind::Error => unreachable!(),
     }
 }

@@ -1,37 +1,17 @@
-mod asts;
-mod code_gen;
 mod errors;
-mod lexer;
 mod module_paths;
-mod parser;
-mod passes;
-mod program;
+mod phases;
 mod types;
 
 use std::process;
 
-use errors::print_error_report;
-use lexer::lexer;
-use program::Program;
+use phases::{frontend, middle_end};
 
 fn main() {
     let file_path_arg = std::env::args().nth(1).unwrap();
-    let (program, mut has_errors) = Program::from_entry_point(file_path_arg);
-    let modules = program
-        .modules_in_order
-        .iter()
-        .map(|path| program.module_by_path.get(path).unwrap())
-        .collect();
-    let modules = passes::name_resolution::resolve_names(modules);
-    for module in modules {
-        if !module.errors.is_empty() {
-            has_errors = true;
-            print_error_report(&module.path, &module.errors);
-        }
-        println!("Module: {}", module.path);
-        println!("{:#?}", module.ast);
-    }
-
+    let (program, has_frontend_errors) = frontend::run_frontend(&file_path_arg);
+    let (program, has_middle_end_errors) = middle_end::run_middle_end(program);
+    let has_errors = has_frontend_errors || has_middle_end_errors;
     if has_errors {
         process::exit(1);
     }

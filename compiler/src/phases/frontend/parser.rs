@@ -1,12 +1,8 @@
-use crate::{
-    asts::source::{
-        Block, Expression, ExpressionKind, Identifier, Import, ImportKind, ImportSelector,
-        ImportSelectorKind, ModuleAST, Parameter, Statement, StatementKind,
-    },
-    lexer::*,
-    passes::shared::{Type, DUMMY_NODE_ID},
-};
 use chumsky::prelude::*;
+
+use crate::phases::shared::{Type, DUMMY_NODE_ID};
+
+use super::{ast::*, BinaryOperator, BuiltInTypeToken, Token};
 
 pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = Simple<Token>> + Clone {
     import_parser()

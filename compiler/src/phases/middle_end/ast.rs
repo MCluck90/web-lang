@@ -2,87 +2,124 @@ use core::fmt;
 
 use crate::{
     errors::CompilerError,
-    lexer::{BinaryOperator, Span},
-    passes::shared::{NodeId, Type},
+    phases::{
+        frontend,
+        frontend::lexer::{BinaryOperator, Span},
+        shared::Type,
+    },
 };
 
 pub struct Module {
     pub path: String,
-    pub ast: Option<ModuleAST>,
+    pub ast: ModuleAST,
     pub errors: Vec<CompilerError>,
 }
 
-/// The original source AST.
-/// Directly taken from the source code.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// An AST that contains information from the name resolution stage.
+#[derive(Clone, Debug)]
 pub struct ModuleAST {
     pub path: String,
     pub imports: Vec<Import>,
     pub statements: Vec<Statement>,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct Import {
-    pub id: NodeId,
     pub span: Span,
     pub kind: ImportKind,
 }
+impl Import {
+    pub fn from_source(import: &frontend::ast::Import) -> Self {
+        Import {
+            span: import.span.clone(),
+            kind: ImportKind::from_source(&import.kind),
+        }
+    }
+}
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum ImportKind {
     Package {
         scope: Identifier,
         package: Identifier,
-        path: Vec<Identifier>,
         selectors: Vec<ImportSelector>,
     },
 }
+impl ImportKind {
+    pub fn from_source(kind: &frontend::ast::ImportKind) -> Self {
+        match kind {
+            frontend::ast::ImportKind::Package {
+                scope,
+                package,
+                selectors,
+                ..
+            } => ImportKind::Package {
+                scope: Identifier::from_source(scope, scope.name.clone()),
+                package: Identifier::from_source(package, package.name.clone()),
+                selectors: selectors.iter().map(ImportSelector::from_source).collect(),
+            },
+        }
+    }
+}
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct ImportSelector {
-    pub id: NodeId,
     pub span: Span,
     pub kind: ImportSelectorKind,
 }
+impl ImportSelector {
+    pub fn from_source(selector: &frontend::ast::ImportSelector) -> Self {
+        ImportSelector {
+            span: selector.span.clone(),
+            kind: match &selector.kind {
+                frontend::ast::ImportSelectorKind::Name(name) => {
+                    ImportSelectorKind::Name(name.clone())
+                }
+            },
+        }
+    }
+}
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum ImportSelectorKind {
     Name(String),
     // TODO: Aliased { original: String, alias: String },
     // TODO: All(String), // Alias
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Block {
-    pub id: NodeId,
+#[derive(Clone, Debug)]
+pub struct Statement {
     pub span: Span,
-    pub statements: Vec<Statement>,
-    pub return_expression: Option<Expression>,
-}
-impl From<Block> for Expression {
-    fn from(block: Block) -> Self {
-        Expression {
-            id: block.id.clone(),
-            span: block.span.clone(),
-            kind: ExpressionKind::Block(Box::new(block)),
-        }
-    }
+    pub kind: StatementKind,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+pub enum StatementKind {
+    FunctionDefinition {
+        name: Identifier,
+        parameters: Vec<Parameter>,
+        return_type: Type,
+        body: Box<Expression>,
+    },
+    Expression(Expression),
+    JsBlock(Vec<Expression>),
+    Return(Option<Expression>),
+}
+
+#[derive(Clone, Debug)]
+pub struct Parameter {
+    pub span: Span,
+    pub identifier: Identifier,
+    pub type_: Type,
+}
+
+#[derive(Clone, Debug)]
 pub struct Expression {
-    pub id: NodeId,
     pub kind: ExpressionKind,
     pub span: Span,
 }
 
-impl Expression {
-    pub fn new(id: NodeId, kind: ExpressionKind, span: Span) -> Expression {
-        Expression { id, kind, span }
-    }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum ExpressionKind {
     // Primitives
     Boolean(bool),
@@ -93,9 +130,6 @@ pub enum ExpressionKind {
 
     // Ex: `Todo { title: "Write a compiler" }`
     // ObjectLiteral(String, HashMap<String, Expression>),
-
-    // TODO: Lift out in to a statement
-    // TODO: It doesn't make sense to allow a variable declaration to be the result for a block, for example
     VariableDeclaration {
         is_mutable: bool,
         identifier: Identifier,
@@ -118,10 +152,7 @@ pub enum ExpressionKind {
         body: Box<Expression>,
         else_: Option<Box<Expression>>,
     },
-
-    Error,
 }
-
 impl ExpressionKind {
     pub fn to_human_readable_name(&self) -> &str {
         match self {
@@ -150,34 +181,14 @@ impl ExpressionKind {
             ExpressionKind::PropertyAccess(_, _) => "a property access",
             ExpressionKind::FunctionCall { .. } => "a function call",
             ExpressionKind::If { .. } => "an if expression",
-            ExpressionKind::Error => "an error",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Parameter {
-    pub id: NodeId,
-    pub span: Span,
-    pub identifier: Identifier,
-    pub type_: Type,
-}
-
-impl Parameter {
-    pub fn new(id: NodeId, span: Span, identifier: Identifier, type_: Type) -> Parameter {
-        Parameter {
-            id,
-            span,
-            identifier,
-            type_,
         }
     }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Identifier {
-    pub id: NodeId,
     pub name: String,
+    pub original_name: String,
     pub span: Span,
 }
 impl fmt::Display for Identifier {
@@ -185,34 +196,19 @@ impl fmt::Display for Identifier {
         write!(f, "{}", self.name)
     }
 }
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct Statement {
-    pub id: NodeId,
-    pub span: Span,
-    pub kind: StatementKind,
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub enum StatementKind {
-    FunctionDefinition {
-        name: Identifier,
-        parameters: Vec<Parameter>,
-        return_type: Type,
-        body: Box<Expression>,
-    },
-    Expression(Expression),
-    JsBlock(Vec<Expression>),
-    Return(Option<Expression>),
-}
-
-impl From<Expression> for Statement {
-    fn from(expression: Expression) -> Self {
-        let clone = expression.clone();
-        Statement {
-            id: expression.id,
-            span: expression.span,
-            kind: StatementKind::Expression(clone),
+impl Identifier {
+    pub fn from_source(identifier: &frontend::ast::Identifier, new_name: String) -> Identifier {
+        Identifier {
+            name: new_name,
+            original_name: identifier.name.clone(),
+            span: identifier.span.clone(),
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct Block {
+    pub span: Span,
+    pub statements: Vec<Statement>,
+    pub return_expression: Option<Expression>,
 }
