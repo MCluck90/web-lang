@@ -1,8 +1,8 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
-use crate::phases::{
-    frontend::{lexer, BinaryOperator, Span, Token},
-    shared::Type,
+use crate::{
+    phases::frontend::{lexer, BinaryOperator, Span, Token},
+    types::symbol_table::TypeSymbol,
 };
 
 #[derive(Clone, Debug, Hash)]
@@ -88,7 +88,11 @@ impl CompilerError {
         }
     }
 
-    pub fn invalid_return_value(span: &Span, expected: &Type, found: &Type) -> CompilerError {
+    pub fn invalid_return_value(
+        span: &Span,
+        expected: &TypeSymbol,
+        found: &TypeSymbol,
+    ) -> CompilerError {
         CompilerError {
             span: span.clone(),
             reason: CompilerErrorReason::InvalidReturnValue {
@@ -101,20 +105,24 @@ impl CompilerError {
     pub fn binary_operator_not_supported_on_type(
         span: &Span,
         operator: &BinaryOperator,
-        found: &Type,
+        found: &TypeSymbol,
     ) -> CompilerError {
         CompilerError {
             span: span.clone(),
-            reason: CompilerErrorReason::BinaryOperatorNotSupportedOnType {
+            reason: CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol {
                 operator: operator.clone(),
                 found: found.clone(),
             },
         }
     }
-    pub fn mismatched_types(span: &Span, expected: &Type, found: &Type) -> CompilerError {
+    pub fn mismatched_types(
+        span: &Span,
+        expected: &TypeSymbol,
+        found: &TypeSymbol,
+    ) -> CompilerError {
         CompilerError {
             span: span.clone(),
-            reason: CompilerErrorReason::MismatchedTypes {
+            reason: CompilerErrorReason::MismatchedTypeSymbols {
                 expected: expected.clone(),
                 found: found.clone(),
             },
@@ -169,20 +177,20 @@ pub enum CompilerErrorReason {
 
     // Ex: Function expected to return (expected) but found (found)
     InvalidReturnValue {
-        expected: Type,
-        found: Type,
+        expected: TypeSymbol,
+        found: TypeSymbol,
     },
 
     // Ex: (operator) is not supported on type (found)
-    BinaryOperatorNotSupportedOnType {
+    BinaryOperatorNotSupportedOnTypeSymbol {
         operator: BinaryOperator,
-        found: Type,
+        found: TypeSymbol,
     },
 
     // Ex: Mismatched types. Expected `(expected)`, found `(found)`
-    MismatchedTypes {
-        expected: Type,
-        found: Type,
+    MismatchedTypeSymbols {
+        expected: TypeSymbol,
+        found: TypeSymbol,
     },
 
     // Ex: Warning: (message)
@@ -194,8 +202,8 @@ impl CompilerErrorReason {
             CompilerErrorReason::UnexpectedToken { .. } => 0,
             CompilerErrorReason::ReferenceError { .. } => 1,
             CompilerErrorReason::InvalidReturnValue { .. } => 2,
-            CompilerErrorReason::BinaryOperatorNotSupportedOnType { .. } => 3,
-            CompilerErrorReason::MismatchedTypes { .. } => 4,
+            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
+            CompilerErrorReason::MismatchedTypeSymbols { .. } => 4,
             CompilerErrorReason::CustomWarning(_) => 5,
             CompilerErrorReason::UnexpectedCharacter { .. } => 6,
         }
@@ -206,8 +214,8 @@ impl CompilerErrorReason {
             CompilerErrorReason::UnexpectedToken { .. } => false,
             CompilerErrorReason::ReferenceError { .. } => false,
             CompilerErrorReason::InvalidReturnValue { .. } => false,
-            CompilerErrorReason::BinaryOperatorNotSupportedOnType { .. } => false,
-            CompilerErrorReason::MismatchedTypes { .. } => false,
+            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => false,
+            CompilerErrorReason::MismatchedTypeSymbols { .. } => false,
             CompilerErrorReason::CustomWarning(_) => true,
             CompilerErrorReason::UnexpectedCharacter { .. } => false,
         }
@@ -270,27 +278,29 @@ impl CompilerErrorReason {
                 format!("Cannot find value `{}` in this scope", identifier)
             }
             CompilerErrorReason::InvalidReturnValue { expected, found } => todo!(),
-            CompilerErrorReason::BinaryOperatorNotSupportedOnType { operator, found } => format!(
-                "{} is not supported for type `{}`",
-                match operator {
-                    BinaryOperator::Add => "addition",
-                    BinaryOperator::Sub => "subtraction",
-                    BinaryOperator::Mul => "multiplication",
-                    BinaryOperator::Div => "division",
-                    BinaryOperator::Dot => "property access",
-                    BinaryOperator::NotEqual => "equality checking",
-                    BinaryOperator::Equal => "equality checking",
-                    BinaryOperator::LessThan => "order comparison",
-                    BinaryOperator::LessThanOrEqual => "order comparison",
-                    BinaryOperator::GreaterThan => "order comparison",
-                    BinaryOperator::GreaterThanOrEqual => "order comparison",
-                    BinaryOperator::And => "boolean AND",
-                    BinaryOperator::Or => "boolean OR",
-                    BinaryOperator::Assignment => "assignment",
-                },
-                found
-            ),
-            CompilerErrorReason::MismatchedTypes { expected, found } => format!(
+            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { operator, found } => {
+                format!(
+                    "{} is not supported for type `{}`",
+                    match operator {
+                        BinaryOperator::Add => "addition",
+                        BinaryOperator::Sub => "subtraction",
+                        BinaryOperator::Mul => "multiplication",
+                        BinaryOperator::Div => "division",
+                        BinaryOperator::Dot => "property access",
+                        BinaryOperator::NotEqual => "equality checking",
+                        BinaryOperator::Equal => "equality checking",
+                        BinaryOperator::LessThan => "order comparison",
+                        BinaryOperator::LessThanOrEqual => "order comparison",
+                        BinaryOperator::GreaterThan => "order comparison",
+                        BinaryOperator::GreaterThanOrEqual => "order comparison",
+                        BinaryOperator::And => "boolean AND",
+                        BinaryOperator::Or => "boolean OR",
+                        BinaryOperator::Assignment => "assignment",
+                    },
+                    found
+                )
+            }
+            CompilerErrorReason::MismatchedTypeSymbols { expected, found } => format!(
                 "mismatched types: expected `{}`, found `{}`",
                 expected, found
             ),
@@ -331,10 +341,10 @@ impl CompilerErrorReason {
                 .with_message("not found in this scope")
                 .with_color(Color::Red),
             CompilerErrorReason::InvalidReturnValue { expected, found } => todo!(),
-            CompilerErrorReason::BinaryOperatorNotSupportedOnType { .. } => label
+            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => label
                 .with_message("invalid operation")
                 .with_color(Color::Red),
-            CompilerErrorReason::MismatchedTypes { expected, found } => label
+            CompilerErrorReason::MismatchedTypeSymbols { expected, found } => label
                 .with_message(format!("expected `{}`", expected))
                 .with_color(Color::Red),
             CompilerErrorReason::CustomWarning(_) => todo!(),

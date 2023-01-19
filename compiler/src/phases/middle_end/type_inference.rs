@@ -1,9 +1,10 @@
-use crate::{errors::CompilerError, phases::frontend::BinaryOperator};
-
-use super::{
-    ast::{Expression, ExpressionKind, Module, Statement, StatementKind},
-    symbol_table::{SymbolTable, TypeId, ValueId, ValueSymbol},
+use crate::{
+    errors::CompilerError,
+    phases::{frontend::BinaryOperator, shared::Type},
+    types::symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
 };
+
+use super::ast::{Expression, ExpressionKind, Module, Parameter, Statement, StatementKind};
 
 pub fn infer_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
     for module in modules {
@@ -32,7 +33,35 @@ fn visit_statement(
             parameters,
             return_type,
             body,
-        } => todo!(),
+        } => {
+            let parameter_types = parameters
+                .iter()
+                .map(|p| visit_parameter(p, symbol_table))
+                .collect::<Vec<_>>();
+            let function_type = Type::Function {
+                parameters: parameter_types,
+                return_type: Box::new(return_type.clone()),
+            };
+            symbol_table.set_value(
+                name.name.clone().into(),
+                ValueSymbol {
+                    type_id: None,
+                    type_: function_type.clone(),
+                },
+            );
+
+            let body_type = visit_expression(body, symbol_table)?;
+
+            if *return_type != body_type.type_ {
+                Err(vec![CompilerError::invalid_return_value(
+                    &statement.span,
+                    &return_type.clone().into(),
+                    &body_type,
+                )])
+            } else {
+                Ok(())
+            }
+        }
         StatementKind::Expression(expression) => {
             visit_expression(&expression, symbol_table).map(|_| ())
         }
@@ -41,19 +70,34 @@ fn visit_statement(
     }
 }
 
+fn visit_parameter(parameter: &Parameter, symbol_table: &mut SymbolTable) -> Type {
+    symbol_table.set_value(
+        parameter.identifier.name.clone().into(),
+        ValueSymbol {
+            type_id: None,
+            type_: parameter.type_.clone(),
+        },
+    );
+    parameter.type_.clone()
+}
+
 fn visit_expression(
     expression: &Expression,
     symbol_table: &mut SymbolTable,
-) -> Result<TypeId, Vec<CompilerError>> {
+) -> Result<TypeSymbol, Vec<CompilerError>> {
     match &expression.kind {
-        ExpressionKind::Boolean(_) => Ok("bool".into()),
-        ExpressionKind::Identifier(identifier) => Ok(symbol_table
-            .get_value(&identifier.name.clone().into())
-            .unwrap()
-            .type_
-            .clone()),
-        ExpressionKind::Integer(_) => Ok("int".into()),
-        ExpressionKind::String(_) => Ok("string".into()),
+        ExpressionKind::Boolean(_) => Ok(TypeSymbol::bool()),
+        ExpressionKind::Identifier(identifier) => {
+            let value = symbol_table
+                .get_value(&identifier.name.clone().into())
+                .unwrap();
+            Ok(match &value.type_id {
+                Some(type_id) => symbol_table.get_type(&type_id).unwrap().clone(),
+                None => value.type_.clone().into(),
+            })
+        }
+        ExpressionKind::Integer(_) => Ok(TypeSymbol::int()),
+        ExpressionKind::String(_) => Ok(TypeSymbol::string()),
         ExpressionKind::Block(_) => todo!(),
         ExpressionKind::VariableDeclaration {
             identifier,
@@ -64,10 +108,11 @@ fn visit_expression(
             symbol_table.set_value(
                 ValueId(identifier.name.clone()),
                 ValueSymbol {
-                    type_: initializer_type,
+                    type_id: None,
+                    type_: initializer_type.type_,
                 },
             );
-            Ok("void".into())
+            Ok(TypeSymbol::void())
         }
         ExpressionKind::BinaryExpression(left, op, right) => {
             let left_type = visit_expression(left, symbol_table);
@@ -82,33 +127,31 @@ fn visit_expression(
                     _ => unreachable!(),
                 }
             } else {
-                let left_type = left_type.unwrap();
-                let right_type = right_type.unwrap();
+                let left_type_symbol = left_type.unwrap();
+                let right_type_symbol = right_type.unwrap();
                 match op {
                     BinaryOperator::Add
                     | BinaryOperator::Sub
                     | BinaryOperator::Mul
                     | BinaryOperator::Div => {
                         let mut errors: Vec<CompilerError> = Vec::new();
-                        if left_type.0 != "int" {
-                            let left_type = symbol_table.get_type(&left_type).unwrap();
+                        if left_type_symbol.type_ != Type::Int {
                             errors.push(CompilerError::binary_operator_not_supported_on_type(
                                 &left.span,
                                 op,
-                                &left_type.base_type,
+                                &left_type_symbol,
                             ));
                         }
-                        if right_type.0 != "int" {
-                            let right_type = symbol_table.get_type(&right_type).unwrap();
+                        if right_type_symbol.type_ != Type::Int {
                             errors.push(CompilerError::binary_operator_not_supported_on_type(
                                 &right.span,
                                 op,
-                                &right_type.base_type,
+                                &right_type_symbol,
                             ));
                         }
 
                         if errors.is_empty() {
-                            Ok(left_type)
+                            Ok(left_type_symbol)
                         } else {
                             Err(errors)
                         }
@@ -125,30 +168,23 @@ fn visit_expression(
                     BinaryOperator::Assignment => match &left.kind {
                         ExpressionKind::PropertyAccess(_, _) => todo!(),
                         ExpressionKind::Identifier(identifier) => {
-                            if left_type.0 == "unknown" {
+                            if left_type_symbol.type_ == Type::Unknown {
                                 symbol_table.set_value(
                                     ValueId(identifier.name.clone()),
                                     ValueSymbol {
-                                        type_: right_type.clone(),
+                                        type_: right_type_symbol.type_.clone(),
+                                        type_id: None, // TODO: Should this have an ID?
                                     },
                                 );
-                                Ok(right_type)
-                            } else if left_type.0 != right_type.0 {
-                                let left_type =
-                                    symbol_table.get_type(&left_type).unwrap().base_type.clone();
-                                let right_type = symbol_table
-                                    .get_type(&right_type)
-                                    .unwrap()
-                                    .base_type
-                                    .clone();
-
+                                Ok(right_type_symbol)
+                            } else if left_type_symbol.type_ != right_type_symbol.type_ {
                                 Err(vec![CompilerError::mismatched_types(
                                     &right.span,
-                                    &left_type,
-                                    &right_type,
+                                    &left_type_symbol,
+                                    &right_type_symbol,
                                 )])
                             } else {
-                                Ok(right_type)
+                                Ok(right_type_symbol)
                             }
                         }
                         ExpressionKind::Boolean(_) => todo!(),
@@ -159,7 +195,7 @@ fn visit_expression(
                             is_mutable,
                             identifier,
                             initializer,
-                        } => todo!(),
+                        } => unreachable!(),
                         ExpressionKind::BinaryExpression(_, _, _) => todo!(),
                         ExpressionKind::FunctionCall { callee, arguments } => todo!(),
                         ExpressionKind::If {

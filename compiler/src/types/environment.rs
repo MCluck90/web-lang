@@ -8,7 +8,8 @@ pub fn add_environment_to_table(mut symbol_table: SymbolTable) -> SymbolTable {
             symbol_table.set_type(
                 TypeId(stringify!($name).to_string()),
                 TypeSymbol {
-                    base_type: Type::$type,
+                    type_: Type::$type,
+                    name: Some(stringify!($name).to_string()),
                 },
             );
         };

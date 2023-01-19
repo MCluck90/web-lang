@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::errors::print_error_report;
 
 use self::{name_resolution::resolve_names, type_inference::infer_types};
@@ -7,9 +5,7 @@ use self::{name_resolution::resolve_names, type_inference::infer_types};
 use super::frontend;
 
 pub mod ast;
-mod environment;
 mod name_resolution;
-mod symbol_table;
 mod type_inference;
 
 pub fn run_middle_end(program: frontend::Program) -> (Program, bool) {

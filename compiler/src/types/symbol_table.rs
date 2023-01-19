@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::HashMap;
 
 use crate::phases::shared::Type;
@@ -60,9 +61,66 @@ impl From<&str> for TypeId {
 }
 
 pub struct ValueSymbol {
-    pub type_: TypeId,
+    pub type_id: Option<TypeId>,
+    pub type_: Type,
 }
 
+#[derive(Clone, Debug, Hash)]
 pub struct TypeSymbol {
-    pub base_type: Type,
+    pub type_: Type,
+    pub name: Option<String>,
+}
+impl TypeSymbol {
+    pub fn unknown() -> Self {
+        TypeSymbol {
+            type_: Type::Unknown,
+            name: Some("unknown".into()),
+        }
+    }
+    pub fn void() -> Self {
+        TypeSymbol {
+            type_: Type::Void,
+            name: Some("void".into()),
+        }
+    }
+    pub fn bool() -> Self {
+        TypeSymbol {
+            type_: Type::Bool,
+            name: Some("bool".into()),
+        }
+    }
+    pub fn int() -> Self {
+        TypeSymbol {
+            type_: Type::Int,
+            name: Some("int".into()),
+        }
+    }
+    pub fn string() -> Self {
+        TypeSymbol {
+            type_: Type::String,
+            name: Some("string".into()),
+        }
+    }
+}
+
+impl fmt::Display for TypeSymbol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match &self.name {
+                Some(name) => name.clone(),
+                None => self.type_.to_string(),
+            }
+        )
+    }
+}
+
+impl From<Type> for TypeSymbol {
+    fn from(value: Type) -> Self {
+        TypeSymbol {
+            type_: value,
+            name: None,
+        }
+    }
 }

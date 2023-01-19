@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use chumsky::prelude::Simple;
-
-use crate::{errors::CompilerError, frontend, middle_end, module_paths};
-
-use super::symbol_table::{SymbolTable, TypeId, ValueId, ValueSymbol};
+use crate::{
+    errors::CompilerError,
+    frontend, middle_end, module_paths,
+    phases::shared::Type,
+    types::symbol_table::{SymbolTable, ValueId, ValueSymbol},
+};
 
 pub fn resolve_names(
     source_modules: Vec<&frontend::ast::Module>,
@@ -99,7 +100,8 @@ impl Context {
         self.symbol_table.set_value(
             ValueId(new_name),
             ValueSymbol {
-                type_: TypeId("unknown".into()),
+                type_id: None,
+                type_: Type::Unknown,
             },
         );
         new_identifier
