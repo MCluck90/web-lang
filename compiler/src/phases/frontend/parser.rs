@@ -19,7 +19,6 @@ fn identifier_parser() -> impl Parser<Token, Identifier, Error = CompilerError> 
     select! {
         Token::Identifier(i) => i
     }
-    .labelled("identifier")
     .map_with_span(|name, span| Identifier { name, span })
 }
 
@@ -186,7 +185,6 @@ fn expression_parser<'a>(
             Token::Integer(n) => ExpressionKind::Integer(n.parse().unwrap()),
             Token::String(s) => ExpressionKind::String(s)
         }
-        .labelled("value")
         .map_with_span(|kind, span| Expression::new(kind, span));
 
         let block = just(Token::OpenBlock)

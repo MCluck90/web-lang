@@ -53,7 +53,7 @@ fn visit_expression(
             .type_
             .clone()),
         ExpressionKind::Integer(_) => Ok("int".into()),
-        ExpressionKind::String(_) => todo!(),
+        ExpressionKind::String(_) => Ok("string".into()),
         ExpressionKind::Block(_) => todo!(),
         ExpressionKind::VariableDeclaration {
             identifier,
@@ -85,10 +85,34 @@ fn visit_expression(
                 let left_type = left_type.unwrap();
                 let right_type = right_type.unwrap();
                 match op {
-                    BinaryOperator::Add => todo!(),
-                    BinaryOperator::Sub => todo!(),
-                    BinaryOperator::Mul => todo!(),
-                    BinaryOperator::Div => todo!(),
+                    BinaryOperator::Add
+                    | BinaryOperator::Sub
+                    | BinaryOperator::Mul
+                    | BinaryOperator::Div => {
+                        let mut errors: Vec<CompilerError> = Vec::new();
+                        if left_type.0 != "int" {
+                            let left_type = symbol_table.get_type(&left_type).unwrap();
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &left.span,
+                                op,
+                                &left_type.base_type,
+                            ));
+                        }
+                        if right_type.0 != "int" {
+                            let right_type = symbol_table.get_type(&right_type).unwrap();
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &right.span,
+                                op,
+                                &right_type.base_type,
+                            ));
+                        }
+
+                        if errors.is_empty() {
+                            Ok(left_type)
+                        } else {
+                            Err(errors)
+                        }
+                    }
                     BinaryOperator::Dot => todo!(),
                     BinaryOperator::NotEqual => todo!(),
                     BinaryOperator::Equal => todo!(),

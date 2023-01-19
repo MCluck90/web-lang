@@ -23,9 +23,8 @@ impl chumsky::Error<char> for CompilerError {
         Self::unexpected_character(&span, expected.into_iter().collect(), found)
     }
 
-    fn with_label(self, label: Self::Label) -> Self {
-        // TODO
-        self
+    fn with_label(self, _label: Self::Label) -> Self {
+        todo!()
     }
 
     fn merge(self, other: Self) -> Self {
@@ -45,9 +44,8 @@ impl chumsky::Error<Token> for CompilerError {
         Self::unexpected_token(&span, expected.into_iter().collect(), found)
     }
 
-    fn with_label(self, label: Self::Label) -> Self {
-        // TODO
-        self
+    fn with_label(self, _label: Self::Label) -> Self {
+        todo!()
     }
 
     fn merge(self, other: Self) -> Self {
@@ -272,7 +270,26 @@ impl CompilerErrorReason {
                 format!("Cannot find value `{}` in this scope", identifier)
             }
             CompilerErrorReason::InvalidReturnValue { expected, found } => todo!(),
-            CompilerErrorReason::BinaryOperatorNotSupportedOnType { operator, found } => todo!(),
+            CompilerErrorReason::BinaryOperatorNotSupportedOnType { operator, found } => format!(
+                "{} is not supported for type `{}`",
+                match operator {
+                    BinaryOperator::Add => "addition",
+                    BinaryOperator::Sub => "subtraction",
+                    BinaryOperator::Mul => "multiplication",
+                    BinaryOperator::Div => "division",
+                    BinaryOperator::Dot => "property access",
+                    BinaryOperator::NotEqual => "equality checking",
+                    BinaryOperator::Equal => "equality checking",
+                    BinaryOperator::LessThan => "order comparison",
+                    BinaryOperator::LessThanOrEqual => "order comparison",
+                    BinaryOperator::GreaterThan => "order comparison",
+                    BinaryOperator::GreaterThanOrEqual => "order comparison",
+                    BinaryOperator::And => "boolean AND",
+                    BinaryOperator::Or => "boolean OR",
+                    BinaryOperator::Assignment => "assignment",
+                },
+                found
+            ),
             CompilerErrorReason::MismatchedTypes { expected, found } => todo!(),
             CompilerErrorReason::CustomWarning(_) => todo!(),
         }
@@ -307,21 +324,13 @@ impl CompilerErrorReason {
                     })
                     .with_color(Color::Red)
             }
-
-            // label
-            //     .with_message(format!(
-            //         "Unexpected {}",
-            //         match found {
-            //             Some(token) => format!("{}", token),
-            //             None => "end of input".to_string(),
-            //         }
-            //     ))
-            //     .with_color(Color::Red),
             CompilerErrorReason::ReferenceError { .. } => label
                 .with_message("not found in this scope")
                 .with_color(Color::Red),
             CompilerErrorReason::InvalidReturnValue { expected, found } => todo!(),
-            CompilerErrorReason::BinaryOperatorNotSupportedOnType { operator, found } => todo!(),
+            CompilerErrorReason::BinaryOperatorNotSupportedOnType { .. } => label
+                .with_message("invalid operation")
+                .with_color(Color::Red),
             CompilerErrorReason::MismatchedTypes { expected, found } => todo!(),
             CompilerErrorReason::CustomWarning(_) => todo!(),
         }
@@ -335,133 +344,6 @@ pub fn print_error_report<'a>(module_path: &String, errors: &Vec<CompilerError>)
             .with_code(error.to_error_code())
             .with_message(error.to_message())
             .with_label(error.to_label(&module_path));
-
-        // chumsky::error::SimpleReason::Unexpected => report
-        //     .with_message(format!(
-        //         "{}, expected {}",
-        //         if error.found().is_some() {
-        //             "Unexpected token in input"
-        //         } else {
-        //             "Unexpected end of input"
-        //         },
-        //         if error.expected().len() == 0 {
-        //             "something else".to_string()
-        //         } else {
-        //             error
-        //                 .expected()
-        //                 .map(|expected| match expected {
-        //                     Some(expected) => expected.to_string(),
-        //                     None => "end of input".to_string(),
-        //                 })
-        //                 .collect::<Vec<_>>()
-        //                 .join(", ")
-        //         }
-        //     ))
-        //     .with_label(
-        //         Label::new((&module_path, error.span()))
-        //             .with_message(format!(
-        //                 "Unexpected token {}",
-        //                 error
-        //                     .found()
-        //                     .unwrap_or(&"end of file".to_string())
-        //                     .fg(Color::Red)
-        //             ))
-        //             .with_color(Color::Red),
-        //     ),
-        // chumsky::error::SimpleReason::Unclosed { span, delimiter } => report
-        //     .with_message(format!(
-        //         "Unclosed delimiter {}",
-        //         delimiter.fg(Color::Yellow)
-        //     ))
-        //     .with_label(
-        //         Label::new((&module_path, span.clone()))
-        //             .with_message(format!(
-        //                 "Unclosed delimiter {}",
-        //                 delimiter.fg(Color::Yellow)
-        //             ))
-        //             .with_color(Color::Yellow),
-        //     )
-        //     .with_label(
-        //         Label::new((&module_path, error.span()))
-        //             .with_message(
-        //                 format!(
-        //                     "Must be closed before this {}",
-        //                     error
-        //                         .found()
-        //                         .unwrap_or(&"end of file".to_string())
-        //                         .fg(Color::Red)
-        //                 )
-        //                 .to_string(),
-        //             )
-        //             .with_color(Color::Red),
-        //     ),
-        // chumsky::error::SimpleReason::Unexpected => report
-        //     .with_message(format!(
-        //         "{}, expected {}",
-        //         if error.found().is_some() {
-        //             "Unexpected token in input"
-        //         } else {
-        //             "Unexpected end of input"
-        //         },
-        //         if error.expected().len() == 0 {
-        //             "something else".to_string()
-        //         } else {
-        //             error
-        //                 .expected()
-        //                 .map(|expected| match expected {
-        //                     Some(expected) => expected.to_string(),
-        //                     None => "end of input".to_string(),
-        //                 })
-        //                 .collect::<Vec<_>>()
-        //                 .join(", ")
-        //         }
-        //     ))
-        //     .with_label(
-        //         Label::new((&module_path, error.span()))
-        //             .with_message(format!(
-        //                 "Unexpected token {}",
-        //                 error
-        //                     .found()
-        //                     .unwrap_or(&"end of file".to_string())
-        //                     .fg(Color::Red)
-        //             ))
-        //             .with_color(Color::Red),
-        //     ),
-        // // chumsky::error::SimpleReason::Custom(msg) => report.with_message(msg).with_label(
-        // //     Label::new((&file_path, e.span()))
-        // //         .with_message(format!("{}", msg.fg(Color::Red)))
-        // //         .with_color(Color::Red),
-        // // ),
-        // chumsky::error::SimpleReason::Custom(msg) => {
-        //     let expected = error
-        //         .expected()
-        //         .map(|expected| {
-        //             expected
-        //                 .clone()
-        //                 .map_or(String::new(), |expectation| expectation.to_string())
-        //         })
-        //         .collect::<Vec<_>>()
-        //         .join(", ");
-        //     let expected = if !expected.is_empty() {
-        //         Some(expected)
-        //     } else {
-        //         None
-        //     };
-        //     let found = error.found().map(|e| e.to_string());
-
-        //     report.with_message(msg).with_label(
-        //         Label::new((&module_path, error.span()))
-        //             .with_message(match (expected, found) {
-        //                 (Some(expected), Some(found)) => {
-        //                     format!("expected: {}, found: {}", expected, found)
-        //                 }
-        //                 (Some(expected), None) => format!("expected {}", expected),
-        //                 (None, Some(found)) => format!("found {}", found),
-        //                 (None, None) => "".to_string(),
-        //             })
-        //             .with_color(Color::Red),
-        //     )
-        // }
 
         report
             .finish()
