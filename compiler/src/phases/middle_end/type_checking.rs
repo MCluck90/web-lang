@@ -1,24 +1,40 @@
+use std::collections::HashMap;
+
 use crate::{
     errors::CompilerError,
     phases::{
         frontend::{BinaryOperator, Span},
-        shared::Type,
+        shared::{ObjectType, Type},
     },
-    types::symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
+    types::{
+        primitives::build_primitive_types,
+        symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
+    },
 };
 
 use super::ast::{Expression, ExpressionKind, Module, Parameter, Statement, StatementKind};
 
+struct TypeContext {
+    pub primitive_types: HashMap<Type, ObjectType>,
+}
+
 /// Infers and checks types.
 pub fn check_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
+    let mut type_context = &mut TypeContext {
+        primitive_types: build_primitive_types(),
+    };
     for module in modules {
-        visit_module(module, symbol_table);
+        visit_module(module, symbol_table, &mut type_context);
     }
 }
 
-fn visit_module(module: &mut Module, symbol_table: &mut SymbolTable) {
+fn visit_module(
+    module: &mut Module,
+    symbol_table: &mut SymbolTable,
+    type_context: &mut TypeContext,
+) {
     for statement in module.ast.statements.iter() {
-        match visit_statement(&statement, symbol_table) {
+        match visit_statement(&statement, symbol_table, type_context) {
             Err(mut errors) => {
                 module.errors.append(&mut errors);
             }
@@ -30,6 +46,7 @@ fn visit_module(module: &mut Module, symbol_table: &mut SymbolTable) {
 fn visit_statement(
     statement: &Statement,
     symbol_table: &mut SymbolTable,
+    type_context: &mut TypeContext,
 ) -> Result<(), Vec<CompilerError>> {
     match &statement.kind {
         StatementKind::VariableDeclaration {
@@ -37,7 +54,7 @@ fn visit_statement(
             initializer,
             is_mutable,
         } => {
-            let initializer_type = visit_expression(initializer, symbol_table)?;
+            let initializer_type = visit_expression(initializer, symbol_table, type_context)?;
             symbol_table.set_value(
                 ValueId(identifier.name.clone()),
                 ValueSymbol::new()
@@ -65,7 +82,7 @@ fn visit_statement(
                 ValueSymbol::new().with_type(function_type.clone()),
             );
 
-            let body_type = visit_expression(body, symbol_table)?;
+            let body_type = visit_expression(body, symbol_table, type_context)?;
 
             if *return_type != body_type.type_ {
                 Err(vec![CompilerError::invalid_return_value(
@@ -78,10 +95,10 @@ fn visit_statement(
             }
         }
         StatementKind::Expression(expression) => {
-            visit_expression(&expression, symbol_table).map(|_| ())
+            visit_expression(&expression, symbol_table, type_context).map(|_| ())
         }
         StatementKind::Return(expr) => match &expr {
-            Some(expr) => visit_expression(expr, symbol_table).map(|_| ()),
+            Some(expr) => visit_expression(expr, symbol_table, type_context).map(|_| ()),
             None => Ok(()),
         },
     }
@@ -98,6 +115,7 @@ fn visit_parameter(parameter: &Parameter, symbol_table: &mut SymbolTable) -> Typ
 fn visit_expression(
     expression: &Expression,
     symbol_table: &mut SymbolTable,
+    type_context: &mut TypeContext,
 ) -> Result<TypeSymbol, Vec<CompilerError>> {
     match &expression.kind {
         ExpressionKind::Boolean(_) => Ok(TypeSymbol::bool()),
@@ -114,20 +132,21 @@ fn visit_expression(
         ExpressionKind::String(_) => Ok(TypeSymbol::string()),
         ExpressionKind::Block(block) => {
             for statement in &block.statements {
-                visit_statement(statement, symbol_table).map(|_| TypeSymbol::from(Type::Void))?;
+                visit_statement(statement, symbol_table, type_context)
+                    .map(|_| TypeSymbol::from(Type::Void))?;
             }
 
             let mut output_type = TypeSymbol::from(Type::Void);
             if let Some(expr) = &block.return_expression {
-                output_type = visit_expression(&expr, symbol_table)?;
+                output_type = visit_expression(&expr, symbol_table, type_context)?;
             }
 
             Ok(output_type)
         }
         ExpressionKind::JsBlock(type_, _) => Ok(type_.clone().into()),
         ExpressionKind::BinaryExpression(left, op, right) => {
-            let left_type = visit_expression(left, symbol_table);
-            let right_type = visit_expression(right, symbol_table);
+            let left_type = visit_expression(left, symbol_table, type_context);
+            let right_type = visit_expression(right, symbol_table, type_context);
             if left_type.is_err() || right_type.is_err() {
                 match (left_type, right_type) {
                     (Err(mut a), Err(mut b)) => {
@@ -247,9 +266,48 @@ fn visit_expression(
                 }
             }
         }
-        ExpressionKind::PropertyAccess(_, _) => todo!(),
+        ExpressionKind::PropertyAccess(left, right) => {
+            let left_type_symbol = visit_expression(left, symbol_table, type_context)?;
+
+            match &left_type_symbol.type_ {
+                Type::Object(ObjectType { key_to_type }) => {
+                    if let Some(type_) = key_to_type.get(&right.name) {
+                        Ok(TypeSymbol::from(*type_.clone()))
+                    } else {
+                        Err(vec![CompilerError::no_field_on_type(
+                            &expression.span,
+                            &right.name,
+                            &left_type_symbol,
+                        )])
+                    }
+                }
+
+                // Access properties on primitive types
+                Type::Bool | Type::Int | Type::String => {
+                    match type_context.primitive_types.get(&left_type_symbol.type_) {
+                        None => unreachable!(),
+                        Some(left_type) => {
+                            if let Some(type_) = left_type.key_to_type.get(&right.name) {
+                                Ok(TypeSymbol::from(*type_.clone()))
+                            } else {
+                                Err(vec![CompilerError::no_field_on_type(
+                                    &expression.span,
+                                    &right.name,
+                                    &left_type_symbol,
+                                )])
+                            }
+                        }
+                    }
+                }
+                _ => Err(vec![CompilerError::no_field_on_type(
+                    &expression.span,
+                    &right.name,
+                    &left_type_symbol,
+                )]),
+            }
+        }
         ExpressionKind::FunctionCall { callee, arguments } => {
-            let callee_type = visit_expression(callee, symbol_table)?;
+            let callee_type = visit_expression(callee, symbol_table, type_context)?;
             let (parameter_types, return_type) = match &callee_type.type_ {
                 Type::Function {
                     parameters,
@@ -268,7 +326,7 @@ fn visit_expression(
 
             let mut argument_types = Vec::<(TypeSymbol, Span)>::new();
             for arg in arguments {
-                let arg_type = visit_expression(arg, symbol_table)?;
+                let arg_type = visit_expression(arg, symbol_table, type_context)?;
                 argument_types.push((arg_type, arg.span.clone()));
             }
 
@@ -305,7 +363,7 @@ fn visit_expression(
             else_,
         } => {
             let mut errors: Vec<CompilerError> = Vec::new();
-            let condition_type = visit_expression(condition, symbol_table)?;
+            let condition_type = visit_expression(condition, symbol_table, type_context)?;
             if condition_type.type_ != Type::Bool {
                 errors.push(CompilerError::mismatched_types(
                     &condition.span,
@@ -314,10 +372,10 @@ fn visit_expression(
                 ));
             }
 
-            let body_type = visit_expression(body, symbol_table)?;
+            let body_type = visit_expression(body, symbol_table, type_context)?;
             let mut else_type = TypeSymbol::from(Type::Void);
             if let Some(else_) = else_ {
-                else_type = visit_expression(else_, symbol_table)?;
+                else_type = visit_expression(else_, symbol_table, type_context)?;
             }
             if body_type.type_ != else_type.type_ {
                 match else_ {

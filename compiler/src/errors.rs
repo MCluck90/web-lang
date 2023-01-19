@@ -170,6 +170,16 @@ impl CompilerError {
         }
     }
 
+    pub fn no_field_on_type(span: &Span, field: &String, type_: &TypeSymbol) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::NoFieldOnType {
+                field: field.clone(),
+                type_: type_.clone(),
+            },
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -239,6 +249,12 @@ pub enum CompilerErrorReason {
         expected: TypeSymbol,
         found: TypeSymbol,
     },
+
+    // Ex: no field `(field)` on type `(type_)`
+    NoFieldOnType {
+        field: String,
+        type_: TypeSymbol,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -253,6 +269,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::TypeCannotBeCalledAsAFunction(_) => 7,
             CompilerErrorReason::InvalidArguments { .. } => 8,
             CompilerErrorReason::IfBranchIncompatiableTypes { .. } => 9,
+            CompilerErrorReason::NoFieldOnType { .. } => 10,
         }
     }
 
@@ -359,6 +376,9 @@ impl CompilerErrorReason {
                 "`if` and `else` have incompatible types expected `{}`, found `{}`",
                 expected.type_, found.type_
             ),
+            CompilerErrorReason::NoFieldOnType { field, type_ } => {
+                format!("no field `{}` on type `{}`", field, type_)
+            }
         }
     }
 
@@ -412,6 +432,9 @@ impl CompilerErrorReason {
                 .with_color(Color::Red),
             CompilerErrorReason::IfBranchIncompatiableTypes { expected, .. } => label
                 .with_message(format!("expected `{}`", expected))
+                .with_color(Color::Red),
+            CompilerErrorReason::NoFieldOnType { type_, .. } => label
+                .with_message(format!("does not exist on `{}`", type_))
                 .with_color(Color::Red),
         }
     }
