@@ -290,7 +290,10 @@ impl CompilerErrorReason {
                 },
                 found
             ),
-            CompilerErrorReason::MismatchedTypes { expected, found } => todo!(),
+            CompilerErrorReason::MismatchedTypes { expected, found } => format!(
+                "mismatched types: expected `{}`, found `{}`",
+                expected, found
+            ),
             CompilerErrorReason::CustomWarning(_) => todo!(),
         }
     }
@@ -331,7 +334,9 @@ impl CompilerErrorReason {
             CompilerErrorReason::BinaryOperatorNotSupportedOnType { .. } => label
                 .with_message("invalid operation")
                 .with_color(Color::Red),
-            CompilerErrorReason::MismatchedTypes { expected, found } => todo!(),
+            CompilerErrorReason::MismatchedTypes { expected, found } => label
+                .with_message(format!("expected `{}`", expected))
+                .with_color(Color::Red),
             CompilerErrorReason::CustomWarning(_) => todo!(),
         }
     }

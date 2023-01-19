@@ -142,12 +142,11 @@ fn visit_expression(
                                     .base_type
                                     .clone();
 
-                                todo!()
-                                // Err(vec![CompilerError::mismatched_types(
-                                //     &right.span,
-                                //     &left_type,
-                                //     &right_type,
-                                // )])
+                                Err(vec![CompilerError::mismatched_types(
+                                    &right.span,
+                                    &left_type,
+                                    &right_type,
+                                )])
                             } else {
                                 Ok(right_type)
                             }
