@@ -28,7 +28,7 @@ fn main() {
         .read_dir()
         .unwrap()
         .map(|f| f.unwrap().path())
-        .filter(|f| f.extension().map(|p| p.to_str().unwrap()).unwrap_or("") != "snapshot")
+        .filter(|f| f.is_file())
         .map(|f| f.file_name().unwrap().to_str().unwrap().to_string());
 
     for file_name in example_files {
