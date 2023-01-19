@@ -10,16 +10,29 @@
     "Programming Languages"
   ],
   "contributes": {
-    "languages": [{
-      "id": "nux",
-      "aliases": ["Nux", "nux"],
-      "extensions": ["nux"],
-      "configuration": "./language-configuration.json"
-    }],
-    "grammars": [{
-      "language": "nux",
-      "scopeName": "source.nux",
-      "path": "./syntaxes/nux.tmLanguage.json"
-    }]
+    "languages": [
+      {
+        "id": "nux",
+        "aliases": [
+          "Nux",
+          "nux"
+        ],
+        "extensions": [
+          "nux"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/basic.png",
+          "dark": "./icons/basic.png"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "nux",
+        "scopeName": "source.nux",
+        "path": "./syntaxes/nux.tmLanguage.json"
+      }
+    ]
   }
 }
