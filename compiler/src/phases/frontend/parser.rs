@@ -1,10 +1,10 @@
 use chumsky::prelude::*;
 
-use crate::phases::shared::Type;
+use crate::{errors::CompilerError, phases::shared::Type};
 
 use super::{ast::*, BinaryOperator, BuiltInTypeToken, Token};
 
-pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = Simple<Token>> + Clone {
+pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = CompilerError> + Clone {
     import_parser()
         .repeated()
         .then(statement_parser().repeated().then_ignore(end()))
@@ -15,7 +15,7 @@ pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = Simp
         })
 }
 
-fn identifier_parser() -> impl Parser<Token, Identifier, Error = Simple<Token>> + Clone {
+fn identifier_parser() -> impl Parser<Token, Identifier, Error = CompilerError> + Clone {
     select! {
         Token::Identifier(i) => i
     }
@@ -23,7 +23,7 @@ fn identifier_parser() -> impl Parser<Token, Identifier, Error = Simple<Token>> 
     .map_with_span(|name, span| Identifier { name, span })
 }
 
-fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> + Clone {
+fn type_parser() -> impl Parser<Token, Type, Error = CompilerError> + Clone {
     recursive(|type_parser| {
         let simple_type = select! {
             Token::Identifier(i) => Type::Custom(i),
@@ -49,7 +49,7 @@ fn type_parser() -> impl Parser<Token, Type, Error = Simple<Token>> + Clone {
     })
 }
 
-fn import_parser() -> impl Parser<Token, Import, Error = Simple<Token>> + Clone {
+fn import_parser() -> impl Parser<Token, Import, Error = CompilerError> + Clone {
     let path_parser = just(Token::Operator(BinaryOperator::Div))
         .map(|_| Vec::<Identifier>::new())
         .or(identifier_parser()
@@ -87,7 +87,7 @@ fn import_parser() -> impl Parser<Token, Import, Error = Simple<Token>> + Clone 
         .then_ignore(just(Token::Terminator))
 }
 
-fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + Clone {
+fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + Clone {
     recursive(|statement| {
         let block = just(Token::OpenBlock)
             .ignore_then(statement.clone().repeated())
@@ -168,13 +168,13 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = Simple<Token>> + 
 }
 
 fn expression_parser<'a>(
-    statement: Recursive<'a, Token, Statement, Simple<Token>>,
-) -> impl Parser<Token, Expression, Error = Simple<Token>> + Clone + 'a {
+    statement: Recursive<'a, Token, Statement, CompilerError>,
+) -> impl Parser<Token, Expression, Error = CompilerError> + Clone + 'a {
     recursive(|expr| {
         let parenthesized_expr: chumsky::combinator::DelimitedBy<
-            Recursive<Token, Expression, Simple<Token>>,
-            chumsky::primitive::Just<Token, Token, Simple<Token>>,
-            chumsky::primitive::Just<Token, Token, Simple<Token>>,
+            Recursive<Token, Expression, CompilerError>,
+            chumsky::primitive::Just<Token, Token, CompilerError>,
+            chumsky::primitive::Just<Token, Token, CompilerError>,
             Token,
             Token,
         > = expr

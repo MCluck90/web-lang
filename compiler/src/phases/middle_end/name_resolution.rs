@@ -149,14 +149,27 @@ fn resolve_module(
     ctx: &mut Context,
     module: &frontend::ast::Module,
 ) -> (middle_end::ast::Module, Exports) {
-    ctx.start_scope();
-
     let mut exports = Exports::new();
     let mut imports: Vec<middle_end::ast::Import> = Vec::new();
     let mut statements: Vec<middle_end::ast::Statement> = Vec::new();
     let mut errors: Vec<CompilerError> = module.errors.clone();
+    if module.ast.is_none() {
+        return (
+            middle_end::ast::Module {
+                path: module.path.clone(),
+                ast: middle_end::ast::ModuleAST {
+                    path: module.path.clone(),
+                    imports,
+                    statements,
+                },
+                errors,
+            },
+            exports,
+        );
+    }
     let ast = module.ast.as_ref().unwrap();
 
+    ctx.start_scope();
     for import in &ast.imports {
         let (import, mut errs) = resolve_import(ctx, import);
         imports.push(import);
@@ -335,9 +348,9 @@ fn resolve_expression(
                             identifier.name.clone(),
                         ),
                     ),
-                    vec![Simple::custom(
-                        identifier.span.clone(),
-                        format!("Unknown identifier: {}", identifier.name),
+                    vec![CompilerError::reference_error(
+                        &identifier.span,
+                        &identifier.name,
                     )],
                 ),
                 Some(new_identifier) => to_expression(

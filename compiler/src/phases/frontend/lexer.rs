@@ -1,6 +1,8 @@
 use chumsky::prelude::*;
 use core::fmt;
 
+use crate::errors::CompilerError;
+
 pub type Span = std::ops::Range<usize>;
 pub type Spanned<T> = (T, Span);
 
@@ -99,6 +101,42 @@ pub enum Token {
     Operator(BinaryOperator),
     String(String),
 }
+impl Token {
+    pub fn to_unexpected_error_message(&self) -> String {
+        match self {
+            Token::FunctionArrow => "function arrow",
+            Token::OpenBlock => "start of block",
+            Token::CloseBlock => "end of block",
+            Token::OpenList => "start of list",
+            Token::CloseList => "end of list",
+            Token::ListSeparator => "comma",
+            Token::OpenParen => "open parentheses",
+            Token::CloseParen => "close parentheses",
+            Token::KeyValueSeparator => "colon",
+            Token::Terminator => "semicolon",
+            Token::AbsolutePathMarker => "absolute path marker",
+            Token::PackagePathMarker => "package path marker",
+            Token::Back => "back keyword",
+            Token::Else => "else keyword",
+            Token::Front => "front keyword",
+            Token::If => "if keyword",
+            Token::Let => "let keyword",
+            Token::Mut => "mut keyword",
+            Token::Pub => "pub keyword",
+            Token::Return => "return keyword",
+            Token::Struct => "struct keyword",
+            Token::Use => "use keyword",
+            Token::StartJsBlock => "start of #js block",
+            Token::Boolean(_) => "boolean",
+            Token::BuiltInType(_) => "type",
+            Token::Identifier(_) => "identifier",
+            Token::Integer(_) => "integer",
+            Token::Operator(_) => "operator",
+            Token::String(_) => "string",
+        }
+        .to_string()
+    }
+}
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -136,11 +174,11 @@ impl fmt::Display for Token {
     }
 }
 
-pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
-    let num = text::int::<char, Simple<char>>(10).map(Token::Integer);
+pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> {
+    let num = text::int::<char, CompilerError>(10).map(Token::Integer);
 
     // Grouping or delimiting marker
-    let marker = choice::<_, Simple<char>>((
+    let marker = choice::<_, CompilerError>((
         just("->").to(Token::FunctionArrow),
         just("{").to(Token::OpenBlock),
         just("}").to(Token::CloseBlock),
@@ -170,21 +208,22 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
 
     let string_ = single_quote_string.or(double_quote_string);
 
-    let operator = choice::<_, Simple<char>>((
-        just::<char, _, Simple<char>>('+').to(Token::Operator(BinaryOperator::Add)),
-        just::<char, _, Simple<char>>('-').to(Token::Operator(BinaryOperator::Sub)),
-        just::<char, _, Simple<char>>('*').to(Token::Operator(BinaryOperator::Mul)),
-        just::<char, _, Simple<char>>('/').to(Token::Operator(BinaryOperator::Div)),
-        just::<char, _, Simple<char>>('.').to(Token::Operator(BinaryOperator::Dot)),
-        just::<char, _, Simple<char>>("==").to(Token::Operator(BinaryOperator::Equal)),
-        just::<char, _, Simple<char>>("!=").to(Token::Operator(BinaryOperator::NotEqual)),
-        just::<char, _, Simple<char>>("<=").to(Token::Operator(BinaryOperator::LessThanOrEqual)),
-        just::<char, _, Simple<char>>("<").to(Token::Operator(BinaryOperator::LessThan)),
-        just::<char, _, Simple<char>>(">=").to(Token::Operator(BinaryOperator::GreaterThanOrEqual)),
-        just::<char, _, Simple<char>>(">").to(Token::Operator(BinaryOperator::GreaterThan)),
-        just::<char, _, Simple<char>>("&&").to(Token::Operator(BinaryOperator::And)),
-        just::<char, _, Simple<char>>("||").to(Token::Operator(BinaryOperator::Or)),
-        just::<char, _, Simple<char>>("=").to(Token::Operator(BinaryOperator::Assignment)),
+    let operator = choice::<_, CompilerError>((
+        just::<char, _, CompilerError>('+').to(Token::Operator(BinaryOperator::Add)),
+        just::<char, _, CompilerError>('-').to(Token::Operator(BinaryOperator::Sub)),
+        just::<char, _, CompilerError>('*').to(Token::Operator(BinaryOperator::Mul)),
+        just::<char, _, CompilerError>('/').to(Token::Operator(BinaryOperator::Div)),
+        just::<char, _, CompilerError>('.').to(Token::Operator(BinaryOperator::Dot)),
+        just::<char, _, CompilerError>("==").to(Token::Operator(BinaryOperator::Equal)),
+        just::<char, _, CompilerError>("!=").to(Token::Operator(BinaryOperator::NotEqual)),
+        just::<char, _, CompilerError>("<=").to(Token::Operator(BinaryOperator::LessThanOrEqual)),
+        just::<char, _, CompilerError>("<").to(Token::Operator(BinaryOperator::LessThan)),
+        just::<char, _, CompilerError>(">=")
+            .to(Token::Operator(BinaryOperator::GreaterThanOrEqual)),
+        just::<char, _, CompilerError>(">").to(Token::Operator(BinaryOperator::GreaterThan)),
+        just::<char, _, CompilerError>("&&").to(Token::Operator(BinaryOperator::And)),
+        just::<char, _, CompilerError>("||").to(Token::Operator(BinaryOperator::Or)),
+        just::<char, _, CompilerError>("=").to(Token::Operator(BinaryOperator::Assignment)),
     ));
 
     let ident = text::ident().map(|ident: String| match ident.as_str() {

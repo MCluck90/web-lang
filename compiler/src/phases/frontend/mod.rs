@@ -10,10 +10,7 @@ use std::{
 use chumsky::{Parser, Stream};
 pub use lexer::{BinaryOperator, BuiltInTypeToken, Span, Token};
 
-use crate::{
-    errors::{print_error_report, CompilerError},
-    module_paths::from_package_import,
-};
+use crate::{errors::print_error_report, module_paths::from_package_import};
 
 use self::parser::module_parser;
 
@@ -86,22 +83,12 @@ impl Program {
     fn parse_module(&self, file_path: &Path) -> ast::Module {
         let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
         let src = std::fs::read_to_string(&file_path).unwrap();
-        let (tokens, lex_errs) = lexer::lexer().parse_recovery(src.as_str());
-        let mut errors = lex_errs
-            .clone()
-            .into_iter()
-            .map(|e| e.map(|c| c.to_string()))
-            .collect::<Vec<CompilerError>>();
+        let (tokens, mut errors) = lexer::lexer().parse_recovery(src.as_str());
 
         let ast = tokens.and_then(|tokens| {
             let len = src.chars().count();
-            let (module, parse_errs) = module_parser(file_name)
+            let (module, mut parse_errs) = module_parser(file_name)
                 .parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
-
-            let mut parse_errs = parse_errs
-                .into_iter()
-                .map(|e| e.map(|token| token.to_string()))
-                .collect::<Vec<CompilerError>>();
 
             errors.append(&mut parse_errs);
             module

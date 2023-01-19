@@ -1,12 +1,4 @@
-use chumsky::{prelude::Simple, Error};
-
-use crate::{
-    errors::CompilerError,
-    phases::{
-        frontend::{BinaryOperator, Span},
-        shared::Type,
-    },
-};
+use crate::{errors::CompilerError, phases::frontend::BinaryOperator};
 
 use super::{
     ast::{Expression, ExpressionKind, Module, Statement, StatementKind},
@@ -125,11 +117,13 @@ fn visit_expression(
                                     .unwrap()
                                     .base_type
                                     .clone();
-                                Err(vec![create_type_mismatch_error(
-                                    &right.span,
-                                    &left_type,
-                                    &right_type,
-                                )])
+
+                                todo!()
+                                // Err(vec![CompilerError::mismatched_types(
+                                //     &right.span,
+                                //     &left_type,
+                                //     &right_type,
+                                // )])
                             } else {
                                 Ok(right_type)
                             }
@@ -254,18 +248,6 @@ fn visit_expression(
 //         "Node is not available in the symbol table",
 //     ))
 // }
-
-fn create_type_mismatch_error(
-    span: &Span,
-    expected_type: &Type,
-    found_type: &Type,
-) -> CompilerError {
-    Simple::custom(span.clone(), "Type mismatch").merge(Simple::expected_input_found(
-        span.clone(),
-        vec![Some(format!("{}, found {}", expected_type, found_type))],
-        None,
-    ))
-}
 
 // fn visit_expression(
 //     expression: &Expression,
