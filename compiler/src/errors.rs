@@ -129,6 +129,15 @@ impl CompilerError {
         }
     }
 
+    pub fn assignment_to_immutable_variable(span: &Span, identifier: &String) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::AssignmentToImmutableVariable {
+                identifier: identifier.clone(),
+            },
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -178,6 +187,11 @@ pub enum CompilerErrorReason {
         expected: TypeSymbol,
         found: TypeSymbol,
     },
+
+    // Ex: Cannot reassign value of immutable variable `(identifier)`
+    AssignmentToImmutableVariable {
+        identifier: String,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -188,6 +202,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
             CompilerErrorReason::MismatchedTypeSymbols { .. } => 4,
             CompilerErrorReason::UnexpectedCharacter { .. } => 5,
+            CompilerErrorReason::AssignmentToImmutableVariable { .. } => 6,
         }
     }
 
@@ -267,8 +282,12 @@ impl CompilerErrorReason {
                 )
             }
             CompilerErrorReason::MismatchedTypeSymbols { expected, found } => format!(
-                "mismatched types: expected `{}`, found `{}`",
+                "Mismatched types: expected `{}`, found `{}`",
                 expected, found
+            ),
+            CompilerErrorReason::AssignmentToImmutableVariable { identifier } => format!(
+                "Cannot reassign value of immutable variable `{}`",
+                identifier
             ),
         }
     }
@@ -311,6 +330,9 @@ impl CompilerErrorReason {
                 .with_color(Color::Red),
             CompilerErrorReason::MismatchedTypeSymbols { expected, .. } => label
                 .with_message(format!("expected `{}`", expected))
+                .with_color(Color::Red),
+            CompilerErrorReason::AssignmentToImmutableVariable { .. } => label
+                .with_message("immutable variable")
                 .with_color(Color::Red),
         }
     }

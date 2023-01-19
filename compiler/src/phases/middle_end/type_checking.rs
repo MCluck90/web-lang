@@ -32,12 +32,14 @@ fn visit_statement(
         StatementKind::VariableDeclaration {
             identifier,
             initializer,
-            ..
+            is_mutable,
         } => {
             let initializer_type = visit_expression(initializer, symbol_table)?;
             symbol_table.set_value(
                 ValueId(identifier.name.clone()),
-                ValueSymbol::new().with_type(initializer_type.type_),
+                ValueSymbol::new()
+                    .with_type(initializer_type.type_)
+                    .with_mutability(*is_mutable),
             );
             Ok(())
         }
@@ -160,7 +162,15 @@ fn visit_expression(
                     BinaryOperator::Assignment => match &left.kind {
                         ExpressionKind::PropertyAccess(_, _) => todo!(),
                         ExpressionKind::Identifier(identifier) => {
-                            if left_type_symbol.type_ == Type::Unknown {
+                            let left_value_symbol = symbol_table
+                                .get_value(&identifier.name.clone().into())
+                                .unwrap();
+                            if !left_value_symbol.is_mutable {
+                                Err(vec![CompilerError::assignment_to_immutable_variable(
+                                    &left.span,
+                                    &identifier.name,
+                                )])
+                            } else if left_type_symbol.type_ == Type::Unknown {
                                 symbol_table.set_value(
                                     ValueId(identifier.name.clone()),
                                     ValueSymbol::new().with_type(right_type_symbol.type_.clone()),
