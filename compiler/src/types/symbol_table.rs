@@ -121,6 +121,11 @@ impl fmt::Display for TypeSymbol {
         )
     }
 }
+impl From<&Type> for TypeSymbol {
+    fn from(value: &Type) -> Self {
+        TypeSymbol::from(value.clone())
+    }
+}
 
 impl From<Type> for TypeSymbol {
     fn from(value: Type) -> Self {

@@ -228,8 +228,11 @@ fn expression_parser<'a>(
             });
 
         let js_block = just(Token::StartJsBlock)
-            .ignore_then(just(Token::KeyValueSeparator))
-            .ignore_then(type_parser().or_not())
+            .ignore_then(
+                just(Token::KeyValueSeparator)
+                    .ignore_then(type_parser())
+                    .or_not(),
+            )
             .then(
                 expr.clone()
                     .repeated()

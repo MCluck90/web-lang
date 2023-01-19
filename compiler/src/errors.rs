@@ -138,6 +138,24 @@ impl CompilerError {
         }
     }
 
+    pub fn type_cannot_be_called_as_a_function(span: &Span, type_: &TypeSymbol) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::TypeCannotBeCalledAsAFunction(type_.clone()),
+        }
+    }
+
+    pub fn invalid_arguments(
+        span: &Span,
+        expected: Vec<TypeSymbol>,
+        found: Vec<TypeSymbol>,
+    ) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::InvalidArguments { expected, found },
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -192,6 +210,15 @@ pub enum CompilerErrorReason {
     AssignmentToImmutableVariable {
         identifier: String,
     },
+
+    // Ex: type `{}` cannot be called as a function
+    TypeCannotBeCalledAsAFunction(TypeSymbol),
+
+    // Ex: Expected arguments to be: `(found_arg_types)`, received: `(found_arg_types)`",
+    InvalidArguments {
+        expected: Vec<TypeSymbol>,
+        found: Vec<TypeSymbol>,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -203,6 +230,8 @@ impl CompilerErrorReason {
             CompilerErrorReason::MismatchedTypeSymbols { .. } => 4,
             CompilerErrorReason::UnexpectedCharacter { .. } => 5,
             CompilerErrorReason::AssignmentToImmutableVariable { .. } => 6,
+            CompilerErrorReason::TypeCannotBeCalledAsAFunction(_) => 7,
+            CompilerErrorReason::InvalidArguments { .. } => 8,
         }
     }
 
@@ -289,6 +318,22 @@ impl CompilerErrorReason {
                 "Cannot reassign value of immutable variable `{}`",
                 identifier
             ),
+            CompilerErrorReason::TypeCannotBeCalledAsAFunction(type_) => {
+                format!("type `{}` cannot be called as a function", type_)
+            }
+            CompilerErrorReason::InvalidArguments { expected, found } => format!(
+                "Expected arguments to be: ({}), received: ({})",
+                expected
+                    .iter()
+                    .map(|typ| format!("{}", typ))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                found
+                    .iter()
+                    .map(|typ| format!("{}", typ))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 
@@ -333,6 +378,12 @@ impl CompilerErrorReason {
                 .with_color(Color::Red),
             CompilerErrorReason::AssignmentToImmutableVariable { .. } => label
                 .with_message("immutable variable")
+                .with_color(Color::Red),
+            CompilerErrorReason::TypeCannotBeCalledAsAFunction(type_) => label
+                .with_message(format!("type `{}` cannot be called as a function", type_))
+                .with_color(Color::Red),
+            CompilerErrorReason::InvalidArguments { .. } => label
+                .with_message("invalid argument(s)")
                 .with_color(Color::Red),
         }
     }

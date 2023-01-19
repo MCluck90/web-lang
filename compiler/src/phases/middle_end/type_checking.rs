@@ -1,6 +1,9 @@
 use crate::{
     errors::CompilerError,
-    phases::{frontend::BinaryOperator, shared::Type},
+    phases::{
+        frontend::{BinaryOperator, Span},
+        shared::Type,
+    },
     types::symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
 };
 
@@ -77,7 +80,10 @@ fn visit_statement(
         StatementKind::Expression(expression) => {
             visit_expression(&expression, symbol_table).map(|_| ())
         }
-        StatementKind::Return(_) => todo!(),
+        StatementKind::Return(expr) => match &expr {
+            Some(expr) => visit_expression(expr, symbol_table).map(|_| ()),
+            None => Ok(()),
+        },
     }
 }
 
@@ -106,7 +112,18 @@ fn visit_expression(
         }
         ExpressionKind::Integer(_) => Ok(TypeSymbol::int()),
         ExpressionKind::String(_) => Ok(TypeSymbol::string()),
-        ExpressionKind::Block(_) => todo!(),
+        ExpressionKind::Block(block) => {
+            for statement in &block.statements {
+                visit_statement(statement, symbol_table).map(|_| TypeSymbol::from(Type::Void))?;
+            }
+
+            let mut output_type = TypeSymbol::from(Type::Void);
+            if let Some(expr) = &block.return_expression {
+                output_type = visit_expression(&expr, symbol_table)?;
+            }
+
+            Ok(output_type)
+        }
         ExpressionKind::JsBlock(type_, _) => Ok(type_.clone().into()),
         ExpressionKind::BinaryExpression(left, op, right) => {
             let left_type = visit_expression(left, symbol_table);
@@ -209,7 +226,57 @@ fn visit_expression(
             }
         }
         ExpressionKind::PropertyAccess(_, _) => todo!(),
-        ExpressionKind::FunctionCall { .. } => todo!(),
+        ExpressionKind::FunctionCall { callee, arguments } => {
+            let callee_type = visit_expression(callee, symbol_table)?;
+            let (parameter_types, return_type) = match &callee_type.type_ {
+                Type::Function {
+                    parameters,
+                    return_type,
+                } => (
+                    parameters.iter().map(TypeSymbol::from).collect::<Vec<_>>(),
+                    return_type.clone(),
+                ),
+                _ => {
+                    return Err(vec![CompilerError::type_cannot_be_called_as_a_function(
+                        &expression.span,
+                        &callee_type,
+                    )]);
+                }
+            };
+
+            let mut argument_types = Vec::<(TypeSymbol, Span)>::new();
+            for arg in arguments {
+                let arg_type = visit_expression(arg, symbol_table)?;
+                argument_types.push((arg_type, arg.span.clone()));
+            }
+
+            if argument_types.len() != parameter_types.len() {
+                return Err(vec![CompilerError::invalid_arguments(
+                    &expression.span,
+                    argument_types.iter().map(|(t, _)| t.clone()).collect(),
+                    parameter_types,
+                )]);
+            }
+
+            let mut argument_errors = Vec::<CompilerError>::new();
+            for i in 0..argument_types.len() {
+                let (argument_type, arg_span) = argument_types.get(i).unwrap();
+                let parameter_type = parameter_types.get(i).unwrap();
+                if argument_type.type_ != parameter_type.type_ {
+                    argument_errors.push(CompilerError::mismatched_types(
+                        arg_span,
+                        parameter_type,
+                        argument_type,
+                    ));
+                }
+            }
+
+            if !argument_errors.is_empty() {
+                Err(argument_errors)
+            } else {
+                Ok(TypeSymbol::from(*return_type))
+            }
+        }
         ExpressionKind::If { .. } => todo!(),
     }
 }
