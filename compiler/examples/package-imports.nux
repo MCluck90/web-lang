@@ -1,4 +1,7 @@
 use @std:io/{ logString };
 use @std:io/file/{ readFile };
 
+logString('Source code:');
+logString('============');
 logString(readFile('examples/package-imports.nux'));
+logString('============');
