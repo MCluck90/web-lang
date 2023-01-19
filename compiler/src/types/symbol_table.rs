@@ -63,6 +63,24 @@ impl From<&str> for TypeId {
 pub struct ValueSymbol {
     pub type_id: Option<TypeId>,
     pub type_: Type,
+    pub is_mutable: bool,
+}
+impl ValueSymbol {
+    pub fn new() -> ValueSymbol {
+        ValueSymbol {
+            type_id: None,
+            type_: Type::Unknown,
+            is_mutable: false,
+        }
+    }
+
+    pub fn with_type(self, type_: Type) -> Self {
+        ValueSymbol { type_, ..self }
+    }
+
+    pub fn with_mutability(self, is_mutable: bool) -> Self {
+        ValueSymbol { is_mutable, ..self }
+    }
 }
 
 #[derive(Clone, Debug, Hash)]

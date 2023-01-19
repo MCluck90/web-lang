@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use crate::{
     errors::CompilerError,
     frontend, middle_end, module_paths,
-    phases::shared::Type,
     types::symbol_table::{SymbolTable, ValueId, ValueSymbol},
 };
 
@@ -90,6 +89,7 @@ impl Context {
     fn add_and_rename(
         &mut self,
         identifier: &frontend::ast::Identifier,
+        is_mutable: &bool,
     ) -> middle_end::ast::Identifier {
         let new_name = self
             .scopes
@@ -99,10 +99,7 @@ impl Context {
         let new_identifier = middle_end::ast::Identifier::from_source(identifier, new_name.clone());
         self.symbol_table.set_value(
             ValueId(new_name),
-            ValueSymbol {
-                type_id: None,
-                type_: Type::Unknown,
-            },
+            ValueSymbol::new().with_mutability(*is_mutable),
         );
         new_identifier
     }
@@ -252,7 +249,7 @@ fn resolve_statement(
             identifier,
             initializer,
         } => {
-            let new_identifier = ctx.add_and_rename(identifier);
+            let new_identifier = ctx.add_and_rename(identifier, is_mutable);
             let (initializer, errs) = resolve_expression(ctx, initializer);
             (
                 middle_end::ast::Statement {
@@ -272,14 +269,14 @@ fn resolve_statement(
             return_type,
             body,
         } => {
-            let new_name = ctx.add_and_rename(&name);
+            let new_name = ctx.add_and_rename(&name, &false);
             ctx.start_scope();
 
             let parameters = parameters
                 .iter()
                 .map(|p| middle_end::ast::Parameter {
                     span: p.span.clone(),
-                    identifier: ctx.add_and_rename(&p.identifier),
+                    identifier: ctx.add_and_rename(&p.identifier, &false),
                     type_: p.type_.clone(),
                 })
                 .collect();

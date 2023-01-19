@@ -36,10 +36,7 @@ fn visit_statement(
             let initializer_type = visit_expression(initializer, symbol_table)?;
             symbol_table.set_value(
                 ValueId(identifier.name.clone()),
-                ValueSymbol {
-                    type_id: None,
-                    type_: initializer_type.type_,
-                },
+                ValueSymbol::new().with_type(initializer_type.type_),
             );
             Ok(())
         }
@@ -59,10 +56,7 @@ fn visit_statement(
             };
             symbol_table.set_value(
                 name.name.clone().into(),
-                ValueSymbol {
-                    type_id: None,
-                    type_: function_type.clone(),
-                },
+                ValueSymbol::new().with_type(function_type.clone()),
             );
 
             let body_type = visit_expression(body, symbol_table)?;
@@ -87,10 +81,7 @@ fn visit_statement(
 fn visit_parameter(parameter: &Parameter, symbol_table: &mut SymbolTable) -> Type {
     symbol_table.set_value(
         parameter.identifier.name.clone().into(),
-        ValueSymbol {
-            type_id: None,
-            type_: parameter.type_.clone(),
-        },
+        ValueSymbol::new().with_type(parameter.type_.clone()),
     );
     parameter.type_.clone()
 }
@@ -171,10 +162,7 @@ fn visit_expression(
                             if left_type_symbol.type_ == Type::Unknown {
                                 symbol_table.set_value(
                                     ValueId(identifier.name.clone()),
-                                    ValueSymbol {
-                                        type_: right_type_symbol.type_.clone(),
-                                        type_id: None, // TODO: Should this have an ID?
-                                    },
+                                    ValueSymbol::new().with_type(right_type_symbol.type_.clone()),
                                 );
                                 Ok(right_type_symbol)
                             } else if left_type_symbol.type_ != right_type_symbol.type_ {
