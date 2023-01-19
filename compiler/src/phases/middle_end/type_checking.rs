@@ -6,7 +6,8 @@ use crate::{
 
 use super::ast::{Expression, ExpressionKind, Module, Parameter, Statement, StatementKind};
 
-pub fn infer_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
+/// Infers and checks types.
+pub fn check_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
     for module in modules {
         visit_module(module, symbol_table);
     }

@@ -1,12 +1,12 @@
 use crate::errors::print_error_report;
 
-use self::{name_resolution::resolve_names, type_inference::infer_types};
+use self::{name_resolution::resolve_names, type_checking::check_types};
 
 use super::frontend;
 
 pub mod ast;
 mod name_resolution;
-mod type_inference;
+mod type_checking;
 
 pub fn run_middle_end(program: frontend::Program) -> (Program, bool) {
     let (mut modules, mut symbol_table) = resolve_names(
@@ -27,7 +27,7 @@ pub fn run_middle_end(program: frontend::Program) -> (Program, bool) {
         }
     }
 
-    infer_types(&mut modules, &mut symbol_table);
+    check_types(&mut modules, &mut symbol_table);
     for module in &mut modules {
         if !module.errors.is_empty() {
             has_errors = true;
