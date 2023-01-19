@@ -29,9 +29,9 @@ fn visit_statement(
 ) -> Result<(), Vec<CompilerError>> {
     match &statement.kind {
         StatementKind::VariableDeclaration {
-            is_mutable,
             identifier,
             initializer,
+            ..
         } => {
             let initializer_type = visit_expression(initializer, symbol_table)?;
             symbol_table.set_value(
@@ -192,23 +192,15 @@ fn visit_expression(
                         ExpressionKind::String(_) => todo!(),
                         ExpressionKind::Block(_) => todo!(),
                         ExpressionKind::BinaryExpression(_, _, _) => todo!(),
-                        ExpressionKind::FunctionCall { callee, arguments } => todo!(),
-                        ExpressionKind::If {
-                            condition,
-                            body,
-                            else_,
-                        } => todo!(),
+                        ExpressionKind::FunctionCall { .. } => todo!(),
+                        ExpressionKind::If { .. } => todo!(),
                     },
                 }
             }
         }
         ExpressionKind::PropertyAccess(_, _) => todo!(),
-        ExpressionKind::FunctionCall { callee, arguments } => todo!(),
-        ExpressionKind::If {
-            condition,
-            body,
-            else_,
-        } => todo!(),
+        ExpressionKind::FunctionCall { .. } => todo!(),
+        ExpressionKind::If { .. } => todo!(),
     }
 }
 

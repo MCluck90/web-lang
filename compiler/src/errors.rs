@@ -128,12 +128,6 @@ impl CompilerError {
             },
         }
     }
-    pub fn custom_warning(span: &Span, message: String) -> CompilerError {
-        CompilerError {
-            span: span.clone(),
-            reason: CompilerErrorReason::CustomWarning(message),
-        }
-    }
 
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
@@ -145,14 +139,6 @@ impl CompilerError {
 
     pub fn to_label(&self, path: &str) -> Label<(String, Span)> {
         self.reason.to_label(path, &self.span)
-    }
-
-    pub fn is_error(&self) -> bool {
-        self.reason.is_error()
-    }
-
-    pub fn is_warning(&self) -> bool {
-        self.reason.is_warning()
     }
 }
 
@@ -192,9 +178,6 @@ pub enum CompilerErrorReason {
         expected: TypeSymbol,
         found: TypeSymbol,
     },
-
-    // Ex: Warning: (message)
-    CustomWarning(String),
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -204,25 +187,8 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidReturnValue { .. } => 2,
             CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
             CompilerErrorReason::MismatchedTypeSymbols { .. } => 4,
-            CompilerErrorReason::CustomWarning(_) => 5,
-            CompilerErrorReason::UnexpectedCharacter { .. } => 6,
+            CompilerErrorReason::UnexpectedCharacter { .. } => 5,
         }
-    }
-
-    pub fn is_warning(&self) -> bool {
-        match self {
-            CompilerErrorReason::UnexpectedToken { .. } => false,
-            CompilerErrorReason::ReferenceError { .. } => false,
-            CompilerErrorReason::InvalidReturnValue { .. } => false,
-            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => false,
-            CompilerErrorReason::MismatchedTypeSymbols { .. } => false,
-            CompilerErrorReason::CustomWarning(_) => true,
-            CompilerErrorReason::UnexpectedCharacter { .. } => false,
-        }
-    }
-
-    pub fn is_error(&self) -> bool {
-        !self.is_warning()
     }
 
     pub fn to_message(&self) -> String {
@@ -277,7 +243,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::ReferenceError { identifier } => {
                 format!("Cannot find value `{}` in this scope", identifier)
             }
-            CompilerErrorReason::InvalidReturnValue { expected, found } => todo!(),
+            CompilerErrorReason::InvalidReturnValue { .. } => todo!(),
             CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { operator, found } => {
                 format!(
                     "{} is not supported for type `{}`",
@@ -304,7 +270,6 @@ impl CompilerErrorReason {
                 "mismatched types: expected `{}`, found `{}`",
                 expected, found
             ),
-            CompilerErrorReason::CustomWarning(_) => todo!(),
         }
     }
 
@@ -340,14 +305,13 @@ impl CompilerErrorReason {
             CompilerErrorReason::ReferenceError { .. } => label
                 .with_message("not found in this scope")
                 .with_color(Color::Red),
-            CompilerErrorReason::InvalidReturnValue { expected, found } => todo!(),
+            CompilerErrorReason::InvalidReturnValue { .. } => todo!(),
             CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => label
                 .with_message("invalid operation")
                 .with_color(Color::Red),
-            CompilerErrorReason::MismatchedTypeSymbols { expected, found } => label
+            CompilerErrorReason::MismatchedTypeSymbols { expected, .. } => label
                 .with_message(format!("expected `{}`", expected))
                 .with_color(Color::Red),
-            CompilerErrorReason::CustomWarning(_) => todo!(),
         }
     }
 }

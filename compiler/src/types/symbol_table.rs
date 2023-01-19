@@ -71,18 +71,6 @@ pub struct TypeSymbol {
     pub name: Option<String>,
 }
 impl TypeSymbol {
-    pub fn unknown() -> Self {
-        TypeSymbol {
-            type_: Type::Unknown,
-            name: Some("unknown".into()),
-        }
-    }
-    pub fn void() -> Self {
-        TypeSymbol {
-            type_: Type::Void,
-            name: Some("void".into()),
-        }
-    }
     pub fn bool() -> Self {
         TypeSymbol {
             type_: Type::Bool,

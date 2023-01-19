@@ -184,11 +184,7 @@ fn resolve_module(
 
         // TODO: Change this to handle visibility modifiers
         match &statement.kind {
-            middle_end::ast::StatementKind::VariableDeclaration {
-                identifier,
-                initializer,
-                is_mutable,
-            } => {
+            middle_end::ast::StatementKind::VariableDeclaration { identifier, .. } => {
                 // Export all variable definitions
                 exports.insert(identifier.original_name.clone(), identifier.name.clone());
             }

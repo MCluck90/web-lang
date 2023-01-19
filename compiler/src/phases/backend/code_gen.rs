@@ -1,5 +1,5 @@
 use crate::phases::middle_end::{
-    ast::{Expression, ExpressionKind, ModuleAST, Statement, StatementKind},
+    ast::{Expression, ExpressionKind, Statement, StatementKind},
     Program,
 };
 

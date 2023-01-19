@@ -133,55 +133,17 @@ pub enum ExpressionKind {
     String(String),
     Block(Box<Block>),
 
-    // Ex: `Todo { title: "Write a compiler" }`
-    // ObjectLiteral(String, HashMap<String, Expression>),
-
-    // UnaryExpression(Operator, Box<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
     FunctionCall {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
     },
-    // AnonymousFunction {
-    //     parameters: Vec<Parameter>,
-    //     body: Box<Expression>,
-    // },
     If {
         condition: Box<Expression>,
         body: Box<Expression>,
         else_: Option<Box<Expression>>,
     },
-}
-impl ExpressionKind {
-    pub fn to_human_readable_name(&self) -> &str {
-        match self {
-            ExpressionKind::Boolean(_) => "a boolean",
-            ExpressionKind::Identifier(_) => "an identifier",
-            ExpressionKind::Integer(_) => "an integer",
-            ExpressionKind::String(_) => "a string",
-            ExpressionKind::Block(_) => "a block",
-            ExpressionKind::BinaryExpression(_, op, _) => match op {
-                BinaryOperator::Add => "an addition expression",
-                BinaryOperator::Sub => "a subtraction expression",
-                BinaryOperator::Mul => "a multiplication expression",
-                BinaryOperator::Div => "a division operation",
-                BinaryOperator::Dot => "a property access",
-                BinaryOperator::NotEqual => "an equality expression",
-                BinaryOperator::Equal => "an equality expression",
-                BinaryOperator::LessThan => "a comparison expression",
-                BinaryOperator::LessThanOrEqual => "a comparison expression",
-                BinaryOperator::GreaterThan => "a comparison expression",
-                BinaryOperator::GreaterThanOrEqual => "a comparison expression",
-                BinaryOperator::And => "a comparison expression",
-                BinaryOperator::Or => "a comparison expression",
-                BinaryOperator::Assignment => "an assignment expression",
-            },
-            ExpressionKind::PropertyAccess(_, _) => "a property access",
-            ExpressionKind::FunctionCall { .. } => "a function call",
-            ExpressionKind::If { .. } => "an if expression",
-        }
-    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
