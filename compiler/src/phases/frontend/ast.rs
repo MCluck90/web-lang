@@ -93,11 +93,6 @@ pub enum ExpressionKind {
 
     // TODO: Lift out in to a statement
     // TODO: It doesn't make sense to allow a variable declaration to be the result for a block, for example
-    VariableDeclaration {
-        is_mutable: bool,
-        identifier: Identifier,
-        initializer: Box<Expression>,
-    },
 
     // UnaryExpression(Operator, Box<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
@@ -127,7 +122,6 @@ impl ExpressionKind {
             ExpressionKind::Integer(_) => "an integer",
             ExpressionKind::String(_) => "a string",
             ExpressionKind::Block(_) => "a block",
-            ExpressionKind::VariableDeclaration { .. } => "a variable declaration",
             ExpressionKind::BinaryExpression(_, op, _) => match op {
                 BinaryOperator::Add => "an addition expression",
                 BinaryOperator::Sub => "a subtraction expression",
@@ -188,6 +182,11 @@ pub struct Statement {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum StatementKind {
+    VariableDeclaration {
+        is_mutable: bool,
+        identifier: Identifier,
+        initializer: Box<Expression>,
+    },
     FunctionDefinition {
         name: Identifier,
         parameters: Vec<Parameter>,

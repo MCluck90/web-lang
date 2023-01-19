@@ -182,7 +182,16 @@ fn resolve_module(
         let (statement, mut errs) = resolve_statement(ctx, statement);
         errors.append(&mut errs);
 
+        // TODO: Change this to handle visibility modifiers
         match &statement.kind {
+            middle_end::ast::StatementKind::VariableDeclaration {
+                identifier,
+                initializer,
+                is_mutable,
+            } => {
+                // Export all variable definitions
+                exports.insert(identifier.original_name.clone(), identifier.name.clone());
+            }
             middle_end::ast::StatementKind::FunctionDefinition { name, .. } => {
                 // Export all function definitions
                 exports.insert(name.original_name.clone(), name.name.clone());
@@ -243,6 +252,25 @@ fn resolve_statement(
     statement: &frontend::ast::Statement,
 ) -> (middle_end::ast::Statement, Vec<CompilerError>) {
     match &statement.kind {
+        frontend::ast::StatementKind::VariableDeclaration {
+            is_mutable,
+            identifier,
+            initializer,
+        } => {
+            let new_identifier = ctx.add_and_rename(identifier);
+            let (initializer, errs) = resolve_expression(ctx, initializer);
+            (
+                middle_end::ast::Statement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ast::StatementKind::VariableDeclaration {
+                        is_mutable: *is_mutable,
+                        identifier: new_identifier,
+                        initializer: Box::new(initializer),
+                    },
+                },
+                errs,
+            )
+        }
         frontend::ast::StatementKind::FunctionDefinition {
             name,
             parameters,
@@ -365,22 +393,6 @@ fn resolve_expression(
             let (block, errs) = resolve_block(ctx, block);
             to_expression(
                 middle_end::ast::ExpressionKind::Block(Box::new(block)),
-                errs,
-            )
-        }
-        frontend::ast::ExpressionKind::VariableDeclaration {
-            identifier,
-            initializer,
-            is_mutable,
-        } => {
-            let new_identifier = ctx.add_and_rename(identifier);
-            let (initializer, errs) = resolve_expression(ctx, initializer);
-            to_expression(
-                middle_end::ast::ExpressionKind::VariableDeclaration {
-                    is_mutable: *is_mutable,
-                    identifier: new_identifier,
-                    initializer: Box::new(initializer),
-                },
                 errs,
             )
         }

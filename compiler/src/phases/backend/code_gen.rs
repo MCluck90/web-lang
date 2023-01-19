@@ -45,6 +45,16 @@ fn visit_statement(statement: &Statement) -> String {
     format!(
         "{};",
         match &statement.kind {
+            StatementKind::VariableDeclaration {
+                is_mutable,
+                identifier,
+                initializer,
+            } => format!(
+                "{} {}={}",
+                if *is_mutable { "let" } else { "const" },
+                identifier,
+                visit_expression(&initializer)
+            ),
             StatementKind::Expression(expr) => visit_expression(expr),
             StatementKind::FunctionDefinition {
                 name,
@@ -145,16 +155,5 @@ fn visit_expression(expression: &Expression) -> String {
 
         // TODO: Generate strings with correct quotes and escape characters
         ExpressionKind::String(s) => format!("`{}`", s),
-
-        ExpressionKind::VariableDeclaration {
-            is_mutable,
-            identifier,
-            initializer,
-        } => format!(
-            "{} {}={}",
-            if *is_mutable { "let" } else { "const" },
-            identifier,
-            visit_expression(&initializer)
-        ),
     }
 }

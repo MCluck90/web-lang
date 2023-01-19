@@ -28,6 +28,21 @@ fn visit_statement(
     symbol_table: &mut SymbolTable,
 ) -> Result<(), Vec<CompilerError>> {
     match &statement.kind {
+        StatementKind::VariableDeclaration {
+            is_mutable,
+            identifier,
+            initializer,
+        } => {
+            let initializer_type = visit_expression(initializer, symbol_table)?;
+            symbol_table.set_value(
+                ValueId(identifier.name.clone()),
+                ValueSymbol {
+                    type_id: None,
+                    type_: initializer_type.type_,
+                },
+            );
+            Ok(())
+        }
         StatementKind::FunctionDefinition {
             name,
             parameters,
@@ -99,21 +114,6 @@ fn visit_expression(
         ExpressionKind::Integer(_) => Ok(TypeSymbol::int()),
         ExpressionKind::String(_) => Ok(TypeSymbol::string()),
         ExpressionKind::Block(_) => todo!(),
-        ExpressionKind::VariableDeclaration {
-            identifier,
-            initializer,
-            ..
-        } => {
-            let initializer_type = visit_expression(initializer, symbol_table)?;
-            symbol_table.set_value(
-                ValueId(identifier.name.clone()),
-                ValueSymbol {
-                    type_id: None,
-                    type_: initializer_type.type_,
-                },
-            );
-            Ok(TypeSymbol::void())
-        }
         ExpressionKind::BinaryExpression(left, op, right) => {
             let left_type = visit_expression(left, symbol_table);
             let right_type = visit_expression(right, symbol_table);
@@ -191,11 +191,6 @@ fn visit_expression(
                         ExpressionKind::Integer(_) => todo!(),
                         ExpressionKind::String(_) => todo!(),
                         ExpressionKind::Block(_) => todo!(),
-                        ExpressionKind::VariableDeclaration {
-                            is_mutable,
-                            identifier,
-                            initializer,
-                        } => unreachable!(),
                         ExpressionKind::BinaryExpression(_, _, _) => todo!(),
                         ExpressionKind::FunctionCall { callee, arguments } => todo!(),
                         ExpressionKind::If {

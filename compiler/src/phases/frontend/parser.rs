@@ -88,6 +88,22 @@ fn import_parser() -> impl Parser<Token, Import, Error = CompilerError> + Clone 
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + Clone {
     recursive(|statement| {
+        let variable_declaration = just(Token::Let)
+            .to(false)
+            .or(just(Token::Mut).to(true))
+            .then(identifier_parser())
+            .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
+            .then(expression_parser(statement.clone()))
+            .then_ignore(just(Token::Terminator))
+            .map_with_span(|((is_mutable, identifier), initializer), span| Statement {
+                span,
+                kind: StatementKind::VariableDeclaration {
+                    is_mutable,
+                    identifier,
+                    initializer: Box::new(initializer),
+                },
+            });
+
         let block = just(Token::OpenBlock)
             .ignore_then(statement.clone().repeated())
             .then(expression_parser(statement.clone()).or_not())
@@ -159,7 +175,8 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
                 kind: StatementKind::Expression(expression),
             });
 
-        function_definition
+        variable_declaration
+            .or(function_definition)
             .or(return_statement)
             .or(js_block)
             .or(expression)
@@ -202,23 +219,6 @@ fn expression_parser<'a>(
                 )
             });
 
-        let variable_declaration = just(Token::Let)
-            .to(false)
-            .or(just(Token::Mut).to(true))
-            .then(identifier_parser())
-            .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
-            .then(expr.clone())
-            .map_with_span(|((is_mutable, identifier), initializer), span| {
-                Expression::new(
-                    ExpressionKind::VariableDeclaration {
-                        is_mutable,
-                        identifier,
-                        initializer: Box::new(initializer),
-                    },
-                    span,
-                )
-            });
-
         let if_ = just(Token::If)
             .ignore_then(expr.clone())
             .then(expr.clone())
@@ -244,7 +244,6 @@ fn expression_parser<'a>(
             .or(identifier_parser().map(|ident| {
                 Expression::new(ExpressionKind::Identifier(ident.clone()), ident.span)
             }))
-            .or(variable_declaration)
             .or(if_)
             // Attempt to recover anything that looks like a list but contains errors
             .recover_with(nested_delimiters(
