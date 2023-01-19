@@ -1,8 +1,7 @@
-let log(msg: int) {
-  #js { 
-    "console.log(" msg ")"
-  }
-}
+use @std:io/{ log };
+
+// TODO: Add support for property access after function calls
+let logInt(n: int) { log(n.toString()) }
 
 let fibonacci(n: int): int {
     if n < 2 {
@@ -12,4 +11,4 @@ let fibonacci(n: int): int {
     }
 }
 
-log(fibonacci(5));
+logInt(fibonacci(5));

@@ -1,8 +1,8 @@
-let log(msg: int) {
-  #js { 
-    "console.log(" msg ")"
-  }
-}
+use @std:io/{ log };
+
+// TODO: Add support for property access after function calls
+let logInt(n: int) { log(n.toString()) }
+
 
 let createAdder(x: int): (int) -> int {
   let adder(y: int): int { x + y }
@@ -12,7 +12,7 @@ let createAdder(x: int): (int) -> int {
 let add10 = createAdder(10);
 
 // 25
-log(add10(15));
+logInt(add10(15));
 
 // 100
-log(add10(90));
+logInt(add10(90));

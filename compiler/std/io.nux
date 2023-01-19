@@ -1,4 +1,4 @@
-let logString(msg: string) {
+let log(msg: string) {
   #js { 
     "console.log(" msg ")"
   }

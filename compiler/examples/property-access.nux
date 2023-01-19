@@ -1,8 +1,4 @@
-let log(msg: string) {
-  #js { 
-    "console.log(" msg ")"
-  }
-}
+use @std:io/{ log };
 
 log(true.toString());
 log("What a lovely day!".length.toString());

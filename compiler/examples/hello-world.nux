@@ -1,7 +1,3 @@
-let log(msg: string) {
-  #js { 
-    "console.log(" msg ")"
-  }
-}
+use @std:io/{ log };
 
 log('Hello world!');
