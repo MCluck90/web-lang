@@ -156,6 +156,20 @@ impl CompilerError {
         }
     }
 
+    pub fn if_branch_incompatiable_types(
+        span: &Span,
+        expected: &TypeSymbol,
+        found: &TypeSymbol,
+    ) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::IfBranchIncompatiableTypes {
+                expected: expected.clone(),
+                found: found.clone(),
+            },
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -219,6 +233,12 @@ pub enum CompilerErrorReason {
         expected: Vec<TypeSymbol>,
         found: Vec<TypeSymbol>,
     },
+
+    // Ex: `if` and `else` have incompatible types expected `(expected)`, found `(found)`
+    IfBranchIncompatiableTypes {
+        expected: TypeSymbol,
+        found: TypeSymbol,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -232,6 +252,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::AssignmentToImmutableVariable { .. } => 6,
             CompilerErrorReason::TypeCannotBeCalledAsAFunction(_) => 7,
             CompilerErrorReason::InvalidArguments { .. } => 8,
+            CompilerErrorReason::IfBranchIncompatiableTypes { .. } => 9,
         }
     }
 
@@ -334,6 +355,10 @@ impl CompilerErrorReason {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            CompilerErrorReason::IfBranchIncompatiableTypes { expected, found } => format!(
+                "`if` and `else` have incompatible types expected `{}`, found `{}`",
+                expected.type_, found.type_
+            ),
         }
     }
 
@@ -384,6 +409,9 @@ impl CompilerErrorReason {
                 .with_color(Color::Red),
             CompilerErrorReason::InvalidArguments { .. } => label
                 .with_message("invalid argument(s)")
+                .with_color(Color::Red),
+            CompilerErrorReason::IfBranchIncompatiableTypes { expected, .. } => label
+                .with_message(format!("expected `{}`", expected))
                 .with_color(Color::Red),
         }
     }

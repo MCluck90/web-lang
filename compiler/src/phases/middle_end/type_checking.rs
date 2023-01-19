@@ -167,13 +167,35 @@ fn visit_expression(
                             Err(errors)
                         }
                     }
+                    BinaryOperator::NotEqual
+                    | BinaryOperator::Equal
+                    | BinaryOperator::LessThan
+                    | BinaryOperator::LessThanOrEqual
+                    | BinaryOperator::GreaterThan
+                    | BinaryOperator::GreaterThanOrEqual => {
+                        let mut errors: Vec<CompilerError> = Vec::new();
+                        if left_type_symbol.type_ != Type::Int {
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &left.span,
+                                op,
+                                &left_type_symbol,
+                            ));
+                        }
+                        if right_type_symbol.type_ != Type::Int {
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &right.span,
+                                op,
+                                &right_type_symbol,
+                            ));
+                        }
+
+                        if errors.is_empty() {
+                            Ok(TypeSymbol::from(Type::Bool))
+                        } else {
+                            Err(errors)
+                        }
+                    }
                     BinaryOperator::Dot => todo!(),
-                    BinaryOperator::NotEqual => todo!(),
-                    BinaryOperator::Equal => todo!(),
-                    BinaryOperator::LessThan => todo!(),
-                    BinaryOperator::LessThanOrEqual => todo!(),
-                    BinaryOperator::GreaterThan => todo!(),
-                    BinaryOperator::GreaterThanOrEqual => todo!(),
                     BinaryOperator::And => todo!(),
                     BinaryOperator::Or => todo!(),
                     BinaryOperator::Assignment => match &left.kind {
@@ -277,7 +299,49 @@ fn visit_expression(
                 Ok(TypeSymbol::from(*return_type))
             }
         }
-        ExpressionKind::If { .. } => todo!(),
+        ExpressionKind::If {
+            condition,
+            body,
+            else_,
+        } => {
+            let mut errors: Vec<CompilerError> = Vec::new();
+            let condition_type = visit_expression(condition, symbol_table)?;
+            if condition_type.type_ != Type::Bool {
+                errors.push(CompilerError::mismatched_types(
+                    &condition.span,
+                    &Type::Bool.into(),
+                    &condition_type.into(),
+                ));
+            }
+
+            let body_type = visit_expression(body, symbol_table)?;
+            let mut else_type = TypeSymbol::from(Type::Void);
+            if let Some(else_) = else_ {
+                else_type = visit_expression(else_, symbol_table)?;
+            }
+            if body_type.type_ != else_type.type_ {
+                match else_ {
+                    Some(else_) => {
+                        errors.push(CompilerError::if_branch_incompatiable_types(
+                            &else_.span,
+                            &body_type,
+                            &else_type,
+                        ));
+                    }
+                    None => {
+                        errors.push(CompilerError::if_branch_incompatiable_types(
+                            &body.span, &body_type, &else_type,
+                        ));
+                    }
+                }
+            }
+
+            if !errors.is_empty() {
+                Err(errors)
+            } else {
+                Ok(body_type)
+            }
+        }
     }
 }
 
