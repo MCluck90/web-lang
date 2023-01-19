@@ -102,13 +102,13 @@ fn visit_expression(
     match &expression.kind {
         ExpressionKind::Boolean(_) => Ok(TypeSymbol::bool()),
         ExpressionKind::Identifier(identifier) => {
-            let value = symbol_table
-                .get_value(&identifier.name.clone().into())
-                .unwrap();
-            Ok(match &value.type_id {
-                Some(type_id) => symbol_table.get_type(&type_id).unwrap().clone(),
-                None => value.type_.clone().into(),
-            })
+            match symbol_table.get_value(&identifier.name.clone().into()) {
+                Some(value) => Ok(match &value.type_id {
+                    Some(type_id) => symbol_table.get_type(&type_id).unwrap().clone(),
+                    None => value.type_.clone().into(),
+                }),
+                None => Ok(TypeSymbol::from(Type::Unknown)),
+            }
         }
         ExpressionKind::Integer(_) => Ok(TypeSymbol::int()),
         ExpressionKind::String(_) => Ok(TypeSymbol::string()),
