@@ -80,7 +80,6 @@ fn visit_statement(
         StatementKind::Expression(expression) => {
             visit_expression(&expression, symbol_table).map(|_| ())
         }
-        StatementKind::JsBlock(_) => todo!(),
         StatementKind::Return(_) => todo!(),
     }
 }
@@ -114,6 +113,7 @@ fn visit_expression(
         ExpressionKind::Integer(_) => Ok(TypeSymbol::int()),
         ExpressionKind::String(_) => Ok(TypeSymbol::string()),
         ExpressionKind::Block(_) => todo!(),
+        ExpressionKind::JsBlock(type_, _) => Ok(type_.clone().into()),
         ExpressionKind::BinaryExpression(left, op, right) => {
             let left_type = visit_expression(left, symbol_table);
             let right_type = visit_expression(right, symbol_table);
@@ -191,6 +191,17 @@ fn visit_expression(
                         ExpressionKind::Integer(_) => todo!(),
                         ExpressionKind::String(_) => todo!(),
                         ExpressionKind::Block(_) => todo!(),
+                        ExpressionKind::JsBlock(type_, _) => {
+                            if &left_type_symbol.type_ != type_ {
+                                Err(vec![CompilerError::mismatched_types(
+                                    &right.span,
+                                    &left_type_symbol,
+                                    &type_.clone().into(),
+                                )])
+                            } else {
+                                Ok(left_type_symbol)
+                            }
+                        }
                         ExpressionKind::BinaryExpression(_, _, _) => todo!(),
                         ExpressionKind::FunctionCall { .. } => todo!(),
                         ExpressionKind::If { .. } => todo!(),

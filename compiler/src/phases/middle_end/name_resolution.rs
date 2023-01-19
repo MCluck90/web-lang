@@ -193,7 +193,6 @@ fn resolve_module(
                 exports.insert(name.original_name.clone(), name.name.clone());
             }
             middle_end::ast::StatementKind::Expression(_) => {}
-            middle_end::ast::StatementKind::JsBlock(_) => {}
             middle_end::ast::StatementKind::Return(_) => {}
         }
         statements.push(statement);
@@ -311,22 +310,6 @@ fn resolve_statement(
                 errors,
             )
         }
-        frontend::ast::StatementKind::JsBlock(expressions) => {
-            let mut errors: Vec<CompilerError> = Vec::new();
-            let mut resolved_expressions: Vec<middle_end::ast::Expression> = Vec::new();
-            for expr in expressions {
-                let (expr, mut errs) = resolve_expression(ctx, expr);
-                errors.append(&mut errs);
-                resolved_expressions.push(expr);
-            }
-            (
-                middle_end::ast::Statement {
-                    span: statement.span.clone(),
-                    kind: middle_end::ast::StatementKind::JsBlock(resolved_expressions),
-                },
-                errors,
-            )
-        }
         frontend::ast::StatementKind::Return(expression) => {
             let (expr, errs) = expression
                 .as_ref()
@@ -384,6 +367,25 @@ fn resolve_expression(
                     Vec::new(),
                 ),
             }
+        }
+        frontend::ast::ExpressionKind::JsBlock(type_, expressions) => {
+            let mut errors: Vec<CompilerError> = Vec::new();
+            let mut resolved_expressions: Vec<middle_end::ast::Expression> = Vec::new();
+            for expr in expressions {
+                let (expr, mut errs) = resolve_expression(ctx, expr);
+                errors.append(&mut errs);
+                resolved_expressions.push(expr);
+            }
+            (
+                middle_end::ast::Expression {
+                    span: expression.span.clone(),
+                    kind: middle_end::ast::ExpressionKind::JsBlock(
+                        type_.clone(),
+                        resolved_expressions,
+                    ),
+                },
+                errors,
+            )
         }
         frontend::ast::ExpressionKind::Block(block) => {
             let (block, errs) = resolve_block(ctx, block);

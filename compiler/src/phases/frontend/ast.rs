@@ -101,6 +101,7 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
     },
+    JsBlock(Type, Vec<Expression>),
     // AnonymousFunction {
     //     parameters: Vec<Parameter>,
     //     body: Box<Expression>,
@@ -162,7 +163,6 @@ pub enum StatementKind {
         body: Box<Expression>,
     },
     Expression(Expression),
-    JsBlock(Vec<Expression>),
     Return(Option<Expression>),
 }
 

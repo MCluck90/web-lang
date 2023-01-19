@@ -71,19 +71,6 @@ fn visit_statement(statement: &Statement) -> String {
                     .join(","),
                 visit_expression(&body),
             ),
-            StatementKind::JsBlock(expressions) => {
-                expressions
-                    .iter()
-                    .map(|expr| {
-                        if let ExpressionKind::String(contents) = &expr.kind {
-                            contents.clone()
-                        } else {
-                            visit_expression(expr)
-                        }
-                    })
-                    .collect::<Vec<_>>()
-                    .join("")
-            }
             StatementKind::Return(expr) => match expr {
                 Some(expr) => format!("return {}", visit_expression(expr)),
                 None => "".into(),
@@ -124,6 +111,18 @@ fn visit_expression(expression: &Expression) -> String {
                     .unwrap_or(String::new())
             )
         }
+
+        ExpressionKind::JsBlock(_, expressions) => expressions
+            .iter()
+            .map(|expr| {
+                if let ExpressionKind::String(contents) = &expr.kind {
+                    contents.clone()
+                } else {
+                    visit_expression(expr)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(""),
 
         ExpressionKind::FunctionCall { callee, arguments } => format!(
             "{}({})",

@@ -157,17 +157,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
                 kind: StatementKind::Return(expression),
             });
 
-        let js_block = just(Token::StartJsBlock)
-            .ignore_then(
-                expression_parser(statement.clone())
-                    .repeated()
-                    .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock)),
-            )
-            .map_with_span(|expressions, span| Statement {
-                span,
-                kind: StatementKind::JsBlock(expressions),
-            });
-
         let expression = expression_parser(statement)
             .then_ignore(just(Token::Terminator))
             .map(|expression| Statement {
@@ -178,7 +167,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
         variable_declaration
             .or(function_definition)
             .or(return_statement)
-            .or(js_block)
             .or(expression)
     })
 }
@@ -239,7 +227,21 @@ fn expression_parser<'a>(
                 )
             });
 
-        let atom = value
+        let js_block = just(Token::StartJsBlock)
+            .ignore_then(just(Token::KeyValueSeparator))
+            .ignore_then(type_parser().or_not())
+            .then(
+                expr.clone()
+                    .repeated()
+                    .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock)),
+            )
+            .map_with_span(|(type_, expressions), span| Expression {
+                span,
+                kind: ExpressionKind::JsBlock(type_.unwrap_or(Type::Void), expressions),
+            });
+
+        let atom = js_block
+            .or(value)
             .or(block)
             .or(identifier_parser().map(|ident| {
                 Expression::new(ExpressionKind::Identifier(ident.clone()), ident.span)

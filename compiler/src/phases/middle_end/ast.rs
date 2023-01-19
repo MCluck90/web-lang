@@ -107,7 +107,6 @@ pub enum StatementKind {
         body: Box<Expression>,
     },
     Expression(Expression),
-    JsBlock(Vec<Expression>),
     Return(Option<Expression>),
 }
 
@@ -132,6 +131,7 @@ pub enum ExpressionKind {
     Integer(i64),
     String(String),
     Block(Box<Block>),
+    JsBlock(Type, Vec<Expression>),
 
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
