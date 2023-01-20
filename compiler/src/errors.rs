@@ -180,6 +180,13 @@ impl CompilerError {
         }
     }
 
+    pub fn invalid_lhs_in_assignment(span: &Span) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::InvalidLhsInAssignment,
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -255,6 +262,9 @@ pub enum CompilerErrorReason {
         field: String,
         type_: TypeSymbol,
     },
+
+    // Ex: Invalid left-hand side in assignment
+    InvalidLhsInAssignment,
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -270,6 +280,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidArguments { .. } => 8,
             CompilerErrorReason::IfBranchIncompatiableTypes { .. } => 9,
             CompilerErrorReason::NoFieldOnType { .. } => 10,
+            CompilerErrorReason::InvalidLhsInAssignment => 11,
         }
     }
 
@@ -382,6 +393,9 @@ impl CompilerErrorReason {
             CompilerErrorReason::NoFieldOnType { field, type_ } => {
                 format!("no field `{}` on type `{}`", field, type_)
             }
+            CompilerErrorReason::InvalidLhsInAssignment => {
+                "Invalid left-hand side in assignment".into()
+            }
         }
     }
 
@@ -441,6 +455,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::NoFieldOnType { type_, .. } => label
                 .with_message(format!("does not exist on `{}`", type_))
                 .with_color(Color::Red),
+            CompilerErrorReason::InvalidLhsInAssignment => label.with_color(Color::Red),
         }
     }
 }

@@ -14,3 +14,9 @@ let toString(n: int): string {
 true && 1;
 "false" || false;
 2 && "4";
+
+// Invalid left-hand side in assignment
+true = false;
+1 = 2;
+"string" = "other string";
+{ 10 } = { 20 };

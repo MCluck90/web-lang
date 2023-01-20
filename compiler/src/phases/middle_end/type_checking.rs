@@ -272,10 +272,12 @@ fn visit_expression(
                                 Ok(right_type_symbol)
                             }
                         }
-                        ExpressionKind::Boolean(_) => todo!(),
-                        ExpressionKind::Integer(_) => todo!(),
-                        ExpressionKind::String(_) => todo!(),
-                        ExpressionKind::Block(_) => todo!(),
+                        ExpressionKind::Boolean(_)
+                        | ExpressionKind::Integer(_)
+                        | ExpressionKind::String(_)
+                        | ExpressionKind::Block(_) => {
+                            Err(vec![CompilerError::invalid_lhs_in_assignment(&left.span)])
+                        }
                         ExpressionKind::JsBlock(type_, _) => {
                             if &left_type_symbol.type_ != type_ {
                                 Err(vec![CompilerError::mismatched_types(
