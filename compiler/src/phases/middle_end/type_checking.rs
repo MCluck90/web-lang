@@ -275,7 +275,10 @@ fn visit_expression(
                         ExpressionKind::Boolean(_)
                         | ExpressionKind::Integer(_)
                         | ExpressionKind::String(_)
-                        | ExpressionKind::Block(_) => {
+                        | ExpressionKind::Block(_)
+                        | ExpressionKind::BinaryExpression(_, _, _)
+                        | ExpressionKind::If { .. }
+                        | ExpressionKind::FunctionCall { .. } => {
                             Err(vec![CompilerError::invalid_lhs_in_assignment(&left.span)])
                         }
                         ExpressionKind::JsBlock(type_, _) => {
@@ -289,9 +292,6 @@ fn visit_expression(
                                 Ok(left_type_symbol)
                             }
                         }
-                        ExpressionKind::BinaryExpression(_, _, _) => todo!(),
-                        ExpressionKind::FunctionCall { .. } => todo!(),
-                        ExpressionKind::If { .. } => todo!(),
                     },
                 }
             }

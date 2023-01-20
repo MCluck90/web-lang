@@ -20,3 +20,8 @@ true = false;
 1 = 2;
 "string" = "other string";
 { 10 } = { 20 };
+if true { let n = 0; n } else { let n = 1; n } = 5;
+
+mut n = 0;
+n + 1 = n + 1;
+add(2, 3) = 5;
