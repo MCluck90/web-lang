@@ -325,7 +325,10 @@ impl CompilerErrorReason {
             CompilerErrorReason::ReferenceError { identifier } => {
                 format!("Cannot find value `{}` in this scope", identifier)
             }
-            CompilerErrorReason::InvalidReturnValue { .. } => todo!(),
+            CompilerErrorReason::InvalidReturnValue { expected, found } => format!(
+                "Invalid return value. Expected `{}`, found `{}`",
+                expected, found
+            ),
             CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { operator, found } => {
                 format!(
                     "{} is not supported for type `{}`",
@@ -414,7 +417,9 @@ impl CompilerErrorReason {
             CompilerErrorReason::ReferenceError { .. } => label
                 .with_message("not found in this scope")
                 .with_color(Color::Red),
-            CompilerErrorReason::InvalidReturnValue { .. } => todo!(),
+            CompilerErrorReason::InvalidReturnValue { expected, .. } => label
+                .with_message(format!("expected {}", expected))
+                .with_color(Color::Red),
             CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => label
                 .with_message("invalid operation")
                 .with_color(Color::Red),

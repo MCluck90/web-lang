@@ -85,8 +85,15 @@ fn visit_statement(
             let body_type = visit_expression(body, symbol_table, type_context)?;
 
             if *return_type != body_type.type_ {
+                let span = match &body.kind {
+                    ExpressionKind::Block(block) => match &block.return_expression {
+                        Some(expr) => expr.span.clone(),
+                        None => block.span.clone(),
+                    },
+                    _ => body.span.clone(),
+                };
                 Err(vec![CompilerError::invalid_return_value(
-                    &statement.span,
+                    &span,
                     &return_type.clone().into(),
                     &body_type,
                 )])

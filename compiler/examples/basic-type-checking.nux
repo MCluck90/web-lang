@@ -5,3 +5,7 @@ add(2, 3);
 
 // bad
 add("2", "3");
+
+let toString(n: int): string {
+    n
+}
