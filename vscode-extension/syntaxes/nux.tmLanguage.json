@@ -16,9 +16,6 @@
     },
     {
       "include": "#constants"
-    },
-    {
-      "include": "#parameters"
     }
   ],
   "repository": {
