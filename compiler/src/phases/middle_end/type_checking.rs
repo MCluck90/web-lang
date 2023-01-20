@@ -222,8 +222,29 @@ fn visit_expression(
                         }
                     }
                     BinaryOperator::Dot => todo!(),
-                    BinaryOperator::And => todo!(),
-                    BinaryOperator::Or => todo!(),
+                    BinaryOperator::And | BinaryOperator::Or => {
+                        let mut errors: Vec<CompilerError> = Vec::new();
+                        if left_type_symbol.type_ != Type::Bool {
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &left.span,
+                                op,
+                                &left_type_symbol,
+                            ));
+                        }
+                        if right_type_symbol.type_ != Type::Bool {
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &right.span,
+                                op,
+                                &right_type_symbol,
+                            ));
+                        }
+
+                        if errors.is_empty() {
+                            Ok(TypeSymbol::from(Type::Bool))
+                        } else {
+                            Err(errors)
+                        }
+                    }
                     BinaryOperator::Assignment => match &left.kind {
                         ExpressionKind::PropertyAccess(_, _) => todo!(),
                         ExpressionKind::Identifier(identifier) => {

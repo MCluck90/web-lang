@@ -9,3 +9,8 @@ add("2", "3");
 let toString(n: int): string {
     n
 }
+
+// Can only use booleans with logic operators
+true && 1;
+"false" || false;
+2 && "4";
