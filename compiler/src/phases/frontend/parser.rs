@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 
 use crate::{errors::CompilerError, phases::shared::Type};
 
-use super::{ast::*, BinaryOperator, BuiltInTypeToken, Token};
+use super::{ast::*, BinaryOperator, BuiltInTypeToken, Span, Token};
 
 pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = CompilerError> + Clone {
     import_parser()
@@ -262,45 +262,61 @@ fn expression_parser<'a>(
             ))
             .or(parenthesized_expr);
 
-        let operator = just(Token::Operator(BinaryOperator::Dot)).to(BinaryOperator::Dot);
-        let dot_member = atom
-            .clone()
-            .then(operator.then(identifier_parser()).repeated())
-            .foldl(|left, (_, right)| {
-                let span = left.span.start..right.span.end;
-                Expression::new(
-                    ExpressionKind::PropertyAccess(Box::new(left), right.clone()),
-                    span,
-                )
-            });
+        /*
+         * atom -> identifier | int | string | ...
+         * prop_or_fn_call -> ( '.' identifier | '(' argument_list? ')' )*
+         * dot_member -> atom ('.' identifier)*
+         * fn_call -> dot_member ('(' argument_list? ')')*
+         */
 
+        enum PropOrArgs {
+            Prop(Identifier),
+            Args((Vec<Expression>, Span)),
+        }
         let arguments = expr
             .clone()
             .separated_by(just(Token::ListSeparator))
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
             .map_with_span(|args, span| (args, span));
 
-        let fn_call =
-            dot_member
+        let dot_operator = just(Token::Operator(BinaryOperator::Dot)).to(BinaryOperator::Dot);
+        let dot_or_args = choice::<_, CompilerError>((
+            dot_operator
                 .clone()
-                .then(arguments.repeated())
-                .foldl(|callee, (arguments, arg_span)| {
-                    let span = callee.span.start..arg_span.end;
+                .ignore_then(identifier_parser().map(PropOrArgs::Prop)),
+            arguments.map(PropOrArgs::Args),
+        ))
+        .repeated();
+
+        let prop_or_fn_call = atom
+            .clone()
+            .then(dot_or_args)
+            .foldl(|left, right| match right {
+                PropOrArgs::Prop(right) => {
+                    let span = left.span.start..right.span.end;
+                    Expression::new(
+                        ExpressionKind::PropertyAccess(Box::new(left), right.clone()),
+                        span,
+                    )
+                }
+                PropOrArgs::Args((arguments, arg_span)) => {
+                    let span = left.span.start..arg_span.end;
                     Expression::new(
                         ExpressionKind::FunctionCall {
-                            callee: Box::new(callee),
+                            callee: Box::new(left),
                             arguments: arguments,
                         },
                         span,
                     )
-                });
+                }
+            });
 
         let operator = just(Token::Operator(BinaryOperator::Mul))
             .to(BinaryOperator::Mul)
             .or(just(Token::Operator(BinaryOperator::Div)).to(BinaryOperator::Div));
-        let factor = fn_call
+        let factor = prop_or_fn_call
             .clone()
-            .then(operator.then(fn_call).repeated())
+            .then(operator.then(prop_or_fn_call).repeated())
             .foldl(|left, (op, right)| {
                 let span = left.span.start..right.span.end;
                 Expression::new(

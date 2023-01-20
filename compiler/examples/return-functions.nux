@@ -1,8 +1,5 @@
 use @std:io/{ log };
 
-// TODO: Add support for property access after function calls
-let logInt(n: int) { log(n.toString()) }
-
 
 let createAdder(x: int): (int) -> int {
   let adder(y: int): int { x + y }
@@ -12,7 +9,7 @@ let createAdder(x: int): (int) -> int {
 let add10 = createAdder(10);
 
 // 25
-logInt(add10(15));
+log(add10(15).toString());
 
 // 100
-logInt(add10(90));
+log(add10(90).toString());
