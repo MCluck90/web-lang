@@ -14,7 +14,7 @@ use crate::{errors::print_error_report, module_paths::from_package_import};
 
 use self::parser::module_parser;
 
-pub fn run_frontend(file_path: &str) -> (Program, bool) {
+pub fn run_frontend(file_path: &str) -> Result<(Program, bool), String> {
     Program::from_entry_point(file_path.to_string())
 }
 
@@ -27,7 +27,12 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn from_entry_point(entry_path: String) -> (Self, bool) {
+    pub fn from_entry_point(entry_path: String) -> Result<(Self, bool), String> {
+        let path = Path::new(&entry_path);
+        if !path.exists() {
+            return Err(format!("Could not find file: {}", entry_path));
+        }
+
         let mut module_paths = vec![entry_path.clone()];
         let mut visited_modules = HashSet::<String>::new();
         let mut has_errors = false;
@@ -77,7 +82,7 @@ impl Program {
 
         program.modules_in_order.reverse();
 
-        (program, has_errors)
+        Ok((program, has_errors))
     }
 
     fn parse_module(&self, file_path: &Path) -> ast::Module {
