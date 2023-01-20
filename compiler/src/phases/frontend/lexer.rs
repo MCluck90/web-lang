@@ -29,7 +29,6 @@ pub enum BinaryOperator {
     Sub,
     Mul,
     Div,
-    Dot,
     NotEqual,
     Equal,
     LessThan,
@@ -48,7 +47,6 @@ impl fmt::Display for BinaryOperator {
             BinaryOperator::Sub => write!(f, "-"),
             BinaryOperator::Mul => write!(f, "*"),
             BinaryOperator::Div => write!(f, "/"),
-            BinaryOperator::Dot => write!(f, "."),
             BinaryOperator::NotEqual => write!(f, "!="),
             BinaryOperator::Equal => write!(f, "=="),
             BinaryOperator::LessThan => write!(f, "<"),
@@ -77,6 +75,7 @@ pub enum Token {
     Terminator,         // ;
     AbsolutePathMarker, // ~
     PackagePathMarker,  // @
+    PropertyAccessOp,   // .
 
     // Keywords
     Back,
@@ -116,6 +115,7 @@ impl Token {
             Token::Terminator => "semicolon",
             Token::AbsolutePathMarker => "absolute path marker",
             Token::PackagePathMarker => "package path marker",
+            Token::PropertyAccessOp => "property access operator",
             Token::Back => "back keyword",
             Token::Else => "else keyword",
             Token::Front => "front keyword",
@@ -153,6 +153,7 @@ impl fmt::Display for Token {
             Token::Terminator => write!(f, ";"),
             Token::AbsolutePathMarker => write!(f, "~"),
             Token::PackagePathMarker => write!(f, "@"),
+            Token::PropertyAccessOp => write!(f, "."),
             Token::Back => write!(f, "back"),
             Token::Else => write!(f, "else"),
             Token::Front => write!(f, "front"),
@@ -213,7 +214,6 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
         just::<char, _, CompilerError>('-').to(Token::Operator(BinaryOperator::Sub)),
         just::<char, _, CompilerError>('*').to(Token::Operator(BinaryOperator::Mul)),
         just::<char, _, CompilerError>('/').to(Token::Operator(BinaryOperator::Div)),
-        just::<char, _, CompilerError>('.').to(Token::Operator(BinaryOperator::Dot)),
         just::<char, _, CompilerError>("==").to(Token::Operator(BinaryOperator::Equal)),
         just::<char, _, CompilerError>("!=").to(Token::Operator(BinaryOperator::NotEqual)),
         just::<char, _, CompilerError>("<=").to(Token::Operator(BinaryOperator::LessThanOrEqual)),
@@ -224,6 +224,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
         just::<char, _, CompilerError>("&&").to(Token::Operator(BinaryOperator::And)),
         just::<char, _, CompilerError>("||").to(Token::Operator(BinaryOperator::Or)),
         just::<char, _, CompilerError>("=").to(Token::Operator(BinaryOperator::Assignment)),
+        just::<char, _, CompilerError>(".").to(Token::PropertyAccessOp),
     ));
 
     let ident = text::ident().map(|ident: String| match ident.as_str() {

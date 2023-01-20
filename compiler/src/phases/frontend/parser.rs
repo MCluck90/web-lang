@@ -279,11 +279,8 @@ fn expression_parser<'a>(
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
             .map_with_span(|args, span| (args, span));
 
-        let dot_operator = just(Token::Operator(BinaryOperator::Dot)).to(BinaryOperator::Dot);
         let dot_or_args = choice::<_, CompilerError>((
-            dot_operator
-                .clone()
-                .ignore_then(identifier_parser().map(PropOrArgs::Prop)),
+            just(Token::PropertyAccessOp).ignore_then(identifier_parser().map(PropOrArgs::Prop)),
             arguments.map(PropOrArgs::Args),
         ))
         .repeated();

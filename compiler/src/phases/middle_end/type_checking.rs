@@ -221,7 +221,6 @@ fn visit_expression(
                             Err(errors)
                         }
                     }
-                    BinaryOperator::Dot => todo!(),
                     BinaryOperator::And | BinaryOperator::Or => {
                         let mut errors: Vec<CompilerError> = Vec::new();
                         if left_type_symbol.type_ != Type::Bool {

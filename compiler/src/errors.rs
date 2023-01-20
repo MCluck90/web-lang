@@ -348,7 +348,6 @@ impl CompilerErrorReason {
                         BinaryOperator::Sub => "subtraction",
                         BinaryOperator::Mul => "multiplication",
                         BinaryOperator::Div => "division",
-                        BinaryOperator::Dot => "property access",
                         BinaryOperator::NotEqual => "equality checking",
                         BinaryOperator::Equal => "equality checking",
                         BinaryOperator::LessThan => "order comparison",
