@@ -10,7 +10,10 @@ use std::{
 use chumsky::{Parser, Stream};
 pub use lexer::{BinaryOperator, BuiltInTypeToken, Span, Token};
 
-use crate::{errors::print_error_report, module_paths::from_package_import};
+use crate::{
+    errors::{print_error_report, CompilerError},
+    module_paths::from_package_import,
+};
 
 use self::parser::module_parser;
 
@@ -33,7 +36,10 @@ impl Program {
             return Err(format!("Could not find file: {}", entry_path));
         }
 
-        let mut module_paths = vec![entry_path.clone()];
+        // TODO: Make this a struct
+        // (path_of_module_to_parse, (path_of_module_who_imported, span_of_import_statement))
+        let mut module_paths: Vec<(String, (String, Span))> =
+            vec![(entry_path.clone(), ("".into(), 0..0))];
         let mut visited_modules = HashSet::<String>::new();
         let mut has_errors = false;
         let mut program = Program {
@@ -42,42 +48,55 @@ impl Program {
         };
 
         while !module_paths.is_empty() {
-            let module_path = module_paths.pop().unwrap();
-            let mut module = program.parse_module(std::path::Path::new(&module_path));
-            visited_modules.insert(module_path.clone());
-            program.modules_in_order.push(module_path.clone());
-            if !module.errors.is_empty() {
-                has_errors = true;
-                print_error_report(&module_path, &module.errors);
-                // Empty out the errors since these have already been reported
-                module.errors.clear();
-            }
+            let (module_path, (requester_path, import_span)) = module_paths.pop().unwrap();
+            match program.parse_module(
+                std::path::Path::new(&module_path),
+                &requester_path,
+                &import_span,
+            ) {
+                Ok(mut module) => {
+                    visited_modules.insert(module_path.clone());
+                    program.modules_in_order.push(module_path.clone());
+                    if !module.errors.is_empty() {
+                        has_errors = true;
+                        print_error_report(&module_path, &module.errors);
+                        // Empty out the errors since these have already been reported
+                        module.errors.clear();
+                    }
 
-            match &module.ast {
-                Some(ast) => {
-                    for import in ast.imports.iter().rev() {
-                        match &import.kind {
-                            ast::ImportKind::Package {
-                                scope,
-                                package,
-                                path,
-                                ..
-                            } => {
-                                let next_module_path = from_package_import(
-                                    &scope.name,
-                                    &package.name,
-                                    &path.iter().map(|ident| ident.name.clone()).collect(),
-                                );
-                                if !visited_modules.contains(&next_module_path) {
-                                    module_paths.push(next_module_path);
+                    match &module.ast {
+                        Some(ast) => {
+                            for import in ast.imports.iter().rev() {
+                                match &import.kind {
+                                    ast::ImportKind::Package {
+                                        scope,
+                                        package,
+                                        path,
+                                        ..
+                                    } => {
+                                        let next_module_path = from_package_import(
+                                            &scope.name,
+                                            &package.name,
+                                            &path.iter().map(|ident| ident.name.clone()).collect(),
+                                        );
+                                        if !visited_modules.contains(&next_module_path) {
+                                            module_paths.push((
+                                                next_module_path,
+                                                (module_path.clone(), import.span.clone()),
+                                            ));
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
+                        None => {}
+                    };
+                    program.module_by_path.insert(module_path, module);
                 }
-                None => {}
-            };
-            program.module_by_path.insert(module_path, module);
+                Err((path, err)) => {
+                    print_error_report(&path, &vec![err]);
+                }
+            }
         }
 
         program.modules_in_order.reverse();
@@ -85,7 +104,20 @@ impl Program {
         Ok((program, has_errors))
     }
 
-    fn parse_module(&self, file_path: &Path) -> ast::Module {
+    fn parse_module(
+        &self,
+        file_path: &Path,
+        requester_path: &String,
+        import_span: &Span,
+    ) -> Result<ast::Module, (String, CompilerError)> {
+        if !file_path.exists() {
+            println!("{} vs. {}", file_path.display(), requester_path);
+            return Err((
+                requester_path.clone(),
+                CompilerError::could_not_find_module(import_span, requester_path),
+            ));
+        }
+
         let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
         let src = std::fs::read_to_string(&file_path).unwrap();
         let (tokens, mut errors) = lexer::lexer().parse_recovery(src.as_str());
@@ -99,10 +131,10 @@ impl Program {
             module
         });
 
-        ast::Module {
+        Ok(ast::Module {
             path: file_path.to_str().unwrap().to_string(),
             ast,
             errors,
-        }
+        })
     }
 }

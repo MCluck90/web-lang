@@ -187,6 +187,15 @@ impl CompilerError {
         }
     }
 
+    pub fn could_not_find_module(span: &Span, module_path: &String) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::CouldNotFindModule {
+                path: module_path.clone(),
+            },
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -265,6 +274,10 @@ pub enum CompilerErrorReason {
 
     // Ex: Invalid left-hand side in assignment
     InvalidLhsInAssignment,
+
+    CouldNotFindModule {
+        path: String,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -281,6 +294,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::IfBranchIncompatiableTypes { .. } => 9,
             CompilerErrorReason::NoFieldOnType { .. } => 10,
             CompilerErrorReason::InvalidLhsInAssignment => 11,
+            CompilerErrorReason::CouldNotFindModule { .. } => 12,
         }
     }
 
@@ -395,6 +409,9 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidLhsInAssignment => {
                 "Invalid left-hand side in assignment".into()
             }
+            CompilerErrorReason::CouldNotFindModule { path } => {
+                format!("Could not find module at path: {}", path)
+            }
         }
     }
 
@@ -455,12 +472,13 @@ impl CompilerErrorReason {
                 .with_message(format!("does not exist on `{}`", type_))
                 .with_color(Color::Red),
             CompilerErrorReason::InvalidLhsInAssignment => label.with_color(Color::Red),
+            CompilerErrorReason::CouldNotFindModule { .. } => label.with_color(Color::Red),
         }
     }
 }
 
 pub fn print_error_report<'a>(module_path: &String, errors: &Vec<CompilerError>) {
-    let src = std::fs::read_to_string(&module_path).unwrap();
+    let src = std::fs::read_to_string(&module_path).unwrap_or(String::new());
     for error in errors {
         let report = Report::build(ReportKind::Error, module_path, error.span.start)
             .with_code(error.to_error_code())
