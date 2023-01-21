@@ -1,5 +1,8 @@
 use crate::phases::middle_end::{
-    ast::{Expression, ExpressionKind, Statement, StatementKind},
+    ast::{
+        Expression, ExpressionKind, Statement, StatementKind, TopLevelStatement,
+        TopLevelStatementKind,
+    },
     Program,
 };
 
@@ -36,9 +39,50 @@ pub fn generate_code(program: Program) -> CodeGenOutput {
 fn visit_program(program: &Program, output: &mut OutputBuilder) {
     for module in &program.modules {
         for statement in &module.ast.statements {
-            output.js.push_str(&visit_statement(&statement).as_str());
+            output
+                .js
+                .push_str(&visit_top_level_statement(&statement).as_str());
         }
     }
+}
+
+fn visit_top_level_statement(statement: &TopLevelStatement) -> String {
+    format!(
+        "{};",
+        match &statement.kind {
+            TopLevelStatementKind::VariableDeclaration {
+                is_mutable,
+                identifier,
+                initializer,
+                is_public: _,
+            } => format!(
+                "{} {}={}",
+                if *is_mutable { "let" } else { "const" },
+                identifier,
+                visit_expression(&initializer)
+            ),
+            TopLevelStatementKind::Expression(expr) => visit_expression(expr),
+            TopLevelStatementKind::FunctionDefinition {
+                name,
+                parameters,
+                body,
+                return_type: _,
+                is_public: _,
+            } => format!(
+                "const {}=({})=>{{{}}}",
+                name,
+                parameters
+                    .iter()
+                    .map(|p| p.identifier.name.clone())
+                    .collect::<Vec<String>>()
+                    .join(","),
+                body.iter()
+                    .map(visit_statement)
+                    .collect::<Vec<_>>()
+                    .join(";"),
+            ),
+        }
+    )
 }
 
 fn visit_statement(statement: &Statement) -> String {

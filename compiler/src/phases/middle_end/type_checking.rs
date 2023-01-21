@@ -12,7 +12,10 @@ use crate::{
     },
 };
 
-use super::ast::{Expression, ExpressionKind, Module, Parameter, Statement, StatementKind};
+use super::ast::{
+    Expression, ExpressionKind, Module, Parameter, Statement, StatementKind, TopLevelStatement,
+    TopLevelStatementKind,
+};
 
 struct TypeContext {
     pub primitive_types: HashMap<Type, ObjectType>,
@@ -43,11 +46,82 @@ fn visit_module(
     type_context: &mut TypeContext,
 ) {
     for statement in module.ast.statements.iter() {
-        match visit_statement(&statement, symbol_table, type_context) {
+        match visit_top_level_statement(&statement, symbol_table, type_context) {
             Err(mut errors) => {
                 module.errors.append(&mut errors);
             }
             _ => {}
+        }
+    }
+}
+
+fn visit_top_level_statement(
+    statement: &TopLevelStatement,
+    symbol_table: &mut SymbolTable,
+    type_context: &mut TypeContext,
+) -> Result<(), Vec<CompilerError>> {
+    match &statement.kind {
+        TopLevelStatementKind::VariableDeclaration {
+            identifier,
+            initializer,
+            is_mutable,
+            is_public: _,
+        } => {
+            let initializer_type = visit_expression(initializer, symbol_table, type_context)?;
+            symbol_table.set_value(
+                ValueId(identifier.name.clone()),
+                ValueSymbol::new()
+                    .with_type(initializer_type.type_)
+                    .with_mutability(*is_mutable),
+            );
+            Ok(())
+        }
+        TopLevelStatementKind::FunctionDefinition {
+            name,
+            parameters,
+            return_type,
+            body,
+            is_public: _,
+        } => {
+            type_context.found_return_types.push(Vec::new());
+            let parameter_types = parameters
+                .iter()
+                .map(|p| visit_parameter(p, symbol_table))
+                .collect::<Vec<_>>();
+            let function_type = Type::Function {
+                parameters: parameter_types,
+                return_type: Box::new(return_type.clone()),
+            };
+            symbol_table.set_value(
+                name.name.clone().into(),
+                ValueSymbol::new().with_type(function_type.clone()),
+            );
+
+            for stmt in body {
+                visit_statement(stmt, symbol_table, type_context)?;
+            }
+
+            let return_type = TypeSymbol::from(return_type);
+            let found_returns = type_context.found_return_types.pop().unwrap();
+            let mut errors: Vec<CompilerError> = Vec::new();
+            for (return_statement_type, span) in found_returns {
+                if return_statement_type.type_ != return_type.type_ {
+                    errors.push(CompilerError::invalid_return_value(
+                        &span,
+                        &return_type,
+                        &return_statement_type,
+                    ));
+                }
+            }
+
+            if !errors.is_empty() {
+                Err(errors)
+            } else {
+                Ok(())
+            }
+        }
+        TopLevelStatementKind::Expression(expression) => {
+            visit_expression(&expression, symbol_table, type_context).map(|_| ())
         }
     }
 }

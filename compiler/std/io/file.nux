@@ -1,4 +1,4 @@
-let readFile(path: string): string {
+pub let readFile(path: string): string {
   mut contents = '';
   #js {
     contents "=require('fs').readFileSync(" path ").toString();"

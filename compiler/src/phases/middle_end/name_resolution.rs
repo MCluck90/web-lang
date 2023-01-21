@@ -6,6 +6,8 @@ use crate::{
     types::symbol_table::{SymbolTable, ValueId, ValueSymbol},
 };
 
+// TODO: Add name resolution errors when importing something from a module
+// and that thing doesn't exist
 pub fn resolve_names(
     source_modules: Vec<&frontend::ast::Module>,
 ) -> (Vec<middle_end::ast::Module>, SymbolTable) {
@@ -150,7 +152,7 @@ fn resolve_module(
 ) -> (middle_end::ast::Module, Exports) {
     let mut exports = Exports::new();
     let mut imports: Vec<middle_end::ast::Import> = Vec::new();
-    let mut statements: Vec<middle_end::ast::Statement> = Vec::new();
+    let mut statements: Vec<middle_end::ast::TopLevelStatement> = Vec::new();
     let mut errors: Vec<CompilerError> = module.errors.clone();
     if module.ast.is_none() {
         return (
@@ -176,21 +178,28 @@ fn resolve_module(
     }
 
     for statement in &ast.statements {
-        let (statement, mut errs) = resolve_statement(ctx, statement);
+        let (statement, mut errs) = resolve_top_level_statement(ctx, statement);
         errors.append(&mut errs);
 
         // TODO: Change this to handle visibility modifiers
         match &statement.kind {
-            middle_end::ast::StatementKind::VariableDeclaration { identifier, .. } => {
-                // Export all variable definitions
-                exports.insert(identifier.original_name.clone(), identifier.name.clone());
+            middle_end::ast::TopLevelStatementKind::VariableDeclaration {
+                is_public,
+                identifier,
+                ..
+            } => {
+                if *is_public {
+                    exports.insert(identifier.original_name.clone(), identifier.name.clone());
+                }
             }
-            middle_end::ast::StatementKind::FunctionDefinition { name, .. } => {
-                // Export all function definitions
-                exports.insert(name.original_name.clone(), name.name.clone());
+            middle_end::ast::TopLevelStatementKind::FunctionDefinition {
+                is_public, name, ..
+            } => {
+                if *is_public {
+                    exports.insert(name.original_name.clone(), name.name.clone());
+                }
             }
-            middle_end::ast::StatementKind::Expression(_) => {}
-            middle_end::ast::StatementKind::Return(_) => {}
+            middle_end::ast::TopLevelStatementKind::Expression(_) => {}
         }
         statements.push(statement);
     }
@@ -235,6 +244,88 @@ fn resolve_import(
                 }
             }
             (new_import, Vec::new())
+        }
+    }
+}
+
+fn resolve_top_level_statement(
+    ctx: &mut Context,
+    statement: &frontend::ast::TopLevelStatement,
+) -> (middle_end::ast::TopLevelStatement, Vec<CompilerError>) {
+    match &statement.kind {
+        frontend::ast::TopLevelStatementKind::VariableDeclaration {
+            is_public,
+            is_mutable,
+            identifier,
+            initializer,
+        } => {
+            let new_identifier = ctx.add_and_rename(identifier, is_mutable);
+            let (initializer, errs) = resolve_expression(ctx, initializer);
+            (
+                middle_end::ast::TopLevelStatement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ast::TopLevelStatementKind::VariableDeclaration {
+                        is_public: *is_public,
+                        is_mutable: *is_mutable,
+                        identifier: new_identifier,
+                        initializer: Box::new(initializer),
+                    },
+                },
+                errs,
+            )
+        }
+        frontend::ast::TopLevelStatementKind::FunctionDefinition {
+            is_public,
+            name,
+            parameters,
+            return_type,
+            body,
+        } => {
+            let new_name = ctx.add_and_rename(&name, &false);
+            ctx.start_scope();
+
+            let parameters = parameters
+                .iter()
+                .map(|p| middle_end::ast::Parameter {
+                    span: p.span.clone(),
+                    identifier: ctx.add_and_rename(&p.identifier, &false),
+                    type_: p.type_.clone(),
+                })
+                .collect();
+
+            let (body, errors) = resolve_block(ctx, body);
+            let mut body_statements = body.statements.clone();
+            if let Some(return_expression) = body.return_expression {
+                body_statements.push(middle_end::ast::Statement {
+                    span: return_expression.span.clone(),
+                    kind: middle_end::ast::StatementKind::Return(Some(return_expression)),
+                });
+            }
+
+            ctx.end_scope();
+            (
+                middle_end::ast::TopLevelStatement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ast::TopLevelStatementKind::FunctionDefinition {
+                        is_public: *is_public,
+                        name: new_name,
+                        parameters,
+                        return_type: return_type.clone(),
+                        body: body_statements,
+                    },
+                },
+                errors,
+            )
+        }
+        frontend::ast::TopLevelStatementKind::Expression(expression) => {
+            let (expr, errors) = resolve_expression(ctx, expression);
+            (
+                middle_end::ast::TopLevelStatement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ast::TopLevelStatementKind::Expression(expr),
+                },
+                errors,
+            )
         }
     }
 }

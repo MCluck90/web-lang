@@ -20,7 +20,7 @@ pub struct Module {
 pub struct ModuleAST {
     pub path: String,
     pub imports: Vec<Import>,
-    pub statements: Vec<Statement>,
+    pub statements: Vec<TopLevelStatement>,
 }
 
 #[derive(Clone, Debug)]
@@ -85,6 +85,30 @@ pub enum ImportSelectorKind {
     Name(String),
     // TODO: Aliased { original: String, alias: String },
     // TODO: All(String), // Alias
+}
+
+#[derive(Clone, Debug)]
+pub struct TopLevelStatement {
+    pub span: Span,
+    pub kind: TopLevelStatementKind,
+}
+
+#[derive(Clone, Debug)]
+pub enum TopLevelStatementKind {
+    VariableDeclaration {
+        is_public: bool,
+        is_mutable: bool,
+        identifier: Identifier,
+        initializer: Box<Expression>,
+    },
+    FunctionDefinition {
+        is_public: bool,
+        name: Identifier,
+        parameters: Vec<Parameter>,
+        return_type: Type,
+        body: Vec<Statement>,
+    },
+    Expression(Expression),
 }
 
 #[derive(Clone, Debug)]

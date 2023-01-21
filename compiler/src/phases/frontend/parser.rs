@@ -7,7 +7,7 @@ use super::{ast::*, BinaryOperator, BuiltInTypeToken, Span, Token};
 pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = CompilerError> + Clone {
     import_parser()
         .repeated()
-        .then(statement_parser().repeated().then_ignore(end()))
+        .then(top_level_statement_parser().repeated().then_ignore(end()))
         .map(move |(imports, statements)| ModuleAST {
             path: path.clone(),
             imports,
@@ -84,6 +84,80 @@ fn import_parser() -> impl Parser<Token, Import, Error = CompilerError> + Clone 
     just(Token::Use)
         .ignore_then(package_parser)
         .then_ignore(just(Token::Terminator))
+}
+
+fn top_level_statement_parser(
+) -> impl Parser<Token, TopLevelStatement, Error = CompilerError> + Clone {
+    let variable_declaration = just(Token::Pub)
+        .or_not()
+        .then(just(Token::Let).to(false).or(just(Token::Mut).to(true)))
+        .then(identifier_parser())
+        .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
+        .then(expression_parser(statement_parser()))
+        .then_ignore(just(Token::Terminator))
+        .map_with_span(
+            |(((is_public, is_mutable), identifier), initializer), span| TopLevelStatement {
+                span,
+                kind: TopLevelStatementKind::VariableDeclaration {
+                    is_public: is_public.is_some(),
+                    is_mutable,
+                    identifier,
+                    initializer: Box::new(initializer),
+                },
+            },
+        );
+
+    let block = just(Token::OpenBlock)
+        .ignore_then(statement_parser().repeated())
+        .then(expression_parser(statement_parser()).or_not())
+        .then_ignore(just(Token::CloseBlock))
+        .map_with_span(|(statements, return_expression), span| Block {
+            span: span.clone(),
+            statements,
+            return_expression,
+        });
+
+    let parameters = identifier_parser()
+        .then_ignore(just(Token::KeyValueSeparator))
+        .then(type_parser())
+        .map(|(identifier, type_)| Parameter::new(identifier.clone().span, identifier, type_))
+        .labelled("parameter")
+        .separated_by(just(Token::ListSeparator))
+        .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
+        .map_with_span(|parameters, span| (parameters, span));
+
+    let function_definition = just(Token::Pub)
+        .or_not()
+        .then_ignore(just(Token::Let))
+        .then(identifier_parser())
+        .then(parameters)
+        .then(
+            just(Token::KeyValueSeparator)
+                .ignore_then(type_parser())
+                .or_not(),
+        )
+        .then(block)
+        .map_with_span(
+            |((((is_public, name), parameters), return_type), body), span| TopLevelStatement {
+                span,
+                kind: TopLevelStatementKind::FunctionDefinition {
+                    is_public: is_public.is_some(),
+                    name,
+                    parameters: parameters.0,
+                    return_type: return_type.unwrap_or(Type::Void),
+                    body,
+                },
+            },
+        );
+
+    let expression = expression_parser(statement_parser().clone())
+        .then_ignore(just(Token::Terminator))
+        .map(|expression| TopLevelStatement {
+            span: expression.span.clone(),
+            kind: TopLevelStatementKind::Expression(expression),
+        });
+
+    variable_declaration.or(function_definition).or(expression)
 }
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + Clone {
@@ -167,7 +241,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
 }
 
 fn expression_parser<'a>(
-    statement: Recursive<'a, Token, Statement, CompilerError>,
+    statement: impl Parser<Token, Statement, Error = CompilerError> + Clone + 'a,
 ) -> impl Parser<Token, Expression, Error = CompilerError> + Clone + 'a {
     recursive(|expr| {
         let parenthesized_expr: chumsky::combinator::DelimitedBy<

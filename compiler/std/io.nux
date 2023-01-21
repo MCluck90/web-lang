@@ -1,4 +1,4 @@
-let log(msg: string) {
+pub let log(msg: string) {
   #js { 
     "console.log(" msg ")"
   }

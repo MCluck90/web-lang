@@ -49,7 +49,7 @@
       "patterns": [
         {
           "name": "keyword.control.nux",
-          "match": "\\b(if|loop|return|use)\\b"
+          "match": "\\b(if|loop|pub|return|use)\\b"
         },
         {
           "comment": "storage keywords",
