@@ -160,7 +160,7 @@ pub enum StatementKind {
         name: Identifier,
         parameters: Vec<Parameter>,
         return_type: Type,
-        body: Box<Expression>,
+        body: Block,
     },
     Expression(Expression),
     Return(Option<Expression>),

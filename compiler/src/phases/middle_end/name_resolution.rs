@@ -281,7 +281,14 @@ fn resolve_statement(
                 })
                 .collect();
 
-            let (body, errors) = resolve_expression(ctx, body);
+            let (body, errors) = resolve_block(ctx, body);
+            let mut body_statements = body.statements.clone();
+            if let Some(return_expression) = body.return_expression {
+                body_statements.push(middle_end::ast::Statement {
+                    span: return_expression.span.clone(),
+                    kind: middle_end::ast::StatementKind::Return(Some(return_expression)),
+                });
+            }
 
             ctx.end_scope();
             (
@@ -291,7 +298,7 @@ fn resolve_statement(
                         name: new_name,
                         parameters,
                         return_type: return_type.clone(),
-                        body: Box::new(body),
+                        body: body_statements,
                     },
                 },
                 errors,

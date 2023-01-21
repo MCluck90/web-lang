@@ -29,6 +29,7 @@ pub enum Type {
         return_type: Box<Type>,
     },
     Custom(String),
+    Union(Box<Type>, Box<Type>),
 }
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -61,6 +62,7 @@ impl fmt::Display for Type {
                     .collect::<Vec<String>>()
                     .join(", "),
             ),
+            Type::Union(left, right) => write!(f, "{} | {}", left, right),
         }
     }
 }

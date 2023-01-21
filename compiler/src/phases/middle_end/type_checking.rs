@@ -16,12 +16,21 @@ use super::ast::{Expression, ExpressionKind, Module, Parameter, Statement, State
 
 struct TypeContext {
     pub primitive_types: HashMap<Type, ObjectType>,
+
+    /// A stack of return types found within a function.
+    ///
+    /// Why a stack? Because we support nested function definitions. Each element on the top-level stack correlates
+    /// with a new function scope. Each element inside of the inner stack tells us what type we're attempting to return
+    /// and where that return statement is. This allows us to both identify any potential type issues and report where
+    /// those type issues occur.
+    pub found_return_types: Vec<Vec<(TypeSymbol, Span)>>,
 }
 
 /// Infers and checks types.
 pub fn check_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
     let mut type_context = &mut TypeContext {
         primitive_types: build_primitive_types(),
+        found_return_types: Vec::new(),
     };
     for module in modules {
         visit_module(module, symbol_table, &mut type_context);
@@ -69,6 +78,7 @@ fn visit_statement(
             return_type,
             body,
         } => {
+            type_context.found_return_types.push(Vec::new());
             let parameter_types = parameters
                 .iter()
                 .map(|p| visit_parameter(p, symbol_table))
@@ -82,21 +92,25 @@ fn visit_statement(
                 ValueSymbol::new().with_type(function_type.clone()),
             );
 
-            let body_type = visit_expression(body, symbol_table, type_context)?;
+            for stmt in body {
+                visit_statement(stmt, symbol_table, type_context)?;
+            }
 
-            if *return_type != body_type.type_ {
-                let span = match &body.kind {
-                    ExpressionKind::Block(block) => match &block.return_expression {
-                        Some(expr) => expr.span.clone(),
-                        None => block.span.clone(),
-                    },
-                    _ => body.span.clone(),
-                };
-                Err(vec![CompilerError::invalid_return_value(
-                    &span,
-                    &return_type.clone().into(),
-                    &body_type,
-                )])
+            let return_type = TypeSymbol::from(return_type);
+            let found_returns = type_context.found_return_types.pop().unwrap();
+            let mut errors: Vec<CompilerError> = Vec::new();
+            for (return_statement_type, span) in found_returns {
+                if return_statement_type.type_ != return_type.type_ {
+                    errors.push(CompilerError::invalid_return_value(
+                        &span,
+                        &return_type,
+                        &return_statement_type,
+                    ));
+                }
+            }
+
+            if !errors.is_empty() {
+                Err(errors)
             } else {
                 Ok(())
             }
@@ -105,7 +119,15 @@ fn visit_statement(
             visit_expression(&expression, symbol_table, type_context).map(|_| ())
         }
         StatementKind::Return(expr) => match &expr {
-            Some(expr) => visit_expression(expr, symbol_table, type_context).map(|_| ()),
+            Some(expr) => {
+                let expr_type = visit_expression(expr, symbol_table, type_context)?;
+                type_context
+                    .found_return_types
+                    .last_mut()
+                    .unwrap()
+                    .push((expr_type, expr.span.clone()));
+                Ok(())
+            }
             None => Ok(()),
         },
     }

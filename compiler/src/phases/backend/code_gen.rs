@@ -62,14 +62,17 @@ fn visit_statement(statement: &Statement) -> String {
                 body,
                 ..
             } => format!(
-                "const {}=({})=>{}",
+                "const {}=({})=>{{{}}}",
                 name,
                 parameters
                     .iter()
                     .map(|p| p.identifier.name.clone())
                     .collect::<Vec<String>>()
                     .join(","),
-                visit_expression(&body),
+                body.iter()
+                    .map(visit_statement)
+                    .collect::<Vec<_>>()
+                    .join(";"),
             ),
             StatementKind::Return(expr) => match expr {
                 Some(expr) => format!("return {}", visit_expression(expr)),

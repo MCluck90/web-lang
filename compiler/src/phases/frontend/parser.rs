@@ -108,15 +108,10 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
             .ignore_then(statement.clone().repeated())
             .then(expression_parser(statement.clone()).or_not())
             .then_ignore(just(Token::CloseBlock))
-            .map_with_span(|(statements, return_expression), span| {
-                Expression::new(
-                    ExpressionKind::Block(Box::new(Block {
-                        span: span.clone(),
-                        statements,
-                        return_expression,
-                    })),
-                    span,
-                )
+            .map_with_span(|(statements, return_expression), span| Block {
+                span: span.clone(),
+                statements,
+                return_expression,
             });
 
         let parameters = identifier_parser()
@@ -144,7 +139,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
                         name,
                         parameters: parameters.0,
                         return_type: return_type.unwrap_or(Type::Void),
-                        body: Box::new(body.into()),
+                        body,
                     },
                 },
             );

@@ -25,3 +25,16 @@ if true { let n = 0; n } else { let n = 1; n } = 5;
 mut n = 0;
 n + 1 = n + 1;
 add(2, 3) = 5;
+
+// Detects invalid return values for functions
+let getN(n: int): int {
+    if n > 10 {
+        return "big";
+    };
+
+    if n < 0 {
+        return false;
+    };
+
+    n
+}
