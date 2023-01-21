@@ -7,7 +7,7 @@ add(2, 3);
 add("2", "3");
 
 let toString(n: int): string {
-    n
+  n
 }
 
 // Can only use booleans with logic operators
@@ -28,13 +28,13 @@ add(2, 3) = 5;
 
 // Detects invalid return values for functions
 let getN(n: int): int {
-    if n > 10 {
-        return "big";
-    };
+  if n > 10 {
+    return "big";
+  };
 
-    if n < 0 {
-        return false;
-    };
+  if n < 0 {
+    return false;
+  };
 
-    n
+  n
 }
