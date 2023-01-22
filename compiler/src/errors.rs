@@ -196,6 +196,16 @@ impl CompilerError {
         }
     }
 
+    pub fn invalid_import(span: &Span, import_path: &String, identifier: &String) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::InvalidImport {
+                import_path: import_path.clone(),
+                identifier: identifier.clone(),
+            },
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -278,6 +288,12 @@ pub enum CompilerErrorReason {
     CouldNotFindModule {
         path: String,
     },
+
+    // Ex: Could not find `(identifier)` in module at `(import_path)`
+    InvalidImport {
+        import_path: String,
+        identifier: String,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -295,6 +311,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::NoFieldOnType { .. } => 10,
             CompilerErrorReason::InvalidLhsInAssignment => 11,
             CompilerErrorReason::CouldNotFindModule { .. } => 12,
+            CompilerErrorReason::InvalidImport { .. } => 13,
         }
     }
 
@@ -412,6 +429,13 @@ impl CompilerErrorReason {
             CompilerErrorReason::CouldNotFindModule { path } => {
                 format!("Could not find module at path: {}", path)
             }
+            CompilerErrorReason::InvalidImport {
+                import_path,
+                identifier,
+            } => format!(
+                "Could not find `{}` in module at `{}`",
+                identifier, import_path
+            ),
         }
     }
 
@@ -473,6 +497,9 @@ impl CompilerErrorReason {
                 .with_color(Color::Red),
             CompilerErrorReason::InvalidLhsInAssignment => label.with_color(Color::Red),
             CompilerErrorReason::CouldNotFindModule { .. } => label.with_color(Color::Red),
+            CompilerErrorReason::InvalidImport { import_path, .. } => label
+                .with_message(format!("{} does not export this identifier", import_path))
+                .with_color(Color::Red),
         }
     }
 }

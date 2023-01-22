@@ -441,6 +441,13 @@ fn visit_expression(
                     parameters.iter().map(TypeSymbol::from).collect::<Vec<_>>(),
                     return_type.clone(),
                 ),
+                Type::Unknown => {
+                    // If the type is unknown at this point, we've already reported the issue elsewhere.
+                    for arg in arguments {
+                        visit_expression(arg, symbol_table, type_context)?;
+                    }
+                    return Ok(TypeSymbol::from(Type::Unknown));
+                }
                 _ => {
                     return Err(vec![CompilerError::type_cannot_be_called_as_a_function(
                         &expression.span,

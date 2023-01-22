@@ -1,4 +1,5 @@
-pub mod ast;
+mod ast;
+pub mod ir;
 pub mod lexer;
 mod parser;
 
@@ -10,10 +11,7 @@ use std::{
 use chumsky::{Parser, Stream};
 pub use lexer::{BinaryOperator, BuiltInTypeToken, Span, Token};
 
-use crate::{
-    errors::{print_error_report, CompilerError},
-    module_paths::from_package_import,
-};
+use crate::errors::{print_error_report, CompilerError};
 
 use self::parser::module_parser;
 
@@ -26,7 +24,7 @@ pub struct Program {
     // Collection of module paths.
     // Contents of the module can be found in `module_by_path`
     pub modules_in_order: Vec<ModulePath>,
-    pub module_by_path: HashMap<ModulePath, ast::Module>,
+    pub module_by_path: HashMap<ModulePath, ir::Module>,
 }
 
 /// Used when handling importing modules.
@@ -79,32 +77,19 @@ impl Program {
                     match &module.ast {
                         Some(ast) => {
                             for import in ast.imports.iter().rev() {
-                                match &import.kind {
-                                    ast::ImportKind::Package {
-                                        scope,
-                                        package,
-                                        path,
-                                        ..
-                                    } => {
-                                        let next_module_path = from_package_import(
-                                            &scope.name,
-                                            &package.name,
-                                            &path.iter().map(|ident| ident.name.clone()).collect(),
-                                        );
-                                        if !visited_modules.contains(&next_module_path) {
-                                            module_paths.push(ModuleContext {
-                                                module_to_parse: next_module_path,
-                                                module_who_imported: module_path.clone(),
-                                                span_of_import: import.span.clone(),
-                                            });
-                                        }
-                                    }
+                                let next_module_path = import.to_path();
+                                if !visited_modules.contains(&next_module_path) {
+                                    module_paths.push(ModuleContext {
+                                        module_to_parse: next_module_path,
+                                        module_who_imported: module_path.clone(),
+                                        span_of_import: import.span.clone(),
+                                    });
                                 }
                             }
                         }
                         None => {}
                     };
-                    program.module_by_path.insert(module_path, module);
+                    program.module_by_path.insert(module_path, module.into());
                 }
                 Err((path, err)) => {
                     print_error_report(&path, &vec![err]);

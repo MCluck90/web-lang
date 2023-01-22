@@ -28,6 +28,30 @@ pub struct Import {
     pub span: Span,
     pub kind: ImportKind,
 }
+impl Import {
+    pub fn to_path(&self) -> String {
+        match &self.kind {
+            ImportKind::Package {
+                scope,
+                package,
+                path,
+                selectors: _,
+            } => {
+                let inner_path = path
+                    .iter()
+                    .map(|i| i.name.clone())
+                    .collect::<Vec<_>>()
+                    .join("/");
+                if inner_path.is_empty() {
+                    format!("./{}/{}.nux", scope, package)
+                } else {
+                    format!("./{}/{}/{}.nux", scope, package, inner_path)
+                }
+                .to_string()
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum ImportKind {
