@@ -501,7 +501,7 @@ fn merge_errors(left: CompilerError, right: CompilerError) -> CompilerError {
                 found: found_left,
             },
             UnexpectedCharacter {
-                expected: mut expected_right,
+                expected: expected_right,
                 ..
             },
         ) => {
@@ -511,8 +511,12 @@ fn merge_errors(left: CompilerError, right: CompilerError) -> CompilerError {
                 expected_left
             };
 
-            // TODO: Filter out duplicates
-            expected.append(&mut expected_right);
+            for expected_char in expected_right {
+                if !expected.contains(&expected_char) {
+                    expected.push(expected_char);
+                }
+            }
+
             CompilerError {
                 span: left.span,
                 reason: UnexpectedCharacter {
@@ -527,7 +531,7 @@ fn merge_errors(left: CompilerError, right: CompilerError) -> CompilerError {
                 found: found_left,
             },
             UnexpectedToken {
-                expected: mut expected_right,
+                expected: expected_right,
                 ..
             },
         ) => {
@@ -537,8 +541,12 @@ fn merge_errors(left: CompilerError, right: CompilerError) -> CompilerError {
                 expected_left
             };
 
-            // TODO: Filter out duplicates
-            expected.append(&mut expected_right);
+            for expected_char in expected_right {
+                if !expected.contains(&expected_char) {
+                    expected.push(expected_char);
+                }
+            }
+
             CompilerError {
                 span: left.span,
                 reason: UnexpectedToken {
