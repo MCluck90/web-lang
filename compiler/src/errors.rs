@@ -23,8 +23,14 @@ impl chumsky::Error<char> for CompilerError {
         Self::unexpected_character(&span, expected.into_iter().collect(), found)
     }
 
-    fn with_label(self, _label: Self::Label) -> Self {
-        todo!()
+    fn with_label(self, label: Self::Label) -> Self {
+        eprintln!(
+            "Attempted to add label `{}` but was ignored. Here's where you need to change:\n{}:{}",
+            label,
+            file!(),
+            line!()
+        );
+        self
     }
 
     fn merge(self, other: Self) -> Self {
@@ -44,8 +50,14 @@ impl chumsky::Error<Token> for CompilerError {
         Self::unexpected_token(&span, expected.into_iter().collect(), found)
     }
 
-    fn with_label(self, _label: Self::Label) -> Self {
-        todo!()
+    fn with_label(self, label: Self::Label) -> Self {
+        eprintln!(
+            "Attempted to add label `{}` but was ignored. Here's where you need to change:\n{}:{}",
+            label,
+            file!(),
+            line!()
+        );
+        self
     }
 
     fn merge(self, other: Self) -> Self {
