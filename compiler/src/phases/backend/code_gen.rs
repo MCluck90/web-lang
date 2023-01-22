@@ -1,5 +1,5 @@
 use crate::phases::middle_end::{
-    ast::{
+    ir::{
         Expression, ExpressionKind, Statement, StatementKind, TopLevelStatement,
         TopLevelStatementKind,
     },

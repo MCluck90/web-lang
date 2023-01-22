@@ -4,7 +4,7 @@ use self::{name_resolution::resolve_names, type_checking::check_types};
 
 use super::frontend;
 
-pub mod ast;
+pub mod ir;
 mod name_resolution;
 mod type_checking;
 
@@ -41,5 +41,5 @@ pub fn run_middle_end(program: frontend::Program) -> (Program, bool) {
 }
 
 pub struct Program {
-    pub modules: Vec<ast::Module>,
+    pub modules: Vec<ir::Module>,
 }

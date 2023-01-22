@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-use super::ast::{
+use super::ir::{
     Expression, ExpressionKind, Module, Parameter, Statement, StatementKind, TopLevelStatement,
     TopLevelStatementKind,
 };
