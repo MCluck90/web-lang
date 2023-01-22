@@ -1,6 +1,7 @@
 # Notes
 
 ## Generating blocks with return statements
+
 I want to allow for early returns. However, to enable blocks as expressions, the code is generated as anonymous
 functions. For example:
 
@@ -21,17 +22,18 @@ compiles to
 
 ```js
 const checkErrors = () => {
-    const errorLevel = numOfErrors > 10
-        ? (() => {
-            print(`This is really bad`);
-            return `Critical`;
+  const errorLevel =
+    numOfErrors > 10
+      ? (() => {
+          print(`This is really bad`);
+          return `Critical`;
         })()
-        : (() => {
-            print(`This is pretty bad`);
-            return `Danger`;
+      : (() => {
+          print(`This is pretty bad`);
+          return `Danger`;
         })();
-    // ...
-}
+  // ...
+};
 ```
 
 which means that adding our own return statements inside of `if` expressions would not work.
@@ -61,23 +63,24 @@ would compile to
 
 ```js
 const checkErrors = () => {
-    const errorLevel = numOfErrors > 10
-        ? (() => {
-            if (ignore) {
-                return "None"
-            }
-            print(`This is really bad`);
-            return `Critical`;
+  const errorLevel =
+    numOfErrors > 10
+      ? (() => {
+          if (ignore) {
+            return "None";
+          }
+          print(`This is really bad`);
+          return `Critical`;
         })()
-        : (() => {
-            if (ignore) {
-                return "None"
-            }
-            print(`This is pretty bad`);
-            return `Danger`;
+      : (() => {
+          if (ignore) {
+            return "None";
+          }
+          print(`This is pretty bad`);
+          return `Danger`;
         })();
-    // ...
-}
+  // ...
+};
 ```
 
 So `return` statements have no way of escaping the correct scope.
@@ -87,23 +90,23 @@ variables that they would assign to and use those temporary values in place of t
 
 ```js
 const checkErrors = () => {
-    let temp;
-    if (numOfErrors > 10) {
-        if (ignore) {
-            return `None`;
-        }
-        print(`This is really bad`);
-        temp = `Critical`;
-    } else {
-        if (ignore) {
-            return `None`;
-        }
-        print(`This is pretty bad`);
-        temp = `Danger`
+  let temp;
+  if (numOfErrors > 10) {
+    if (ignore) {
+      return `None`;
     }
-    const errorLevel = temp;
-    // ...
-}
+    print(`This is really bad`);
+    temp = `Critical`;
+  } else {
+    if (ignore) {
+      return `None`;
+    }
+    print(`This is pretty bad`);
+    temp = `Danger`;
+  }
+  const errorLevel = temp;
+  // ...
+};
 ```
 
 ## Loops
@@ -142,5 +145,55 @@ loop (let i = 0; i < 10; i++) {
 ```
 
 ### Problem
+
 Harder to talk about in real life. It's easier to say "you should use a for loop" than it is to say "you should use a
 loop with an initializer, condition, and post-loop expression."
+
+## Imports
+
+Imports will all have a source and a series of selectors.
+
+The source indicates where to search for the module and the selectors tell us what to extract from that module.
+
+### Selectors
+
+Selectors may be prefixed with a path to allow for namespacing.
+
+```
+/path/to/module/{ imports };
+```
+
+Selectors can use the name as exported from the module, provide an alias, or load the entire module under a single name.
+
+```
+/path/to/module/{
+    normalName,
+    originalName as aliased,
+    * as entireModule
+};
+```
+
+### Package Imports
+
+These import from modules outside of the current project. This includes the standard library or third-party libraries.
+
+```rust
+use @std:io/{ log };
+```
+
+### Absolute Imports
+
+Reference modules from the root of the current project.
+
+```rust
+use ~/internal_lib/{ someFunction };
+```
+
+### Relative Imports
+
+For referencing modules which are nearby in the file system.
+
+```rust
+use ./nested/library/{ someFunction };
+use ../../other_library/{ someFunction };
+```
