@@ -8,8 +8,6 @@ use crate::{
 
 use super::ir::ImportSelectorKind;
 
-// TODO: Add name resolution errors when importing something from a module
-// and that thing doesn't exist
 pub fn resolve_names(
     source_modules: Vec<&frontend::ir::Module>,
 ) -> (Vec<middle_end::ir::Module>, SymbolTable) {
