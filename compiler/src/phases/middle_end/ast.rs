@@ -83,8 +83,6 @@ impl ImportSelector {
 #[derive(Clone, Debug)]
 pub enum ImportSelectorKind {
     Name(String),
-    // TODO: Aliased { original: String, alias: String },
-    // TODO: All(String), // Alias
 }
 
 #[derive(Clone, Debug)]

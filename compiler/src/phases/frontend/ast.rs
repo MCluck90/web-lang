@@ -110,13 +110,6 @@ pub enum ExpressionKind {
     String(String),
     Block(Box<Block>),
 
-    // Ex: `Todo { title: "Write a compiler" }`
-    // ObjectLiteral(String, HashMap<String, Expression>),
-
-    // TODO: Lift out in to a statement
-    // TODO: It doesn't make sense to allow a variable declaration to be the result for a block, for example
-
-    // UnaryExpression(Operator, Box<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
     FunctionCall {
@@ -124,10 +117,6 @@ pub enum ExpressionKind {
         arguments: Vec<Expression>,
     },
     JsBlock(Type, Vec<Expression>),
-    // AnonymousFunction {
-    //     parameters: Vec<Parameter>,
-    //     body: Box<Expression>,
-    // },
     If {
         condition: Box<Expression>,
         body: Box<Expression>,

@@ -181,7 +181,6 @@ fn resolve_module(
         let (statement, mut errs) = resolve_top_level_statement(ctx, statement);
         errors.append(&mut errs);
 
-        // TODO: Change this to handle visibility modifiers
         match &statement.kind {
             middle_end::ast::TopLevelStatementKind::VariableDeclaration {
                 is_public,
