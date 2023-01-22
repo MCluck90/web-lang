@@ -1,5 +1,4 @@
 mod errors;
-mod module_paths;
 mod phases;
 mod types;
 

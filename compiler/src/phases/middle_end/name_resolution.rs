@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use crate::{
     errors::CompilerError,
-    frontend, middle_end, module_paths,
+    frontend, middle_end,
     types::symbol_table::{SymbolTable, ValueId, ValueSymbol},
 };
+
+use super::ir::ImportSelectorKind;
 
 // TODO: Add name resolution errors when importing something from a module
 // and that thing doesn't exist
@@ -26,7 +28,7 @@ pub fn resolve_names(
             .ast
             .imports
             .iter()
-            .map(|import| (import.to_path(), import.to_identifiers()));
+            .map(|import| (import.path.clone(), import.to_identifiers()));
 
         for (path, identifiers) in imports {
             if let Some(exports) = ctx.exports.get(&path) {
@@ -243,29 +245,16 @@ fn resolve_import(
     ctx: &mut Context,
     import: &frontend::ir::Import,
 ) -> (middle_end::ir::Import, Vec<CompilerError>) {
-    match &import.kind {
-        frontend::ir::ImportKind::Package {
-            scope,
-            package,
-            path,
-            selectors,
-        } => {
-            let module_path = module_paths::from_package_import(
-                &scope.name,
-                &package.name,
-                &path.iter().map(|i| i.name.clone()).collect(),
-            );
-            let new_import = middle_end::ir::Import::from_source(&import);
-            for selector in selectors {
-                match &selector.kind {
-                    frontend::ir::ImportSelectorKind::Name(name) => {
-                        ctx.add_from_module_to_scope(&module_path, name);
-                    }
-                }
+    let module_path = import.to_path();
+    let new_import = middle_end::ir::Import::from_source(&import);
+    for selector in &new_import.selectors {
+        match &selector.kind {
+            ImportSelectorKind::Name(name) => {
+                ctx.add_from_module_to_scope(&module_path, name);
             }
-            (new_import, Vec::new())
         }
     }
+    (new_import, Vec::new())
 }
 
 fn resolve_top_level_statement(
