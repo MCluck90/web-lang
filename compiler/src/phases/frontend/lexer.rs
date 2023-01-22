@@ -195,14 +195,31 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
         just("#js").to(Token::StartJsBlock),
     ));
 
+    let escape_sequence = just('\\').ignore_then(choice::<_, CompilerError>((
+        just('r').to('\r'),
+        just('n').to('\n'),
+        just('t').to('\t'),
+    )));
+    let escaped_single_quote = just('\\').ignore_then(just('\''));
     let single_quote_string = just('\'')
-        .ignore_then(filter(|c| *c != '\'').repeated())
+        .ignore_then(
+            escape_sequence
+                .or(escaped_single_quote)
+                .or(filter(|c| *c != '\''))
+                .repeated(),
+        )
         .then_ignore(just('\''))
         .collect::<String>()
         .map(Token::String);
 
+    let escaped_double_quote = just('\\').ignore_then(just('"'));
     let double_quote_string = just('"')
-        .ignore_then(filter(|c| *c != '"').repeated())
+        .ignore_then(
+            escape_sequence
+                .or(escaped_double_quote)
+                .or(filter(|c| *c != '"'))
+                .repeated(),
+        )
         .then_ignore(just('"'))
         .collect::<String>()
         .map(Token::String);

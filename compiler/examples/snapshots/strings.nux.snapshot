@@ -1,0 +1,1 @@
+{"stdout":"Single quotes\nDouble quotes\nSingle with escaped quote'\nDouble with escaped quote\"\nEscape sequences: \r\n\t\n","stderr":"","exit_code":0}

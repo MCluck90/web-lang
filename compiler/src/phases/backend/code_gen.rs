@@ -200,6 +200,12 @@ fn visit_expression(expression: &Expression) -> String {
         ExpressionKind::Integer(n) => n.to_string(),
 
         // TODO: Generate strings with correct quotes and escape characters
-        ExpressionKind::String(s) => format!("`{}`", s),
+        ExpressionKind::String(s) => format!(
+            "`{}`",
+            s.replace("`", "\\`")
+                .replace("\r", "\\r")
+                .replace("\n", "\\n")
+                .replace("\t", "\\t")
+        ),
     }
 }

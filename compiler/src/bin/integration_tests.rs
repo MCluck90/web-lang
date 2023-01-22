@@ -123,8 +123,4 @@ fn run_test(file_name: &String, mode: &Mode) {
             println!("✅ {}: Saved snapshot!", path_to_file.to_str().unwrap());
         }
     }
-
-    // TODO: Pull up and compare against snapshot in Run mode
-    // let path_to_snapshot = format!("{}.snapshot", path_to_file.to_str().unwrap());
-    // let maybe_snapshot = Path::new(&path_to_snapshot);
 }

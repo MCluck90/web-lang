@@ -1,0 +1,7 @@
+use @std:io/{ log };
+
+log('Single quotes');
+log("Double quotes");
+log('Single with escaped quote\'');
+log("Double with escaped quote\"");
+log('Escape sequences: \r\n\t');
