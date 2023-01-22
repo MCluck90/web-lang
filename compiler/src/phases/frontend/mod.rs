@@ -29,6 +29,14 @@ pub struct Program {
     pub module_by_path: HashMap<ModulePath, ast::Module>,
 }
 
+/// Used when handling importing modules.
+/// Allows us to determine who asked for a module to be imported so we can report errors correctly
+struct ModuleContext {
+    pub module_to_parse: ModulePath,
+    pub module_who_imported: ModulePath,
+    pub span_of_import: Span,
+}
+
 impl Program {
     pub fn from_entry_point(entry_path: String) -> Result<(Self, bool), String> {
         let path = Path::new(&entry_path);
@@ -36,10 +44,11 @@ impl Program {
             return Err(format!("Could not find file: {}", entry_path));
         }
 
-        // TODO: Make this a struct
-        // (path_of_module_to_parse, (path_of_module_who_imported, span_of_import_statement))
-        let mut module_paths: Vec<(String, (String, Span))> =
-            vec![(entry_path.clone(), ("".into(), 0..0))];
+        let mut module_paths: Vec<ModuleContext> = vec![ModuleContext {
+            module_to_parse: entry_path.clone(),
+            module_who_imported: "".into(),
+            span_of_import: 0..0,
+        }];
         let mut visited_modules = HashSet::<String>::new();
         let mut has_errors = false;
         let mut program = Program {
@@ -48,7 +57,10 @@ impl Program {
         };
 
         while !module_paths.is_empty() {
-            let (module_path, (requester_path, import_span)) = module_paths.pop().unwrap();
+            let context = module_paths.pop().unwrap();
+            let module_path = context.module_to_parse;
+            let requester_path = context.module_who_imported;
+            let import_span = context.span_of_import;
             match program.parse_module(
                 std::path::Path::new(&module_path),
                 &requester_path,
@@ -80,10 +92,11 @@ impl Program {
                                             &path.iter().map(|ident| ident.name.clone()).collect(),
                                         );
                                         if !visited_modules.contains(&next_module_path) {
-                                            module_paths.push((
-                                                next_module_path,
-                                                (module_path.clone(), import.span.clone()),
-                                            ));
+                                            module_paths.push(ModuleContext {
+                                                module_to_parse: next_module_path,
+                                                module_who_imported: module_path.clone(),
+                                                span_of_import: import.span.clone(),
+                                            });
                                         }
                                     }
                                 }
