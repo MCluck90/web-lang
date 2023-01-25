@@ -1,10 +1,4 @@
-use crate::phases::middle_end::{
-    ir::{
-        Expression, ExpressionKind, Statement, StatementKind, TopLevelStatement,
-        TopLevelStatementKind,
-    },
-    Program,
-};
+use super::ir::{Expression, Statement};
 
 pub struct CodeGenOutput {
     pub html: Option<String>,
@@ -16,12 +10,16 @@ struct OutputBuilder {
     js: String,
 }
 
-pub fn generate_code(program: Program) -> CodeGenOutput {
+pub fn generate_code(statements: Vec<Statement>) -> CodeGenOutput {
     let mut builder = OutputBuilder {
         html: String::new(),
         js: String::new(),
     };
-    visit_program(&program, &mut builder);
+
+    for statement in statements {
+        builder.js.push_str(visit_statement(&statement).as_str());
+    }
+
     CodeGenOutput {
         html: if builder.html.is_empty() {
             None
@@ -36,99 +34,48 @@ pub fn generate_code(program: Program) -> CodeGenOutput {
     }
 }
 
-fn visit_program(program: &Program, output: &mut OutputBuilder) {
-    for module in &program.modules {
-        for statement in &module.ast.statements {
-            output
-                .js
-                .push_str(&visit_top_level_statement(&statement).as_str());
-        }
-    }
-}
-
-fn visit_top_level_statement(statement: &TopLevelStatement) -> String {
-    format!(
-        "{};",
-        match &statement.kind {
-            TopLevelStatementKind::VariableDeclaration {
-                is_mutable,
-                identifier,
-                initializer,
-                is_public: _,
-            } => format!(
-                "{} {}={}",
-                if *is_mutable { "let" } else { "const" },
-                identifier,
-                visit_expression(&initializer)
-            ),
-            TopLevelStatementKind::Expression(expr) => visit_expression(expr),
-            TopLevelStatementKind::FunctionDefinition {
-                name,
-                parameters,
-                body,
-                return_type: _,
-                is_public: _,
-            } => format!(
-                "const {}=({})=>{{{}}}",
-                name,
-                parameters
-                    .iter()
-                    .map(|p| p.identifier.name.clone())
-                    .collect::<Vec<String>>()
-                    .join(","),
-                body.iter()
-                    .map(visit_statement)
-                    .collect::<Vec<_>>()
-                    .join(";"),
-            ),
-        }
-    )
-}
-
 fn visit_statement(statement: &Statement) -> String {
     format!(
         "{};",
-        match &statement.kind {
-            StatementKind::VariableDeclaration {
+        match &statement {
+            Statement::VariableDeclaration {
                 is_mutable,
                 identifier,
                 initializer,
             } => format!(
-                "{} {}={}",
+                "{} {}{}",
                 if *is_mutable { "let" } else { "const" },
                 identifier,
-                visit_expression(&initializer)
+                match initializer {
+                    None => "".to_string(),
+                    Some(initializer) => format!("={}", visit_expression(initializer)),
+                }
             ),
-            StatementKind::Expression(expr) => visit_expression(expr),
-            StatementKind::FunctionDefinition {
+            Statement::FunctionDefinition {
                 name,
                 parameters,
                 body,
-                ..
             } => format!(
                 "const {}=({})=>{{{}}}",
                 name,
-                parameters
-                    .iter()
-                    .map(|p| p.identifier.name.clone())
-                    .collect::<Vec<String>>()
-                    .join(","),
-                body.iter()
+                parameters.join(","),
+                body.into_iter()
                     .map(visit_statement)
                     .collect::<Vec<_>>()
-                    .join(";"),
+                    .join("")
             ),
-            StatementKind::Return(expr) => match expr {
+            Statement::Return(expr) => match expr {
                 Some(expr) => format!("return {}", visit_expression(expr)),
-                None => "".into(),
+                None => "return".to_string(),
             },
+            Statement::Expression(expr) => visit_expression(expr),
         }
     )
 }
 
 fn visit_expression(expression: &Expression) -> String {
-    match &expression.kind {
-        ExpressionKind::BinaryExpression(left, op, right) => format!(
+    match &expression {
+        Expression::BinaryExpression(left, op, right) => format!(
             "{}{}{}",
             visit_expression(&left),
             op,
@@ -136,33 +83,16 @@ fn visit_expression(expression: &Expression) -> String {
         )
         .to_string(),
 
-        ExpressionKind::PropertyAccess(left, right) => {
-            format!("{}.{}", visit_expression(left), right.name)
+        Expression::PropertyAccess(left, right) => {
+            format!("{}.{}", visit_expression(left), right)
         }
 
-        ExpressionKind::Boolean(b) => b.to_string(),
+        Expression::Boolean(b) => b.to_string(),
 
-        ExpressionKind::Block(block) => {
-            format!(
-                "(()=>{{{}{}}})()",
-                block
-                    .statements
-                    .iter()
-                    .map(|statement| visit_statement(statement))
-                    .collect::<Vec<_>>()
-                    .join(""),
-                block
-                    .return_expression
-                    .clone()
-                    .map(|expr| format!("return {}", visit_expression(&expr)))
-                    .unwrap_or(String::new())
-            )
-        }
-
-        ExpressionKind::JsBlock(_, expressions) => expressions
+        Expression::JsBlock(expressions) => expressions
             .iter()
             .map(|expr| {
-                if let ExpressionKind::String(contents) = &expr.kind {
+                if let Expression::String(contents) = &expr {
                     contents.clone()
                 } else {
                     visit_expression(expr)
@@ -171,7 +101,7 @@ fn visit_expression(expression: &Expression) -> String {
             .collect::<Vec<_>>()
             .join(""),
 
-        ExpressionKind::FunctionCall { callee, arguments } => format!(
+        Expression::FunctionCall { callee, arguments } => format!(
             "{}({})",
             visit_expression(&callee),
             arguments
@@ -181,25 +111,11 @@ fn visit_expression(expression: &Expression) -> String {
                 .join(",")
         ),
 
-        ExpressionKind::Identifier(ident) => ident.name.clone(),
+        Expression::Identifier(ident) => ident.clone(),
 
-        // TODO: How do early returns work when everything is an expression?
-        ExpressionKind::If {
-            condition,
-            body,
-            else_,
-        } => format!(
-            "({})?{}:{}",
-            visit_expression(&condition),
-            visit_expression(&body),
-            else_
-                .clone()
-                .map_or("null".to_string(), |e| visit_expression(&e))
-        ),
+        Expression::Integer(n) => n.to_string(),
 
-        ExpressionKind::Integer(n) => n.to_string(),
-
-        ExpressionKind::String(s) => format!(
+        Expression::String(s) => format!(
             "`{}`",
             s.replace("`", "\\`")
                 .replace("\r", "\\r")
