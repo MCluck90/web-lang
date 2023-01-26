@@ -6,6 +6,9 @@
       "include": "#comments"
     },
     {
+      "include": "#functions"
+    },
+    {
       "include": "#keywords"
     },
     {
@@ -16,9 +19,6 @@
     },
     {
       "include": "#constants"
-    },
-    {
-      "include": "#functions"
     }
   ],
   "repository": {
@@ -49,7 +49,7 @@
       "patterns": [
         {
           "name": "keyword.control.nux",
-          "match": "\\b(if|loop|pub|return|use)\\b"
+          "match": "\\b(if|else|loop|pub|return|use)\\b"
         },
         {
           "comment": "storage keywords",
@@ -69,7 +69,7 @@
         {
           "comment": "Operators",
           "name": "keyword.operator.nux",
-          "match": "/|\\+|-|\\*"
+          "match": "/|\\+|\\s-|\\*"
         }
       ]
     },
@@ -147,7 +147,7 @@
     "functions": {
       "comment": "function/method calls, chaining",
       "name": "meta.function.call.nux",
-      "begin": "((?:r#(?!use))?[A-Za-z0-9_]+)(\\()",
+      "begin": "([a-zA-Z_][a-zA-Z0-9_-]*)(\\()",
       "beginCaptures": {
         "1": {
           "name": "entity.name.function.nux"

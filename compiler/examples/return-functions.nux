@@ -1,12 +1,12 @@
 use @std:io/{ log };
 
 
-let createAdder(x: int): (int) -> int {
+let create-adder(x: int): (int) -> int {
   let adder(y: int): int { x + y }
   adder
 }
 
-let add10 = createAdder(10);
+let add10 = create-adder(10);
 
 // 25
 log(add10(15).toString());

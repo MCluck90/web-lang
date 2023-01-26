@@ -244,7 +244,13 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
         just::<char, _, CompilerError>(".").to(Token::PropertyAccessOp),
     ));
 
-    let ident = text::ident().map(|ident: String| match ident.as_str() {
+    let identifier = filter::<char, _, CompilerError>(|c| c.is_ascii_alphabetic() || *c == '_')
+        .map(Some)
+        .chain::<char, Vec<_>, _>(
+            filter(|c: &char| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').repeated(),
+        )
+        .collect();
+    let ident = identifier.map(|ident: String| match ident.as_str() {
         "back" => Token::Back,
         "else" => Token::Else,
         "front" => Token::Front,

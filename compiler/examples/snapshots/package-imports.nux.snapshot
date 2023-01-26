@@ -1,1 +1,1 @@
-{"stdout":"Source code:\n============\nuse @std:io/{ log };\nuse @std:io/file/{ readFile };\n\nlog('Source code:');\nlog('============');\nlog(readFile('examples/package-imports.nux'));\nlog('============');\n============\n","stderr":"","exit_code":0}
+{"stdout":"Source code:\n============\nuse @std:io/{ log };\nuse @std:io/file/{ read-file };\n\nlog('Source code:');\nlog('============');\nlog(read-file('examples/package-imports.nux'));\nlog('============');\n\n============\n","stderr":"","exit_code":0}

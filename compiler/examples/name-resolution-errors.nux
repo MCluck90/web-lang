@@ -1,5 +1,5 @@
-use @std:io/{ notReal };
+use @std:io/{ not-real };
 
-thisFunctionDoesntExist();
+this-function-does-not-exist();
 
 nope;

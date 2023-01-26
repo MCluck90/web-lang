@@ -6,7 +6,7 @@ add(2, 3);
 // bad
 add("2", "3");
 
-let toString(n: int): string {
+let to-string(n: int): string {
   n
 }
 
@@ -27,7 +27,7 @@ n + 1 = n + 1;
 add(2, 3) = 5;
 
 // Detects invalid return values for functions
-let getN(n: int): int {
+let get-n(n: int): int {
   if n > 10 {
     return "big";
   };
