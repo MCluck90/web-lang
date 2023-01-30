@@ -337,7 +337,13 @@ fn resolve_top_level_statement(
         }
         frontend::ir::TopLevelStatementKind::Loop(body) => {
             let (body, errors) = resolve_block(ctx, body);
-            let body_statements = body.statements.clone();
+            let mut body_statements = body.statements.clone();
+            if let Some(expr) = body.return_expression {
+                body_statements.push(middle_end::ir::Statement {
+                    span: expr.span.clone(),
+                    kind: middle_end::ir::StatementKind::Expression(expr),
+                });
+            }
             (
                 middle_end::ir::TopLevelStatement {
                     span: statement.span.clone(),
