@@ -5,4 +5,4 @@ log(if true {
   'True branch'
 } else {
   'False branch'
-}); 
+});
