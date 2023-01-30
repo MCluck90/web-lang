@@ -103,6 +103,7 @@ pub enum TopLevelStatementKind {
         body: Vec<Statement>,
     },
     Expression(Expression),
+    Loop(Vec<Statement>),
 }
 
 #[derive(Clone, Debug)]
@@ -126,6 +127,8 @@ pub enum StatementKind {
     },
     Expression(Expression),
     Return(Option<Expression>),
+    Loop(Vec<Statement>),
+    Break,
 }
 
 #[derive(Clone, Debug)]

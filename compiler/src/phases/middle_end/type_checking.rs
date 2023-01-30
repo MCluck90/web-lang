@@ -123,6 +123,12 @@ fn visit_top_level_statement(
         TopLevelStatementKind::Expression(expression) => {
             visit_expression(&expression, symbol_table, type_context).map(|_| ())
         }
+        TopLevelStatementKind::Loop(body) => {
+            for stmt in body {
+                visit_statement(stmt, symbol_table, type_context)?;
+            }
+            Ok(())
+        }
     }
 }
 
@@ -204,6 +210,13 @@ fn visit_statement(
             }
             None => Ok(()),
         },
+        StatementKind::Loop(body) => {
+            for stmt in body {
+                visit_statement(stmt, symbol_table, type_context)?;
+            }
+            Ok(())
+        }
+        StatementKind::Break => Ok(()),
     }
 }
 

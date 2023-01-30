@@ -135,7 +135,7 @@ fn top_level_statement_parser(
                 .ignore_then(type_parser())
                 .or_not(),
         )
-        .then(block)
+        .then(block.clone())
         .map_with_span(
             |((((is_public, name), parameters), return_type), body), span| TopLevelStatement {
                 span,
@@ -149,6 +149,13 @@ fn top_level_statement_parser(
             },
         );
 
+    let loop_ = just(Token::Loop)
+        .ignore_then(block)
+        .map_with_span(|block, span| TopLevelStatement {
+            span,
+            kind: TopLevelStatementKind::Loop(block),
+        });
+
     let expression = expression_parser(statement_parser().clone())
         .then_ignore(just(Token::Terminator))
         .map(|expression| TopLevelStatement {
@@ -156,7 +163,10 @@ fn top_level_statement_parser(
             kind: TopLevelStatementKind::Expression(expression),
         });
 
-    variable_declaration.or(function_definition).or(expression)
+    variable_declaration
+        .or(function_definition)
+        .or(loop_)
+        .or(expression)
 }
 
 fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + Clone {
@@ -203,7 +213,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
                     .ignore_then(type_parser())
                     .or_not(),
             )
-            .then(block)
+            .then(block.clone())
             .map_with_span(
                 |(((name, parameters), return_type), body), span| Statement {
                     span,
@@ -215,6 +225,20 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
                     },
                 },
             );
+
+        let loop_ = just(Token::Loop)
+            .ignore_then(block)
+            .map_with_span(|block, span| Statement {
+                span,
+                kind: StatementKind::Loop(block),
+            });
+
+        let break_ = just(Token::Break)
+            .ignore_then(just(Token::Terminator))
+            .map_with_span(|_, span| Statement {
+                span,
+                kind: StatementKind::Break,
+            });
 
         let return_statement = just(Token::Return)
             .ignore_then(expression_parser(statement.clone()).or_not())
@@ -233,6 +257,8 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
 
         variable_declaration
             .or(function_definition)
+            .or(loop_)
+            .or(break_)
             .or(return_statement)
             .or(expression)
     })

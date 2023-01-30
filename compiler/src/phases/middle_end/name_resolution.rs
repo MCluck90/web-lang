@@ -220,6 +220,7 @@ fn resolve_module(
                 }
             }
             middle_end::ir::TopLevelStatementKind::Expression(_) => {}
+            middle_end::ir::TopLevelStatementKind::Loop(_) => {}
         }
         statements.push(statement);
     }
@@ -334,6 +335,17 @@ fn resolve_top_level_statement(
                 errors,
             )
         }
+        frontend::ir::TopLevelStatementKind::Loop(body) => {
+            let (body, errors) = resolve_block(ctx, body);
+            let body_statements = body.statements.clone();
+            (
+                middle_end::ir::TopLevelStatement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ir::TopLevelStatementKind::Loop(body_statements),
+                },
+                errors,
+            )
+        }
     }
 }
 
@@ -428,6 +440,23 @@ fn resolve_statement(
                 errs,
             )
         }
+        frontend::ir::StatementKind::Loop(body) => {
+            let (body, errors) = resolve_block(ctx, body);
+            (
+                middle_end::ir::Statement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ir::StatementKind::Loop(body.statements),
+                },
+                errors,
+            )
+        }
+        frontend::ir::StatementKind::Break => (
+            middle_end::ir::Statement {
+                span: statement.span.clone(),
+                kind: middle_end::ir::StatementKind::Break,
+            },
+            Vec::new(),
+        ),
     }
 }
 

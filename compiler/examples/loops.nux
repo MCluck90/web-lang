@@ -1,0 +1,19 @@
+let log(n: int, msg: string) {
+  #js { "console.log(" n "," msg ")" }
+}
+
+mut i = 1;
+loop {
+  if i % 15 == 0 {
+    log(i, 'Fizzbuzz');
+  } else if i % 3 == 0 {
+    log(i, 'Fizz');
+  } else if i % 5 == 0 {
+    log(i, 'Buzz');
+  };
+
+  i = i + 1;
+  if i > 30 {
+    break;
+  };
+}

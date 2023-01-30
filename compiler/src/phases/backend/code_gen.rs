@@ -93,6 +93,14 @@ fn visit_statement(statement: &Statement) -> String {
                     "".to_string()
                 }
             ),
+            Statement::WhileLoop(body) => format!(
+                "while(true){{{}}}",
+                body.into_iter()
+                    .map(visit_statement)
+                    .collect::<Vec<_>>()
+                    .join("")
+            ),
+            Statement::Break => "break".to_string(),
         }
     )
 }

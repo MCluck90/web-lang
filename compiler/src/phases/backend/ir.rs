@@ -97,6 +97,20 @@ fn top_level_statement_to_block_or_statement(
                 BlockOrStatement::Statement(Statement::Expression(expr))
             }
         }
+        middle_end::ir::TopLevelStatementKind::Loop(statements) => {
+            BlockOrStatement::Statement(Statement::WhileLoop(
+                statements
+                    .into_iter()
+                    .map(|stmt| {
+                        middle_statement_to_block_or_statement(ctx, stmt)
+                            .into_iter()
+                            .map(|b| b.to_statements())
+                            .flatten()
+                    })
+                    .flatten()
+                    .collect(),
+            ))
+        }
     }
 }
 
@@ -170,6 +184,21 @@ fn middle_statement_to_block_or_statement(
             }
             None => vec![BlockOrStatement::Statement(Statement::Return(None))],
         },
+        middle_end::ir::StatementKind::Loop(statements) => {
+            vec![BlockOrStatement::Statement(Statement::WhileLoop(
+                statements
+                    .into_iter()
+                    .map(|stmt| {
+                        middle_statement_to_block_or_statement(ctx, stmt)
+                            .into_iter()
+                            .map(|b| b.to_statements())
+                            .flatten()
+                    })
+                    .flatten()
+                    .collect(),
+            ))]
+        }
+        middle_end::ir::StatementKind::Break => vec![BlockOrStatement::Statement(Statement::Break)],
     }
 }
 
@@ -370,6 +399,7 @@ fn expression_to_block(
     }
 }
 
+#[derive(Debug)]
 pub struct BasicBlock {
     block_or_statements: Vec<BlockOrStatement>,
 }
@@ -381,6 +411,7 @@ impl BasicBlock {
     }
 }
 
+#[derive(Debug)]
 enum BlockOrStatement {
     Block(BasicBlock),
     Statement(Statement),
@@ -394,6 +425,7 @@ impl BlockOrStatement {
     }
 }
 
+#[derive(Debug)]
 pub enum Statement {
     VariableDeclaration {
         is_mutable: bool,
@@ -412,8 +444,11 @@ pub enum Statement {
         body: Vec<Statement>,
         else_: Vec<Statement>,
     },
+    WhileLoop(Vec<Statement>),
+    Break,
 }
 
+#[derive(Debug)]
 pub enum Expression {
     Boolean(bool),
     Identifier(String),

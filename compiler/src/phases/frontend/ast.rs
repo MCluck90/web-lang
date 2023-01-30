@@ -96,6 +96,7 @@ pub enum TopLevelStatementKind {
         body: Block,
     },
     Expression(Expression),
+    Loop(Block),
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -199,6 +200,8 @@ pub enum StatementKind {
     },
     Expression(Expression),
     Return(Option<Expression>),
+    Loop(Block),
+    Break,
 }
 
 impl From<Expression> for Statement {
