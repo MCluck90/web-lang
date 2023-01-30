@@ -121,7 +121,6 @@ fn top_level_statement_parser(
         .then_ignore(just(Token::KeyValueSeparator))
         .then(type_parser())
         .map(|(identifier, type_)| Parameter::new(identifier.clone().span, identifier, type_))
-        .labelled("parameter")
         .separated_by(just(Token::ListSeparator))
         .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
         .map_with_span(|parameters, span| (parameters, span));
@@ -192,7 +191,6 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
             .then_ignore(just(Token::KeyValueSeparator))
             .then(type_parser())
             .map(|(identifier, type_)| Parameter::new(identifier.clone().span, identifier, type_))
-            .labelled("parameter")
             .separated_by(just(Token::ListSeparator))
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
             .map_with_span(|parameters, span| (parameters, span));

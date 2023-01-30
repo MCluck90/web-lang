@@ -69,6 +69,30 @@ fn visit_statement(statement: &Statement) -> String {
                 None => "return".to_string(),
             },
             Statement::Expression(expr) => visit_expression(expr),
+            Statement::If {
+                condition,
+                body,
+                else_,
+            } => format!(
+                "if({}){{{}}}{}",
+                visit_expression(condition),
+                body.into_iter()
+                    .map(visit_statement)
+                    .collect::<Vec<_>>()
+                    .join(""),
+                if !else_.is_empty() {
+                    format!(
+                        "else{{{}}}",
+                        else_
+                            .into_iter()
+                            .map(visit_statement)
+                            .collect::<Vec<_>>()
+                            .join("")
+                    )
+                } else {
+                    "".to_string()
+                }
+            ),
         }
     )
 }
