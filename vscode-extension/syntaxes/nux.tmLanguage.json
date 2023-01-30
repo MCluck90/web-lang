@@ -49,7 +49,7 @@
       "patterns": [
         {
           "name": "keyword.control.nux",
-          "match": "\\b(if|else|loop|pub|return|use)\\b"
+          "match": "\\b(if|else|for|pub|return|use)\\b"
         },
         {
           "comment": "storage keywords",
@@ -69,7 +69,7 @@
         {
           "comment": "Operators",
           "name": "keyword.operator.nux",
-          "match": "/|\\+|\\s-|\\*"
+          "match": "/|\\+|\\s-|\\*|%"
         }
       ]
     },

@@ -377,7 +377,8 @@ fn expression_parser<'a>(
 
         let operator = just(Token::Operator(BinaryOperator::Mul))
             .to(BinaryOperator::Mul)
-            .or(just(Token::Operator(BinaryOperator::Div)).to(BinaryOperator::Div));
+            .or(just(Token::Operator(BinaryOperator::Div)).to(BinaryOperator::Div))
+            .or(just(Token::Operator(BinaryOperator::Modulus)).to(BinaryOperator::Modulus));
         let factor = prop_or_fn_call
             .clone()
             .then(operator.then(prop_or_fn_call).repeated())

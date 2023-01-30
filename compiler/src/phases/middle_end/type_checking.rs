@@ -266,7 +266,8 @@ fn visit_expression(
                     BinaryOperator::Add
                     | BinaryOperator::Sub
                     | BinaryOperator::Mul
-                    | BinaryOperator::Div => {
+                    | BinaryOperator::Div
+                    | BinaryOperator::Modulus => {
                         let mut errors: Vec<CompilerError> = Vec::new();
                         if left_type_symbol.type_ != Type::Int {
                             errors.push(CompilerError::binary_operator_not_supported_on_type(
