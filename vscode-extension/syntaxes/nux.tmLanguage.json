@@ -103,8 +103,12 @@
       "patterns": [
         {
           "comment": "primitive types",
-          "name": "entity.name.type.primitive.nux",
-          "match": "[\\b\\[](bool|int|string)[\\b\\[]"
+          "match": "(\\s|\\[|:)(bool|int|string)(\\s|\\])",
+          "captures": {
+            "2": {
+              "name": "entity.name.type.primitive.nux"
+            }
+          }
         }
       ]
     },
