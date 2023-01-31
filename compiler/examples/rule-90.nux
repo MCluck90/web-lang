@@ -36,7 +36,7 @@ let print-state() {
 }
 
 let step() {
-  let new-state: [bool] = state.shallowCopy();
+  let new-state: [bool] = state.shallow-copy();
   let first = state[0];
   let last = state.last();
   new-state[0] = xor(last, state[1]);

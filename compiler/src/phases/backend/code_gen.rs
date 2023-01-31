@@ -117,7 +117,7 @@ fn visit_expression(expression: &Expression) -> String {
         .to_string(),
 
         Expression::PropertyAccess(left, right) => {
-            format!("{}.{}", visit_expression(left), right)
+            format!("{}.{}", visit_expression(left), right.replace("-", "$"))
         }
 
         Expression::Boolean(b) => b.to_string(),
@@ -144,7 +144,7 @@ fn visit_expression(expression: &Expression) -> String {
                 .join(",")
         ),
 
-        Expression::Identifier(ident) => ident.clone(),
+        Expression::Identifier(ident) => ident.clone().replace("-", "$"),
 
         Expression::Integer(n) => n.to_string(),
 
