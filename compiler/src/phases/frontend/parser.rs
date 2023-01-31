@@ -92,18 +92,26 @@ fn top_level_statement_parser(
         .or_not()
         .then(just(Token::Let).to(false).or(just(Token::Mut).to(true)))
         .then(identifier_parser())
+        .then(
+            just(Token::KeyValueSeparator)
+                .ignore_then(type_parser())
+                .or_not(),
+        )
         .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
         .then(expression_parser(statement_parser()))
         .then_ignore(just(Token::Terminator))
         .map_with_span(
-            |(((is_public, is_mutable), identifier), initializer), span| TopLevelStatement {
-                span,
-                kind: TopLevelStatementKind::VariableDeclaration {
-                    is_public: is_public.is_some(),
-                    is_mutable,
-                    identifier,
-                    initializer: Box::new(initializer),
-                },
+            |((((is_public, is_mutable), identifier), type_), initializer), span| {
+                TopLevelStatement {
+                    span,
+                    kind: TopLevelStatementKind::VariableDeclaration {
+                        is_public: is_public.is_some(),
+                        is_mutable,
+                        type_,
+                        identifier,
+                        initializer: Box::new(initializer),
+                    },
+                }
             },
         );
 

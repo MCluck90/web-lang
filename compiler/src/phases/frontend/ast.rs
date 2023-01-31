@@ -85,6 +85,7 @@ pub enum TopLevelStatementKind {
     VariableDeclaration {
         is_public: bool,
         is_mutable: bool,
+        type_: Option<Type>,
         identifier: Identifier,
         initializer: Box<Expression>,
     },

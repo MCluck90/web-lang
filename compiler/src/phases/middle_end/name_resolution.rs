@@ -265,6 +265,7 @@ fn resolve_top_level_statement(
         frontend::ir::TopLevelStatementKind::VariableDeclaration {
             is_public,
             is_mutable,
+            type_,
             identifier,
             initializer,
         } => {
@@ -276,6 +277,7 @@ fn resolve_top_level_statement(
                     kind: middle_end::ir::TopLevelStatementKind::VariableDeclaration {
                         is_public: *is_public,
                         is_mutable: *is_mutable,
+                        type_: type_.clone(),
                         identifier: new_identifier,
                         initializer: Box::new(initializer),
                     },

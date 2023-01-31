@@ -43,6 +43,7 @@ fn top_level_statement_to_block_or_statement(
         middle_end::ir::TopLevelStatementKind::VariableDeclaration {
             is_public: _,
             is_mutable,
+            type_: _,
             identifier,
             initializer,
         } => match expression_to_block(ctx, *initializer) {

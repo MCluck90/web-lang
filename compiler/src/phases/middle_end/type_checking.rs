@@ -65,9 +65,19 @@ fn visit_top_level_statement(
             identifier,
             initializer,
             is_mutable,
+            type_,
             is_public: _,
         } => {
             let initializer_type = visit_expression(initializer, symbol_table, type_context)?;
+            if let Some(type_) = type_ {
+                if &initializer_type.type_ != type_ {
+                    return Err(vec![CompilerError::mismatched_types(
+                        &statement.span,
+                        &TypeSymbol::from(type_),
+                        &initializer_type,
+                    )]);
+                }
+            }
             symbol_table.set_value(
                 ValueId(identifier.name.clone()),
                 ValueSymbol::new()

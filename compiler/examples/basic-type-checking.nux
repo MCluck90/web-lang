@@ -38,3 +38,11 @@ let get-n(n: int): int {
 
   n
 }
+
+// Can annotate variables
+let integer: int = 12;
+let bad-integer: int = 'Nope';
+let good-string: string = 'Yes';
+let bad-string: string = 0;
+let boolean: bool = true;
+let bad-boolean: bool = 'false';
