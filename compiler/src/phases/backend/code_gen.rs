@@ -29,7 +29,8 @@ pub fn generate_code(statements: Vec<Statement>) -> CodeGenOutput {
         js: if builder.js.is_empty() {
             None
         } else {
-            Some(builder.js)
+            let prelude = std::fs::read_to_string("./std/prelude.js").unwrap();
+            Some(format!("{}{}", prelude, builder.js))
         },
     }
 }

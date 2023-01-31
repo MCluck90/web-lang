@@ -6,6 +6,8 @@ for (mut i = 0; i < fibonacci.length; i = i + 1) {
   log(fibonacci[i].toString());
 }
 
+log(fibonacci.last().toString());
+
 mut can-reassign: [int] = [1];
 can-reassign[0] = 100;
 log(can-reassign[0].toString());
