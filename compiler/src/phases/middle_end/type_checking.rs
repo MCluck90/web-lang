@@ -7,7 +7,7 @@ use crate::{
         shared::{ObjectType, Type},
     },
     types::{
-        primitives::build_primitive_types,
+        built_ins::build_built_in_types,
         symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
     },
 };
@@ -18,7 +18,7 @@ use super::ir::{
 };
 
 struct TypeContext {
-    pub primitive_types: HashMap<Type, ObjectType>,
+    pub type_to_properties: HashMap<Type, ObjectType>,
 
     /// A stack of return types found within a function.
     ///
@@ -32,7 +32,7 @@ struct TypeContext {
 /// Infers and checks types.
 pub fn check_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
     let mut type_context = &mut TypeContext {
-        primitive_types: build_primitive_types(),
+        type_to_properties: build_built_in_types(),
         found_return_types: Vec::new(),
     };
     for module in modules {
@@ -68,23 +68,36 @@ fn visit_top_level_statement(
             type_,
             is_public: _,
         } => {
-            let initializer_type = visit_expression(initializer, symbol_table, type_context)?;
-            if let Some(type_) = type_ {
-                if &initializer_type.type_ != type_ {
-                    return Err(vec![CompilerError::mismatched_types(
-                        &statement.span,
-                        &TypeSymbol::from(type_),
-                        &initializer_type,
-                    )]);
+            let initializer_type = visit_expression(initializer, symbol_table, type_context);
+            let (final_type, res) = match (type_, initializer_type) {
+                (Some(type_), Ok(initializer_type)) => {
+                    if &initializer_type.type_ != &Type::Unknown && &initializer_type.type_ != type_
+                    {
+                        (
+                            type_.clone(),
+                            Err(vec![CompilerError::mismatched_types(
+                                &statement.span,
+                                &TypeSymbol::from(type_),
+                                &initializer_type,
+                            )]),
+                        )
+                    } else {
+                        (type_.clone(), Ok(()))
+                    }
                 }
-            }
+                (None, Ok(initializer_type)) => (initializer_type.type_, Ok(())),
+                (None, Err(errors)) => (Type::Unknown, Err(errors)),
+                (Some(type_), Err(errors)) => (type_.clone(), Err(errors)),
+            };
+
             symbol_table.set_value(
                 ValueId(identifier.name.clone()),
                 ValueSymbol::new()
-                    .with_type(initializer_type.type_)
+                    .with_type(final_type)
                     .with_mutability(*is_mutable),
             );
-            Ok(())
+
+            res
         }
         TopLevelStatementKind::FunctionDefinition {
             name,
@@ -437,7 +450,8 @@ fn visit_expression(
                         | ExpressionKind::Block(_)
                         | ExpressionKind::BinaryExpression(_, _, _)
                         | ExpressionKind::If { .. }
-                        | ExpressionKind::FunctionCall { .. } => {
+                        | ExpressionKind::FunctionCall { .. }
+                        | ExpressionKind::List(_) => {
                             Err(vec![CompilerError::invalid_lhs_in_assignment(&left.span)])
                         }
                         ExpressionKind::JsBlock(type_, _) => {
@@ -471,9 +485,12 @@ fn visit_expression(
                     }
                 }
 
-                // Access properties on primitive types
-                Type::Bool | Type::Int | Type::String => {
-                    match type_context.primitive_types.get(&left_type_symbol.type_) {
+                // Access properties on built in types
+                Type::Bool | Type::Int | Type::String | Type::List(_) => {
+                    match type_context
+                        .type_to_properties
+                        .get(&left_type_symbol.type_.to_base_type())
+                    {
                         None => unreachable!(),
                         Some(left_type) => {
                             if let Some(type_) = left_type.key_to_type.get(&right.name) {
@@ -488,6 +505,7 @@ fn visit_expression(
                         }
                     }
                 }
+
                 _ => Err(vec![CompilerError::no_field_on_type(
                     &expression.span,
                     &right.name,
@@ -594,6 +612,27 @@ fn visit_expression(
                 Err(errors)
             } else {
                 Ok(body_type)
+            }
+        }
+        ExpressionKind::List(expressions) => {
+            let mut expr_types: Vec<TypeSymbol> = Vec::new();
+            for expr in expressions {
+                expr_types.push(visit_expression(expr, symbol_table, type_context)?);
+            }
+
+            let first_type = expr_types.first();
+            if let Some(first_type) = first_type {
+                for type_ in &expr_types {
+                    if type_.type_ != first_type.type_ {
+                        return Err(vec![CompilerError::mixed_types_in_list(
+                            &expression.span,
+                            &expr_types,
+                        )]);
+                    }
+                }
+                Ok(Type::List(Box::new(first_type.type_.clone())).into())
+            } else {
+                Ok(Type::List(Box::new(Type::Unknown)).into())
             }
         }
     }

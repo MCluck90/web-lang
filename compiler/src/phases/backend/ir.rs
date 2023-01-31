@@ -523,6 +523,31 @@ fn expression_to_block(
                 }));
             (Expression::Identifier(temp_variable), Some(basic_block))
         }
+        middle_end::ir::ExpressionKind::List(expressions) => {
+            let mut inner_blocks: Vec<BasicBlock> = Vec::new();
+            let mut initial_values: Vec<Expression> = Vec::new();
+            for expr in expressions {
+                let (expr, maybe_block) = expression_to_block(ctx, expr);
+                initial_values.push(expr);
+                if let Some(block) = maybe_block {
+                    inner_blocks.push(block);
+                }
+            }
+
+            if inner_blocks.is_empty() {
+                (Expression::List(initial_values), None)
+            } else {
+                (
+                    Expression::List(initial_values),
+                    Some(BasicBlock {
+                        block_or_statements: inner_blocks
+                            .into_iter()
+                            .map(BlockOrStatement::Block)
+                            .collect(),
+                    }),
+                )
+            }
+        }
     }
 }
 
@@ -581,6 +606,7 @@ pub enum Expression {
     Identifier(String),
     Integer(i64),
     String(String),
+    List(Vec<Expression>),
     JsBlock(Vec<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, String),

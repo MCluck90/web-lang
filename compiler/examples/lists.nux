@@ -1,0 +1,7 @@
+use @std:io/{ log };
+
+let fibonacci: [int] = [1, 2, 3, 5, 8];
+log(fibonacci.length.toString());
+//for (let i = 0; i < fibonacci.length; i = i + 1) {
+//  log(fibonacci[i].toString());
+//}

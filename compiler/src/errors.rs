@@ -218,6 +218,15 @@ impl CompilerError {
         }
     }
 
+    pub fn mixed_types_in_list(span: &Span, types: &Vec<TypeSymbol>) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::MixedTypesInList {
+                types: types.clone(),
+            },
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -306,6 +315,11 @@ pub enum CompilerErrorReason {
         import_path: String,
         identifier: String,
     },
+
+    // Ex: Lists can only contain one type. Found `(types)`
+    MixedTypesInList {
+        types: Vec<TypeSymbol>,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -324,6 +338,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidLhsInAssignment => 11,
             CompilerErrorReason::CouldNotFindModule { .. } => 12,
             CompilerErrorReason::InvalidImport { .. } => 13,
+            CompilerErrorReason::MixedTypesInList { .. } => 14,
         }
     }
 
@@ -449,6 +464,14 @@ impl CompilerErrorReason {
                 "Could not find `{}` in module at `{}`",
                 identifier, import_path
             ),
+            CompilerErrorReason::MixedTypesInList { types } => format!(
+                "Lists can only contain one type. Found {}",
+                types
+                    .iter()
+                    .map(|t| format!("`{}`", t))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 
@@ -513,6 +536,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidImport { import_path, .. } => label
                 .with_message(format!("{} does not export this identifier", import_path))
                 .with_color(Color::Red),
+            CompilerErrorReason::MixedTypesInList { .. } => label.with_color(Color::Red),
         }
     }
 }

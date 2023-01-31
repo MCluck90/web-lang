@@ -703,6 +703,17 @@ fn resolve_expression(
             )
         }
         frontend::ir::ExpressionKind::Error => unreachable!(),
+        frontend::ir::ExpressionKind::List(expressions) => {
+            let mut errors: Vec<CompilerError> = Vec::new();
+            let mut initial_values: Vec<middle_end::ir::Expression> = Vec::new();
+            for expr in expressions {
+                let (expr, mut errs) = resolve_expression(ctx, expr);
+                initial_values.push(expr);
+                errors.append(&mut errs)
+            }
+
+            to_expression(middle_end::ir::ExpressionKind::List(initial_values), errors)
+        }
     }
 }
 

@@ -166,6 +166,7 @@ pub enum ExpressionKind {
     String(String),
     Block(Box<Block>),
     JsBlock(Type, Vec<Expression>),
+    List(Vec<Expression>),
 
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),

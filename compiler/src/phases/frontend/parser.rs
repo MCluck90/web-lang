@@ -43,8 +43,12 @@ fn type_parser() -> impl Parser<Token, Type, Error = CompilerError> + Clone {
                 parameters,
                 return_type: Box::new(return_type),
             });
+        let list_type = just(Token::OpenList)
+            .ignore_then(type_parser.clone())
+            .then_ignore(just(Token::CloseList))
+            .map(|t| Type::List(Box::new(t)));
 
-        simple_type.or(function_type)
+        simple_type.or(function_type).or(list_type)
     })
 }
 
@@ -415,7 +419,20 @@ fn expression_parser<'a>(
                 kind: ExpressionKind::JsBlock(type_.unwrap_or(Type::Void), expressions),
             });
 
+        let list = just(Token::OpenList)
+            .ignore_then(
+                expr.clone()
+                    .separated_by(just(Token::ListSeparator))
+                    .allow_trailing(),
+            )
+            .then_ignore(just(Token::CloseList))
+            .map_with_span(|expressions, span| Expression {
+                span,
+                kind: ExpressionKind::List(expressions),
+            });
+
         let atom = js_block
+            .or(list)
             .or(value)
             .or(block)
             .or(identifier_parser().map(|ident| {

@@ -123,8 +123,8 @@ impl From<Block> for Expression {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Expression {
-    pub kind: ExpressionKind,
     pub span: Span,
+    pub kind: ExpressionKind,
 }
 
 impl Expression {
@@ -141,6 +141,7 @@ pub enum ExpressionKind {
     Integer(i64),
     String(String),
     Block(Box<Block>),
+    List(Vec<Expression>),
 
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),

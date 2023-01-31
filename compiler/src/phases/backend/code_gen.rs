@@ -154,5 +154,13 @@ fn visit_expression(expression: &Expression) -> String {
                 .replace("\n", "\\n")
                 .replace("\t", "\\t")
         ),
+        Expression::List(expressions) => format!(
+            "[{}]",
+            expressions
+                .into_iter()
+                .map(visit_expression)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
     }
 }

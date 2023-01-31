@@ -23,6 +23,7 @@ pub enum Type {
     Bool,
     Int,
     String,
+    List(Box<Type>),
     Object(ObjectType),
     Function {
         parameters: Vec<Type>,
@@ -30,6 +31,29 @@ pub enum Type {
     },
     Custom(String),
     Union(Box<Type>, Box<Type>),
+}
+impl Type {
+    /// Simplifies a type to it's base type.
+    /// Useful for looking up properties on base types.
+    pub fn to_base_type(&self) -> Self {
+        match self {
+            Type::Unknown => Type::Unknown,
+            Type::Void => Type::Void,
+            Type::Bool => Type::Bool,
+            Type::Int => Type::Int,
+            Type::String => Type::String,
+            Type::List(_) => Type::List(Box::new(Type::Unknown)),
+            Type::Object(_) => Type::Object(ObjectType {
+                key_to_type: HashMap::new(),
+            }),
+            Type::Function { .. } => Type::Function {
+                parameters: Vec::new(),
+                return_type: Box::new(Type::Unknown),
+            },
+            Type::Custom(_) => Type::Custom("".to_string()),
+            Type::Union(_, _) => Type::Union(Box::new(Type::Unknown), Box::new(Type::Unknown)),
+        }
+    }
 }
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -39,6 +63,7 @@ impl fmt::Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Int => write!(f, "int"),
             Type::String => write!(f, "string"),
+            Type::List(t) => write!(f, "[{}]", t),
             Type::Function {
                 parameters,
                 return_type,
