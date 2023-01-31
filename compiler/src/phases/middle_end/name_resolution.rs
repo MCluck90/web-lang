@@ -417,6 +417,7 @@ fn resolve_statement(
     match &statement.kind {
         frontend::ir::StatementKind::VariableDeclaration {
             is_mutable,
+            type_,
             identifier,
             initializer,
         } => {
@@ -427,6 +428,7 @@ fn resolve_statement(
                     span: statement.span.clone(),
                     kind: middle_end::ir::StatementKind::VariableDeclaration {
                         is_mutable: *is_mutable,
+                        type_: type_.clone(),
                         identifier: new_identifier,
                         initializer: Box::new(initializer),
                     },

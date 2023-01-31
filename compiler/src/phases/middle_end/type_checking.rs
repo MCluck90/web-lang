@@ -182,18 +182,41 @@ fn visit_statement(
 ) -> Result<(), Vec<CompilerError>> {
     match &statement.kind {
         StatementKind::VariableDeclaration {
+            type_,
             identifier,
             initializer,
             is_mutable,
         } => {
-            let initializer_type = visit_expression(initializer, symbol_table, type_context)?;
+            let initializer_type = visit_expression(initializer, symbol_table, type_context);
+            let (final_type, res) = match (type_, initializer_type) {
+                (Some(type_), Ok(initializer_type)) => {
+                    if &initializer_type.type_ != &Type::Unknown && &initializer_type.type_ != type_
+                    {
+                        (
+                            type_.clone(),
+                            Err(vec![CompilerError::mismatched_types(
+                                &statement.span,
+                                &TypeSymbol::from(type_),
+                                &initializer_type,
+                            )]),
+                        )
+                    } else {
+                        (type_.clone(), Ok(()))
+                    }
+                }
+                (None, Ok(initializer_type)) => (initializer_type.type_, Ok(())),
+                (None, Err(errors)) => (Type::Unknown, Err(errors)),
+                (Some(type_), Err(errors)) => (type_.clone(), Err(errors)),
+            };
+
             symbol_table.set_value(
                 ValueId(identifier.name.clone()),
                 ValueSymbol::new()
-                    .with_type(initializer_type.type_)
+                    .with_type(final_type)
                     .with_mutability(*is_mutable),
             );
-            Ok(())
+
+            res
         }
         StatementKind::FunctionDefinition {
             name,
@@ -366,9 +389,37 @@ fn visit_expression(
                             Err(errors)
                         }
                     }
-                    BinaryOperator::NotEqual
-                    | BinaryOperator::Equal
-                    | BinaryOperator::LessThan
+                    BinaryOperator::NotEqual | BinaryOperator::Equal => {
+                        let mut errors: Vec<CompilerError> = Vec::new();
+                        if !left_type_symbol.type_.is_primitive() {
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &left.span,
+                                op,
+                                &left_type_symbol,
+                            ));
+                        }
+                        if !right_type_symbol.type_.is_primitive() {
+                            errors.push(CompilerError::binary_operator_not_supported_on_type(
+                                &right.span,
+                                op,
+                                &right_type_symbol,
+                            ));
+                        }
+                        if left_type_symbol.type_ != right_type_symbol.type_ {
+                            errors.push(CompilerError::mismatched_types(
+                                &right.span,
+                                &left_type_symbol,
+                                &right_type_symbol,
+                            ));
+                        }
+
+                        if errors.is_empty() {
+                            Ok(TypeSymbol::from(Type::Bool))
+                        } else {
+                            Err(errors)
+                        }
+                    }
+                    BinaryOperator::LessThan
                     | BinaryOperator::LessThanOrEqual
                     | BinaryOperator::GreaterThan
                     | BinaryOperator::GreaterThanOrEqual => {
@@ -437,7 +488,7 @@ fn visit_expression(
                             if !left_value_symbol.is_mutable {
                                 Err(vec![CompilerError::assignment_to_immutable_variable(
                                     &left.span,
-                                    &identifier.name,
+                                    &identifier.original_name,
                                 )])
                             } else if left_type_symbol.type_ == Type::Unknown {
                                 symbol_table.set_value(

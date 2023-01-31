@@ -185,6 +185,7 @@ fn middle_statement_to_block_or_statement(
 ) -> Vec<BlockOrStatement> {
     match statement.kind {
         middle_end::ir::StatementKind::VariableDeclaration {
+            type_: _,
             is_mutable,
             identifier,
             initializer,

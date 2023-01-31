@@ -198,6 +198,7 @@ pub struct Statement {
 pub enum StatementKind {
     VariableDeclaration {
         is_mutable: bool,
+        type_: Option<Type>,
         identifier: Identifier,
         initializer: Box<Expression>,
     },

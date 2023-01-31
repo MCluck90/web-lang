@@ -58,6 +58,19 @@ impl Type {
     pub fn get_base_list_type() -> Self {
         Type::List(Box::new(Type::Unknown))
     }
+
+    pub fn is_primitive(&self) -> bool {
+        match self {
+            Type::Bool | Type::Int | Type::String => true,
+            Type::Unknown
+            | Type::Void
+            | Type::List(_)
+            | Type::Object(_)
+            | Type::Function { .. }
+            | Type::Custom(_)
+            | Type::Union(_, _) => false,
+        }
+    }
 }
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

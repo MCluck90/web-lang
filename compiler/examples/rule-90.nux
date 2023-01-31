@@ -1,0 +1,54 @@
+use @std:io/{ log };
+
+let write(state: bool) {
+  #js {
+    "process.stdout.write("
+    if state { ' ' } else { 'X' }
+    ")"
+  }
+}
+
+mut state: [bool] = [
+  false,
+  false,
+  true,
+  true,
+  false,
+  true,
+  true,
+  true,
+  true,
+  false,
+  false,
+  true,
+  true,
+];
+
+let xor(l: bool, r: bool): bool {
+  (l == true && r == false) || (l == false && r == true)
+}
+
+let print-state() {
+  for (mut i = 0; i < state.length; i = i + 1) {
+    write(state[i]);
+  }
+  log('');
+}
+
+let step() {
+  let new-state: [bool] = state.shallowCopy();
+  let first = state[0];
+  let last = state.last();
+  new-state[0] = xor(last, state[1]);
+  for (mut i = 1; i < state.length - 1; i = i + 1) {
+    new-state[i] = xor(state[i - 1], state[i + 1]);
+  }
+  new-state[new-state.length - 1] = xor(state[state.length - 2], first);
+
+  state = new-state;
+  print-state();
+}
+
+for (mut i = 0; i < 20; i = i + 1) {
+  step();
+}

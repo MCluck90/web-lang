@@ -85,6 +85,13 @@ pub fn build_list_type(element_type: &Type) -> ObjectType {
             return_type: Box::new(element_type.clone()),
         }),
     );
+    shared.key_to_type.insert(
+        "shallowCopy".to_owned(),
+        Box::new(Type::Function {
+            parameters: Vec::new(),
+            return_type: Box::new(Type::List(Box::new(element_type.clone()))),
+        }),
+    );
     ObjectType {
         key_to_type: shared.key_to_type,
     }
