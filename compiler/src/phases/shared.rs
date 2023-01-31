@@ -42,7 +42,7 @@ impl Type {
             Type::Bool => Type::Bool,
             Type::Int => Type::Int,
             Type::String => Type::String,
-            Type::List(_) => Type::List(Box::new(Type::Unknown)),
+            Type::List(_) => Self::get_base_list_type(),
             Type::Object(_) => Type::Object(ObjectType {
                 key_to_type: HashMap::new(),
             }),
@@ -53,6 +53,10 @@ impl Type {
             Type::Custom(_) => Type::Custom("".to_string()),
             Type::Union(_, _) => Type::Union(Box::new(Type::Unknown), Box::new(Type::Unknown)),
         }
+    }
+
+    pub fn get_base_list_type() -> Self {
+        Type::List(Box::new(Type::Unknown))
     }
 }
 impl fmt::Display for Type {

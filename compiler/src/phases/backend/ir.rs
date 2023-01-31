@@ -548,6 +548,25 @@ fn expression_to_block(
                 )
             }
         }
+        middle_end::ir::ExpressionKind::ArrayAccess(left, index) => {
+            let (left, maybe_left_block) = expression_to_block(ctx, *left);
+            let (index, maybe_index_block) = expression_to_block(ctx, *index);
+
+            let maybe_block = match (maybe_left_block, maybe_index_block) {
+                (None, None) => None,
+                (None, Some(block)) | (Some(block), None) => Some(block),
+                (Some(left_block), Some(index_block)) => Some(BasicBlock {
+                    block_or_statements: vec![
+                        BlockOrStatement::Block(left_block),
+                        BlockOrStatement::Block(index_block),
+                    ],
+                }),
+            };
+            (
+                Expression::ArrayAccess(Box::new(left), Box::new(index)),
+                maybe_block,
+            )
+        }
     }
 }
 
@@ -610,6 +629,7 @@ pub enum Expression {
     JsBlock(Vec<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, String),
+    ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {
         callee: Box<Expression>,
         arguments: Vec<Expression>,

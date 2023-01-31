@@ -162,5 +162,8 @@ fn visit_expression(expression: &Expression) -> String {
                 .collect::<Vec<_>>()
                 .join(",")
         ),
+        Expression::ArrayAccess(left, index) => {
+            format!("{}[{}]", visit_expression(left), visit_expression(index))
+        }
     }
 }

@@ -145,6 +145,7 @@ pub enum ExpressionKind {
 
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
+    ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {
         callee: Box<Expression>,
         arguments: Vec<Expression>,

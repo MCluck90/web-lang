@@ -714,6 +714,15 @@ fn resolve_expression(
 
             to_expression(middle_end::ir::ExpressionKind::List(initial_values), errors)
         }
+        frontend::ir::ExpressionKind::ArrayAccess(left, index) => {
+            let (left, mut errors) = resolve_expression(ctx, left);
+            let (index, mut index_errors) = resolve_expression(ctx, index);
+            errors.append(&mut index_errors);
+            to_expression(
+                middle_end::ir::ExpressionKind::ArrayAccess(Box::new(left), Box::new(index)),
+                errors,
+            )
+        }
     }
 }
 

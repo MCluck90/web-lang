@@ -419,6 +419,7 @@ fn visit_expression(
                     }
                     BinaryOperator::Assignment => match &left.kind {
                         ExpressionKind::PropertyAccess(_, _) => todo!(),
+                        ExpressionKind::ArrayAccess(_, _) => todo!(),
                         ExpressionKind::Identifier(identifier) => {
                             let left_value_symbol = symbol_table
                                 .get_value(&identifier.name.clone().into())
@@ -633,6 +634,26 @@ fn visit_expression(
                 Ok(Type::List(Box::new(first_type.type_.clone())).into())
             } else {
                 Ok(Type::List(Box::new(Type::Unknown)).into())
+            }
+        }
+        ExpressionKind::ArrayAccess(left, index) => {
+            let left_type_symbol = visit_expression(left, symbol_table, type_context);
+            let index_type_symbol = visit_expression(index, symbol_table, type_context);
+            match (left_type_symbol, index_type_symbol) {
+                (Ok(left_type_symbol), Ok(index_type_symbol)) => match left_type_symbol.type_ {
+                    Type::List(element_type) => {
+                        if index_type_symbol.type_.to_base_type() != Type::Int {
+                            todo!("Can't index arrays with non-int values")
+                        }
+                        Ok(TypeSymbol::from(*element_type))
+                    }
+                    _ => todo!("Can't index non-arrays"),
+                },
+                (Ok(_), Err(errors)) | (Err(errors), Ok(_)) => Err(errors),
+                (Err(mut left_errors), Err(mut index_errors)) => {
+                    left_errors.append(&mut index_errors);
+                    Err(left_errors)
+                }
             }
         }
     }

@@ -458,8 +458,9 @@ fn expression_parser<'a>(
          * fn_call -> dot_member ('(' argument_list? ')')*
          */
 
-        enum PropOrArgs {
+        enum MemberAccessOrArgs {
             Prop(Identifier),
+            ArrayAccess(Expression),
             Args((Vec<Expression>, Span)),
         }
         let arguments = expr
@@ -468,30 +469,41 @@ fn expression_parser<'a>(
             .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
             .map_with_span(|args, span| (args, span));
 
-        let dot_or_args = choice::<_, CompilerError>((
-            just(Token::PropertyAccessOp).ignore_then(identifier_parser().map(PropOrArgs::Prop)),
-            arguments.map(PropOrArgs::Args),
+        let member_access_or_args = choice::<_, CompilerError>((
+            just(Token::OpenList)
+                .ignore_then(expr.clone().map(MemberAccessOrArgs::ArrayAccess))
+                .then_ignore(just(Token::CloseList)),
+            just(Token::PropertyAccessOp)
+                .ignore_then(identifier_parser().map(MemberAccessOrArgs::Prop)),
+            arguments.map(MemberAccessOrArgs::Args),
         ))
         .repeated();
 
         let prop_or_fn_call = atom
             .clone()
-            .then(dot_or_args)
+            .then(member_access_or_args)
             .foldl(|left, right| match right {
-                PropOrArgs::Prop(right) => {
+                MemberAccessOrArgs::Prop(right) => {
                     let span = left.span.start..right.span.end;
                     Expression::new(
                         ExpressionKind::PropertyAccess(Box::new(left), right.clone()),
                         span,
                     )
                 }
-                PropOrArgs::Args((arguments, arg_span)) => {
+                MemberAccessOrArgs::Args((arguments, arg_span)) => {
                     let span = left.span.start..arg_span.end;
                     Expression::new(
                         ExpressionKind::FunctionCall {
                             callee: Box::new(left),
                             arguments: arguments,
                         },
+                        span,
+                    )
+                }
+                MemberAccessOrArgs::ArrayAccess(index) => {
+                    let span = left.span.start..index.span.end;
+                    Expression::new(
+                        ExpressionKind::ArrayAccess(Box::new(left), Box::new(index)),
                         span,
                     )
                 }
