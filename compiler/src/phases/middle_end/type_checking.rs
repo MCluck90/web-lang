@@ -7,7 +7,7 @@ use crate::{
         shared::{ObjectType, Type},
     },
     types::{
-        built_ins::build_built_in_types,
+        built_ins::{build_built_in_types, build_list_type},
         symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
     },
 };
@@ -497,7 +497,7 @@ fn visit_expression(
                 }
 
                 // Access properties on built in types
-                Type::Bool | Type::Int | Type::String | Type::List(_) => {
+                Type::Bool | Type::Int | Type::String => {
                     match type_context
                         .type_to_properties
                         .get(&left_type_symbol.type_.to_base_type())
@@ -514,6 +514,19 @@ fn visit_expression(
                                 )])
                             }
                         }
+                    }
+                }
+
+                Type::List(element_type) => {
+                    let left_type = build_list_type(element_type);
+                    if let Some(type_) = left_type.key_to_type.get(&right.name) {
+                        Ok(TypeSymbol::from(*type_.clone()))
+                    } else {
+                        Err(vec![CompilerError::no_field_on_type(
+                            &expression.span,
+                            &right.name,
+                            &left_type_symbol,
+                        )])
                     }
                 }
 

@@ -9,7 +9,7 @@ pub fn build_built_in_types() -> HashMap<Type, ObjectType> {
     hash_map.insert(Type::String, build_string_type());
     hash_map.insert(
         Type::List(Box::new(Type::Unknown)).to_base_type(),
-        build_list_type(),
+        build_shared_list_type(),
     );
     hash_map
 }
@@ -53,11 +53,25 @@ fn build_string_type() -> ObjectType {
     }
 }
 
-fn build_list_type() -> ObjectType {
+fn build_shared_list_type() -> ObjectType {
     ObjectType {
         key_to_type: [("length", Type::Int)]
             .iter()
             .map(|(key, type_)| (key.to_string(), Box::new(type_.clone())))
             .collect(),
+    }
+}
+
+pub fn build_list_type(element_type: &Type) -> ObjectType {
+    let mut shared = build_shared_list_type();
+    shared.key_to_type.insert(
+        "push".to_owned(),
+        Box::new(Type::Function {
+            parameters: vec![element_type.clone()],
+            return_type: Box::new(Type::Void),
+        }),
+    );
+    ObjectType {
+        key_to_type: shared.key_to_type,
     }
 }
