@@ -104,7 +104,7 @@
         {
           "comment": "primitive types",
           "name": "entity.name.type.primitive.nux",
-          "match": "\\b(bool|int|string)\\b"
+          "match": "[\\b\\[](bool|int|string)[\\b\\[]"
         }
       ]
     },
