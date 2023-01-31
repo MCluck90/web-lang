@@ -471,6 +471,7 @@ fn visit_expression(
                     BinaryOperator::Assignment => match &left.kind {
                         ExpressionKind::PropertyAccess(_, _) => todo!(),
                         ExpressionKind::ArrayAccess(_, _) => {
+                            // TODO: Don't allow assigning to immutable arrays
                             if right_type_symbol.type_ == left_type_symbol.type_ {
                                 Ok(right_type_symbol)
                             } else {

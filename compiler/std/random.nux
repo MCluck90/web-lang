@@ -1,0 +1,9 @@
+/// Returns a random integer between `min` and `max`, inclusive
+pub let random-int(min: int, max: int): int {
+  #js: int { "Math.floor(Math.random() * (" max - min + 1")) + " min }
+}
+
+/// Returns a random boolean value.
+pub let random-bool(): bool {
+  random-int(0, 1) == 0
+}
