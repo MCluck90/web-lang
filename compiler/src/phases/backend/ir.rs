@@ -474,11 +474,10 @@ fn expression_to_block(
             body,
             else_,
         } => {
+            let temp_variable = ctx.new_temp_identifier();
             let condition = expression_to_block(ctx, *condition);
             let body = expression_to_block(ctx, *body);
             let else_ = else_.map(|e| expression_to_block(ctx, *e));
-            ctx.begin_scope();
-            let temp_variable = ctx.new_temp_identifier();
             let mut basic_block = BasicBlock::new();
             basic_block
                 .block_or_statements
@@ -521,7 +520,6 @@ fn expression_to_block(
                     body: body_statements,
                     else_: else_statements,
                 }));
-            ctx.end_scope();
             (Expression::Identifier(temp_variable), Some(basic_block))
         }
     }
@@ -602,7 +600,7 @@ impl Context {
     }
 
     fn begin_scope(&mut self) {
-        let start_id = self.id_counters.last_mut().unwrap().next();
+        let start_id = self.id_counters.last_mut().unwrap().next_id;
         self.id_counters
             .push(IdCounter::new_with_start_id(start_id));
     }
