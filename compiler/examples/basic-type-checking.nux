@@ -46,3 +46,6 @@ let good-string: string = 'Yes';
 let bad-string: string = 0;
 let boolean: bool = true;
 let bad-boolean: bool = 'false';
+
+// Lists must only contain one type
+let list: [int] = [1, '2', true];
