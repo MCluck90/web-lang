@@ -72,6 +72,13 @@ pub fn build_list_type(element_type: &Type) -> ObjectType {
         }),
     );
     shared.key_to_type.insert(
+        "pop".to_owned(),
+        Box::new(Type::Function {
+            parameters: Vec::new(),
+            return_type: Box::new(element_type.clone()),
+        }),
+    );
+    shared.key_to_type.insert(
         "last".to_owned(),
         Box::new(Type::Function {
             parameters: Vec::new(),
