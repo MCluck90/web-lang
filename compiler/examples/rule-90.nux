@@ -1,12 +1,4 @@
-use @std:io/{ log };
-
-let write(state: bool) {
-  #js {
-    "process.stdout.write("
-    if state { ' ' } else { 'X' }
-    ")"
-  }
-}
+use @std:io/{ log, write-stdout };
 
 mut state: [bool] = [
   false,
@@ -25,12 +17,16 @@ mut state: [bool] = [
 ];
 
 let xor(l: bool, r: bool): bool {
-  (l == true && r == false) || (l == false && r == true)
+  (l && r == false) || (l == false && r)
 }
 
 let print-state() {
   for (mut i = 0; i < state.length; i = i + 1) {
-    write(state[i]);
+    write-stdout(if state[i] {
+      'X'
+    } else {
+      ' '
+    });
   }
   log('');
 }

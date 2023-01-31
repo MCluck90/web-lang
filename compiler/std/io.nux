@@ -3,3 +3,9 @@ pub let log(msg: string) {
     "console.log(" msg ")"
   }
 }
+
+pub let write-stdout(msg: string) {
+  #js {
+    "process.stdout.write(" msg ")"
+  }
+}
