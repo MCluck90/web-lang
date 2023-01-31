@@ -221,6 +221,7 @@ fn resolve_module(
             }
             middle_end::ir::TopLevelStatementKind::Expression(_) => {}
             middle_end::ir::TopLevelStatementKind::Loop(_) => {}
+            middle_end::ir::TopLevelStatementKind::ForLoop { .. } => {}
         }
         statements.push(statement);
     }
@@ -352,6 +353,58 @@ fn resolve_top_level_statement(
                 errors,
             )
         }
+        frontend::ir::TopLevelStatementKind::ForLoop {
+            initializer,
+            condition,
+            post_loop,
+            body,
+        } => {
+            ctx.start_scope();
+            let (initializer, mut errors) = initializer
+                .clone()
+                .map(|i| {
+                    let (i, errors) = resolve_statement(ctx, &*i);
+                    (Some(i), errors)
+                })
+                .unwrap_or((None, Vec::new()));
+            let (condition, mut condition_errors) = condition
+                .clone()
+                .map(|c| {
+                    let (c, errors) = resolve_expression(ctx, &c);
+                    (Some(c), errors)
+                })
+                .unwrap_or((None, Vec::new()));
+            let (post_loop, mut post_loop_errors) = post_loop
+                .clone()
+                .map(|i| {
+                    let (i, errors) = resolve_expression(ctx, &i);
+                    (Some(i), errors)
+                })
+                .unwrap_or((None, Vec::new()));
+            let mut body_statements: Vec<middle_end::ir::Statement> = Vec::new();
+            for stmt in body {
+                let (stmt, mut errs) = resolve_statement(ctx, stmt);
+                body_statements.push(stmt);
+                errors.append(&mut errs);
+            }
+
+            errors.append(&mut condition_errors);
+            errors.append(&mut post_loop_errors);
+            ctx.end_scope();
+
+            (
+                middle_end::ir::TopLevelStatement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ir::TopLevelStatementKind::ForLoop {
+                        initializer,
+                        condition,
+                        post_loop,
+                        body: body_statements,
+                    },
+                },
+                errors,
+            )
+        }
     }
 }
 
@@ -463,6 +516,58 @@ fn resolve_statement(
             },
             Vec::new(),
         ),
+        frontend::ir::StatementKind::ForLoop {
+            initializer,
+            condition,
+            post_loop,
+            body,
+        } => {
+            ctx.start_scope();
+            let (initializer, mut errors) = initializer
+                .clone()
+                .map(|i| {
+                    let (i, errors) = resolve_statement(ctx, &*i);
+                    (Some(i), errors)
+                })
+                .unwrap_or((None, Vec::new()));
+            let (condition, mut condition_errors) = condition
+                .clone()
+                .map(|c| {
+                    let (c, errors) = resolve_expression(ctx, &c);
+                    (Some(c), errors)
+                })
+                .unwrap_or((None, Vec::new()));
+            let (post_loop, mut post_loop_errors) = post_loop
+                .clone()
+                .map(|i| {
+                    let (i, errors) = resolve_expression(ctx, &i);
+                    (Some(i), errors)
+                })
+                .unwrap_or((None, Vec::new()));
+            let mut body_statements: Vec<middle_end::ir::Statement> = Vec::new();
+            for stmt in body {
+                let (stmt, mut errs) = resolve_statement(ctx, stmt);
+                body_statements.push(stmt);
+                errors.append(&mut errs);
+            }
+
+            errors.append(&mut condition_errors);
+            errors.append(&mut post_loop_errors);
+            ctx.end_scope();
+
+            (
+                middle_end::ir::Statement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ir::StatementKind::ForLoop {
+                        initializer: initializer.map(Box::new),
+                        condition: condition.map(Box::new),
+                        post_loop: post_loop.map(Box::new),
+                        body: body_statements,
+                    },
+                },
+                errors,
+            )
+        }
     }
 }
 

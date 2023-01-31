@@ -1,1 +1,1 @@
-{"stdout":"3 Fizz\n5 Buzz\n6 Fizz\n9 Fizz\n10 Buzz\n12 Fizz\n15 Fizzbuzz\n18 Fizz\n20 Buzz\n21 Fizz\n24 Fizz\n25 Buzz\n27 Fizz\n30 Fizzbuzz\n","stderr":"","exit_code":0}
+{"stdout":"`loop`\n3 Fizz\n5 Buzz\n6 Fizz\n9 Fizz\n10 Buzz\n12 Fizz\n15 Fizzbuzz\n18 Fizz\n20 Buzz\n21 Fizz\n24 Fizz\n25 Buzz\n27 Fizz\n30 Fizzbuzz\n\n`for` loop\n3 Fizz\n5 Buzz\n6 Fizz\n9 Fizz\n10 Buzz\n12 Fizz\n15 Fizzbuzz\n18 Fizz\n20 Buzz\n21 Fizz\n24 Fizz\n25 Buzz\n27 Fizz\n30 Fizzbuzz\n","stderr":"","exit_code":0}

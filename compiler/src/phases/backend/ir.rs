@@ -111,6 +111,70 @@ fn top_level_statement_to_block_or_statement(
                     .collect(),
             ))
         }
+        middle_end::ir::TopLevelStatementKind::ForLoop {
+            initializer,
+            condition,
+            post_loop,
+            body,
+        } => {
+            let mut block = BasicBlock::new();
+            if let Some(initializer) = initializer {
+                block
+                    .block_or_statements
+                    .append(&mut middle_statement_to_block_or_statement(
+                        ctx,
+                        initializer,
+                    ));
+            }
+
+            let mut loop_statements: Vec<Statement> = Vec::new();
+            // Generate the break condition
+            if let Some(condition) = condition {
+                let (condition, maybe_block) = expression_to_block(ctx, condition);
+                if let Some(block) = maybe_block {
+                    loop_statements.append(&mut block_to_statements(block));
+                }
+                loop_statements.push(Statement::If {
+                    condition: Expression::BinaryExpression(
+                        Box::new(condition),
+                        BinaryOperator::Equal,
+                        Box::new(Expression::Boolean(false)),
+                    ),
+                    body: vec![Statement::Break],
+                    else_: Vec::new(),
+                });
+            }
+
+            // Add in the body of the loop
+            loop_statements.append(
+                &mut body
+                    .into_iter()
+                    .map(|stmt| {
+                        middle_statement_to_block_or_statement(ctx, stmt)
+                            .into_iter()
+                            .map(|b| b.to_statements())
+                            .flatten()
+                    })
+                    .flatten()
+                    .collect(),
+            );
+
+            // Add in the post-loop
+            if let Some(post_loop) = post_loop {
+                let (post_loop, maybe_block) = expression_to_block(ctx, post_loop);
+                if let Some(block) = maybe_block {
+                    loop_statements.append(&mut block_to_statements(block));
+                }
+                loop_statements.push(Statement::Expression(post_loop));
+            }
+
+            let loop_ = Statement::WhileLoop(loop_statements);
+            block
+                .block_or_statements
+                .push(BlockOrStatement::Statement(loop_));
+
+            BlockOrStatement::Block(block)
+        }
     }
 }
 
@@ -199,6 +263,70 @@ fn middle_statement_to_block_or_statement(
             ))]
         }
         middle_end::ir::StatementKind::Break => vec![BlockOrStatement::Statement(Statement::Break)],
+        middle_end::ir::StatementKind::ForLoop {
+            initializer,
+            condition,
+            post_loop,
+            body,
+        } => {
+            let mut block = BasicBlock::new();
+            if let Some(initializer) = initializer {
+                block
+                    .block_or_statements
+                    .append(&mut middle_statement_to_block_or_statement(
+                        ctx,
+                        *initializer,
+                    ));
+            }
+
+            let mut loop_statements: Vec<Statement> = Vec::new();
+            // Generate the break condition
+            if let Some(condition) = condition {
+                let (condition, maybe_block) = expression_to_block(ctx, *condition);
+                if let Some(block) = maybe_block {
+                    loop_statements.append(&mut block_to_statements(block));
+                }
+                loop_statements.push(Statement::If {
+                    condition: Expression::BinaryExpression(
+                        Box::new(condition),
+                        BinaryOperator::Equal,
+                        Box::new(Expression::Boolean(false)),
+                    ),
+                    body: vec![Statement::Break],
+                    else_: Vec::new(),
+                });
+            }
+
+            // Add in the body of the loop
+            loop_statements.append(
+                &mut body
+                    .into_iter()
+                    .map(|stmt| {
+                        middle_statement_to_block_or_statement(ctx, stmt)
+                            .into_iter()
+                            .map(|b| b.to_statements())
+                            .flatten()
+                    })
+                    .flatten()
+                    .collect(),
+            );
+
+            // Add in the post-loop
+            if let Some(post_loop) = post_loop {
+                let (post_loop, maybe_block) = expression_to_block(ctx, *post_loop);
+                if let Some(block) = maybe_block {
+                    loop_statements.append(&mut block_to_statements(block));
+                }
+                loop_statements.push(Statement::Expression(post_loop));
+            }
+
+            let loop_ = Statement::WhileLoop(loop_statements);
+            block
+                .block_or_statements
+                .push(BlockOrStatement::Statement(loop_));
+
+            vec![BlockOrStatement::Block(block)]
+        }
     }
 }
 

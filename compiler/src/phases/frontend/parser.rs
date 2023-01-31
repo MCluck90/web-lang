@@ -156,6 +156,40 @@ fn top_level_statement_parser(
             kind: TopLevelStatementKind::Loop(block),
         });
 
+    let for_loop = just(Token::For)
+        .then(just(Token::OpenParen))
+        .ignore_then(
+            // Pre-loop
+            statement_parser().or_not(),
+        )
+        .then(
+            // Condition
+            expression_parser(statement_parser()).or_not(),
+        )
+        .then_ignore(just(Token::Terminator))
+        .then(
+            // Post-loop
+            expression_parser(statement_parser()).or_not(),
+        )
+        .then_ignore(just(Token::CloseParen))
+        .then(
+            // Body
+            statement_parser()
+                .repeated()
+                .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock)),
+        )
+        .map_with_span(
+            |(((initializer, condition), post_loop), body), span| TopLevelStatement {
+                span,
+                kind: TopLevelStatementKind::ForLoop {
+                    initializer: initializer.map(Box::new),
+                    condition,
+                    post_loop,
+                    body,
+                },
+            },
+        );
+
     let expression = expression_parser(statement_parser().clone())
         .then_ignore(just(Token::Terminator))
         .map(|expression| TopLevelStatement {
@@ -166,6 +200,7 @@ fn top_level_statement_parser(
     variable_declaration
         .or(function_definition)
         .or(loop_)
+        .or(for_loop)
         .or(expression)
 }
 
@@ -233,6 +268,41 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
                 kind: StatementKind::Loop(block),
             });
 
+        let for_loop = just(Token::For)
+            .then(just(Token::OpenParen))
+            .ignore_then(
+                // Pre-loop
+                statement.clone().or_not(),
+            )
+            .then(
+                // Condition
+                expression_parser(statement.clone()).or_not(),
+            )
+            .then_ignore(just(Token::Terminator))
+            .then(
+                // Post-loop
+                expression_parser(statement.clone()).or_not(),
+            )
+            .then_ignore(just(Token::CloseParen))
+            .then(
+                // Body
+                statement
+                    .clone()
+                    .repeated()
+                    .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock)),
+            )
+            .map_with_span(
+                |(((initializer, condition), post_loop), body), span| Statement {
+                    span,
+                    kind: StatementKind::ForLoop {
+                        initializer: initializer.map(Box::new),
+                        condition,
+                        post_loop,
+                        body,
+                    },
+                },
+            );
+
         let break_ = just(Token::Break)
             .ignore_then(just(Token::Terminator))
             .map_with_span(|_, span| Statement {
@@ -258,6 +328,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
         variable_declaration
             .or(function_definition)
             .or(loop_)
+            .or(for_loop)
             .or(break_)
             .or(return_statement)
             .or(expression)

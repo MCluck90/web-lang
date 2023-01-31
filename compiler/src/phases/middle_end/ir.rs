@@ -104,6 +104,12 @@ pub enum TopLevelStatementKind {
     },
     Expression(Expression),
     Loop(Vec<Statement>),
+    ForLoop {
+        initializer: Option<Statement>,
+        condition: Option<Expression>,
+        post_loop: Option<Expression>,
+        body: Vec<Statement>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -128,6 +134,12 @@ pub enum StatementKind {
     Expression(Expression),
     Return(Option<Expression>),
     Loop(Vec<Statement>),
+    ForLoop {
+        initializer: Option<Box<Statement>>,
+        condition: Option<Box<Expression>>,
+        post_loop: Option<Box<Expression>>,
+        body: Vec<Statement>,
+    },
     Break,
 }
 

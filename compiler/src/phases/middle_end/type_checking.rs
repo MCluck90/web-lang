@@ -129,6 +129,26 @@ fn visit_top_level_statement(
             }
             Ok(())
         }
+        TopLevelStatementKind::ForLoop {
+            initializer,
+            condition,
+            post_loop,
+            body,
+        } => {
+            if let Some(initializer) = initializer {
+                visit_statement(initializer, symbol_table, type_context)?;
+            }
+            if let Some(condition) = condition {
+                visit_expression(condition, symbol_table, type_context)?;
+            }
+            if let Some(post_loop) = post_loop {
+                visit_expression(post_loop, symbol_table, type_context)?;
+            }
+            for stmt in body {
+                visit_statement(stmt, symbol_table, type_context)?;
+            }
+            Ok(())
+        }
     }
 }
 
@@ -217,6 +237,26 @@ fn visit_statement(
             Ok(())
         }
         StatementKind::Break => Ok(()),
+        StatementKind::ForLoop {
+            initializer,
+            condition,
+            post_loop,
+            body,
+        } => {
+            if let Some(initializer) = initializer {
+                visit_statement(initializer, symbol_table, type_context)?;
+            }
+            if let Some(condition) = condition {
+                visit_expression(condition, symbol_table, type_context)?;
+            }
+            if let Some(post_loop) = post_loop {
+                visit_expression(post_loop, symbol_table, type_context)?;
+            }
+            for stmt in body {
+                visit_statement(stmt, symbol_table, type_context)?;
+            }
+            Ok(())
+        }
     }
 }
 
