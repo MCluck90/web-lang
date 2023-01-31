@@ -419,7 +419,17 @@ fn visit_expression(
                     }
                     BinaryOperator::Assignment => match &left.kind {
                         ExpressionKind::PropertyAccess(_, _) => todo!(),
-                        ExpressionKind::ArrayAccess(_, _) => todo!(),
+                        ExpressionKind::ArrayAccess(_, _) => {
+                            if right_type_symbol.type_ == left_type_symbol.type_ {
+                                Ok(right_type_symbol)
+                            } else {
+                                Err(vec![CompilerError::mismatched_types(
+                                    &right.span,
+                                    &left_type_symbol,
+                                    &right_type_symbol,
+                                )])
+                            }
+                        }
                         ExpressionKind::Identifier(identifier) => {
                             let left_value_symbol = symbol_table
                                 .get_value(&identifier.name.clone().into())
