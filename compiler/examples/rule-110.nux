@@ -9,30 +9,22 @@ let print-state() {
   log('');
 }
 
-let next-state(state: bool, left: bool, right: bool): bool {
+let compute-next-state(state: bool, left: bool, right: bool): bool {
   if state {
-    if left && right {
-      false
-    } else {
-      true
-    }
+    !(left && right)
   } else {
-    if right {
-      true
-    } else {
-      false
-    }
+    right
   }
 }
 
 let step() {
   print-state();
   let new-state: [bool] = state.shallow-copy();
-  new-state[0] = next-state(state[0], false, state[1]);
+  new-state[0] = compute-next-state(state[0], false, state[1]);
   for (mut i = 1; i < state.length - 1; i = i + 1) {
-    new-state[i] = next-state(state[i], state[i - 1], state[i + 1]);
+    new-state[i] = compute-next-state(state[i], state[i - 1], state[i + 1]);
   }
-  new-state[new-state.length - 1] = next-state(
+  new-state[new-state.length - 1] = compute-next-state(
     state[state.length - 1],
     state[state.length - 2],
     false
