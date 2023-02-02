@@ -17,7 +17,7 @@ mut state: [bool] = [
 ];
 
 let xor(l: bool, r: bool): bool {
-  (l && r == false) || (l == false && r)
+  (l && !r) || (!l && r)
 }
 
 let print-state() {

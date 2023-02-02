@@ -116,6 +116,8 @@ fn visit_expression(expression: &Expression) -> String {
         )
         .to_string(),
 
+        Expression::PreUnaryExpression(op, expr) => format!("{}{}", op, visit_expression(expr)),
+
         Expression::PropertyAccess(left, right) => {
             format!("{}.{}", visit_expression(left), right.replace("-", "$"))
         }

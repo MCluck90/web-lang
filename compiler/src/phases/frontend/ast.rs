@@ -141,6 +141,7 @@ pub enum ExpressionKind {
     List(Vec<Expression>),
 
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
+    PreUnaryExpression(PreUnaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
     ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {
@@ -262,6 +263,19 @@ impl fmt::Display for BinaryOperator {
             BinaryOperator::And => write!(f, "&&"),
             BinaryOperator::Or => write!(f, "||"),
             BinaryOperator::Assignment => write!(f, "="),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum PreUnaryOperator {
+    Not,
+}
+
+impl fmt::Display for PreUnaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            PreUnaryOperator::Not => write!(f, "!"),
         }
     }
 }

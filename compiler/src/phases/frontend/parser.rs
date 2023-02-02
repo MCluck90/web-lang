@@ -516,11 +516,21 @@ fn expression_parser<'a>(
                 }
             });
 
+        let operator = just(Token::Operator(Operator::Not)).to(PreUnaryOperator::Not);
+        let not = operator
+            .repeated()
+            .then(prop_or_fn_call.clone())
+            .map_with_span(|(ops, expr): (Vec<PreUnaryOperator>, Expression), span| {
+                ops.into_iter().fold(expr, |acc, op| {
+                    Expression::new(ExpressionKind::PreUnaryExpression(op, Box::new(acc)), span.clone())
+                })
+            });
+
         let operator = just(Token::Operator(Operator::Mul))
             .to(BinaryOperator::Mul)
             .or(just(Token::Operator(Operator::Div)).to(BinaryOperator::Div))
             .or(just(Token::Operator(Operator::Modulus)).to(BinaryOperator::Modulus));
-        let factor = prop_or_fn_call
+        let factor = not
             .clone()
             .then(operator.then(prop_or_fn_call).repeated())
             .foldl(|left, (op, right)| {

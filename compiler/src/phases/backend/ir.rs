@@ -1,4 +1,7 @@
-use crate::phases::{frontend::ir::BinaryOperator, middle_end};
+use crate::phases::{
+    frontend::ir::{BinaryOperator, PreUnaryOperator},
+    middle_end,
+};
 
 pub fn from_middle_end(program: middle_end::Program) -> Vec<Statement> {
     let mut ctx = Context::new();
@@ -426,6 +429,13 @@ fn expression_to_block(
                 },
             )
         }
+        middle_end::ir::ExpressionKind::PreUnaryExpression(op, expr) => {
+            let (expr, maybe_block) = expression_to_block(ctx, *expr);
+            (
+                Expression::PreUnaryExpression(op, Box::new(expr)),
+                maybe_block,
+            )
+        }
         middle_end::ir::ExpressionKind::PropertyAccess(left, right) => {
             let (left, maybe_block) = expression_to_block(ctx, *left);
             (
@@ -629,6 +639,7 @@ pub enum Expression {
     List(Vec<Expression>),
     JsBlock(Vec<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
+    PreUnaryExpression(PreUnaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, String),
     ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {

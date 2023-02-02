@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use crate::{
     errors::CompilerError,
     phases::{
-        frontend::{ir::BinaryOperator, Span},
+        frontend::{
+            ir::{BinaryOperator, PreUnaryOperator},
+            Span,
+        },
         shared::{ObjectType, Type},
     },
     types::{
@@ -514,7 +517,8 @@ fn visit_expression(
                         | ExpressionKind::BinaryExpression(_, _, _)
                         | ExpressionKind::If { .. }
                         | ExpressionKind::FunctionCall { .. }
-                        | ExpressionKind::List(_) => {
+                        | ExpressionKind::List(_)
+                        | ExpressionKind::PreUnaryExpression(_, _) => {
                             Err(vec![CompilerError::invalid_lhs_in_assignment(&left.span)])
                         }
                         ExpressionKind::JsBlock(type_, _) => {
@@ -529,6 +533,22 @@ fn visit_expression(
                             }
                         }
                     },
+                }
+            }
+        }
+        ExpressionKind::PreUnaryExpression(op, expr) => {
+            let expr_type = visit_expression(expr, symbol_table, type_context)?;
+            match op {
+                PreUnaryOperator::Not => {
+                    if expr_type.type_ != Type::Bool {
+                        Err(vec![
+                            CompilerError::unary_not_operator_not_supported_on_type(
+                                &expr.span, &expr_type,
+                            ),
+                        ])
+                    } else {
+                        Ok(expr_type)
+                    }
                 }
             }
         }

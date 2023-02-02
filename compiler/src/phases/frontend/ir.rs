@@ -2,8 +2,8 @@ use crate::errors::CompilerError;
 
 pub use super::ast::{
     BinaryOperator, Block, Expression, ExpressionKind, Identifier, Import, ImportKind,
-    ImportSelector, ImportSelectorKind, Parameter, Statement, StatementKind, TopLevelStatement,
-    TopLevelStatementKind,
+    ImportSelector, ImportSelectorKind, Parameter, PreUnaryOperator, Statement, StatementKind,
+    TopLevelStatement, TopLevelStatementKind,
 };
 
 use super::ast;

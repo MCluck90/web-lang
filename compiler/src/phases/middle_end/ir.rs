@@ -4,7 +4,10 @@ use crate::{
     errors::CompilerError,
     phases::{
         frontend::Span,
-        frontend::{self, ir::BinaryOperator},
+        frontend::{
+            self,
+            ir::{BinaryOperator, PreUnaryOperator},
+        },
         shared::Type,
     },
 };
@@ -170,6 +173,7 @@ pub enum ExpressionKind {
     List(Vec<Expression>),
 
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
+    PreUnaryExpression(PreUnaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
     ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {

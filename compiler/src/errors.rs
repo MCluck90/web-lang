@@ -121,12 +121,25 @@ impl CompilerError {
     ) -> CompilerError {
         CompilerError {
             span: span.clone(),
-            reason: CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol {
+            reason: CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol {
                 operator: operator.clone(),
                 found: found.clone(),
             },
         }
     }
+
+    pub fn unary_not_operator_not_supported_on_type(
+        span: &Span,
+        found: &TypeSymbol,
+    ) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::UnaryNotOperatorNotSupportedOnTypeSymbol {
+                found: found.clone(),
+            },
+        }
+    }
+
     pub fn mismatched_types(
         span: &Span,
         expected: &TypeSymbol,
@@ -266,7 +279,7 @@ pub enum CompilerErrorReason {
     },
 
     // Ex: (operator) is not supported on type (found)
-    BinaryBinaryOperatorNotSupportedOnTypeSymbol {
+    BinaryOperatorNotSupportedOnTypeSymbol {
         operator: BinaryOperator,
         found: TypeSymbol,
     },
@@ -320,6 +333,10 @@ pub enum CompilerErrorReason {
     MixedTypesInList {
         types: Vec<TypeSymbol>,
     },
+
+    UnaryNotOperatorNotSupportedOnTypeSymbol {
+        found: TypeSymbol,
+    },
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -327,7 +344,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::UnexpectedToken { .. } => 0,
             CompilerErrorReason::ReferenceError { .. } => 1,
             CompilerErrorReason::InvalidReturnValue { .. } => 2,
-            CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
+            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
             CompilerErrorReason::MismatchedTypeSymbols { .. } => 4,
             CompilerErrorReason::UnexpectedCharacter { .. } => 5,
             CompilerErrorReason::AssignmentToImmutableVariable { .. } => 6,
@@ -339,6 +356,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::CouldNotFindModule { .. } => 12,
             CompilerErrorReason::InvalidImport { .. } => 13,
             CompilerErrorReason::MixedTypesInList { .. } => 14,
+            CompilerErrorReason::UnaryNotOperatorNotSupportedOnTypeSymbol { .. } => 15,
         }
     }
 
@@ -398,10 +416,7 @@ impl CompilerErrorReason {
                 "Invalid return value. Expected `{}`, found `{}`",
                 expected, found
             ),
-            CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol {
-                operator,
-                found,
-            } => {
+            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { operator, found } => {
                 format!(
                     "{} is not supported for type `{}`",
                     match operator {
@@ -475,6 +490,10 @@ impl CompilerErrorReason {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
+            CompilerErrorReason::UnaryNotOperatorNotSupportedOnTypeSymbol { found } => format!(
+                "Unary not (`!`) is not supported on type `{}`. Can only be used on boolean values",
+                found
+            ),
         }
     }
 
@@ -513,7 +532,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidReturnValue { expected, .. } => label
                 .with_message(format!("expected {}", expected))
                 .with_color(Color::Red),
-            CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol { .. } => label
+            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => label
                 .with_message("invalid operation")
                 .with_color(Color::Red),
             CompilerErrorReason::MismatchedTypeSymbols { expected, .. } => label
@@ -540,6 +559,9 @@ impl CompilerErrorReason {
                 .with_message(format!("{} does not export this identifier", import_path))
                 .with_color(Color::Red),
             CompilerErrorReason::MixedTypesInList { .. } => label.with_color(Color::Red),
+            CompilerErrorReason::UnaryNotOperatorNotSupportedOnTypeSymbol { .. } => label
+                .with_message("this value is not a boolean")
+                .with_color(Color::Red),
         }
     }
 }

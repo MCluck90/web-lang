@@ -650,6 +650,13 @@ fn resolve_expression(
                 left_errors,
             )
         }
+        frontend::ir::ExpressionKind::PreUnaryExpression(op, expr) => {
+            let (expr, errors) = resolve_expression(ctx, expr);
+            to_expression(
+                middle_end::ir::ExpressionKind::PreUnaryExpression(op.clone(), Box::new(expr)),
+                errors,
+            )
+        }
         frontend::ir::ExpressionKind::PropertyAccess(left, right) => {
             let (left, errors) = resolve_expression(ctx, left);
             to_expression(
