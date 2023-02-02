@@ -1,4 +1,4 @@
-use crate::phases::{frontend::BinaryOperator, middle_end};
+use crate::phases::{frontend::ir::BinaryOperator, middle_end};
 
 pub fn from_middle_end(program: middle_end::Program) -> Vec<Statement> {
     let mut ctx = Context::new();

@@ -2,10 +2,7 @@ use core::fmt;
 
 use crate::{
     errors::CompilerError,
-    phases::{
-        frontend::lexer::{BinaryOperator, Span},
-        shared::Type,
-    },
+    phases::{frontend::lexer::Span, shared::Type},
 };
 
 pub struct Module {
@@ -226,6 +223,45 @@ impl From<Expression> for Statement {
         Statement {
             span: expression.span,
             kind: StatementKind::Expression(clone),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Modulus,
+    NotEqual,
+    Equal,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    And,
+    Or,
+    Assignment,
+}
+
+impl fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BinaryOperator::Add => write!(f, "+"),
+            BinaryOperator::Sub => write!(f, "-"),
+            BinaryOperator::Mul => write!(f, "*"),
+            BinaryOperator::Div => write!(f, "/"),
+            BinaryOperator::Modulus => write!(f, "%"),
+            BinaryOperator::NotEqual => write!(f, "!="),
+            BinaryOperator::Equal => write!(f, "=="),
+            BinaryOperator::LessThan => write!(f, "<"),
+            BinaryOperator::LessThanOrEqual => write!(f, "<="),
+            BinaryOperator::GreaterThan => write!(f, ">"),
+            BinaryOperator::GreaterThanOrEqual => write!(f, ">="),
+            BinaryOperator::And => write!(f, "&&"),
+            BinaryOperator::Or => write!(f, "||"),
+            BinaryOperator::Assignment => write!(f, "="),
         }
     }
 }

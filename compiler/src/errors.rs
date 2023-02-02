@@ -1,7 +1,7 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
 use crate::{
-    phases::frontend::{lexer, BinaryOperator, Span, Token},
+    phases::frontend::{ir::BinaryOperator, lexer, Span, Token},
     types::symbol_table::TypeSymbol,
 };
 
@@ -121,7 +121,7 @@ impl CompilerError {
     ) -> CompilerError {
         CompilerError {
             span: span.clone(),
-            reason: CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol {
+            reason: CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol {
                 operator: operator.clone(),
                 found: found.clone(),
             },
@@ -266,7 +266,7 @@ pub enum CompilerErrorReason {
     },
 
     // Ex: (operator) is not supported on type (found)
-    BinaryOperatorNotSupportedOnTypeSymbol {
+    BinaryBinaryOperatorNotSupportedOnTypeSymbol {
         operator: BinaryOperator,
         found: TypeSymbol,
     },
@@ -327,7 +327,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::UnexpectedToken { .. } => 0,
             CompilerErrorReason::ReferenceError { .. } => 1,
             CompilerErrorReason::InvalidReturnValue { .. } => 2,
-            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
+            CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
             CompilerErrorReason::MismatchedTypeSymbols { .. } => 4,
             CompilerErrorReason::UnexpectedCharacter { .. } => 5,
             CompilerErrorReason::AssignmentToImmutableVariable { .. } => 6,
@@ -398,7 +398,10 @@ impl CompilerErrorReason {
                 "Invalid return value. Expected `{}`, found `{}`",
                 expected, found
             ),
-            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { operator, found } => {
+            CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol {
+                operator,
+                found,
+            } => {
                 format!(
                     "{} is not supported for type `{}`",
                     match operator {
@@ -510,7 +513,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidReturnValue { expected, .. } => label
                 .with_message(format!("expected {}", expected))
                 .with_color(Color::Red),
-            CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => label
+            CompilerErrorReason::BinaryBinaryOperatorNotSupportedOnTypeSymbol { .. } => label
                 .with_message("invalid operation")
                 .with_color(Color::Red),
             CompilerErrorReason::MismatchedTypeSymbols { expected, .. } => label

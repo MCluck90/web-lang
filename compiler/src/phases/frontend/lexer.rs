@@ -24,7 +24,7 @@ impl fmt::Display for BuiltInTypeToken {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum BinaryOperator {
+pub enum Operator {
     Add,
     Sub,
     Mul,
@@ -41,23 +41,23 @@ pub enum BinaryOperator {
     Assignment,
 }
 
-impl fmt::Display for BinaryOperator {
+impl fmt::Display for Operator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BinaryOperator::Add => write!(f, "+"),
-            BinaryOperator::Sub => write!(f, "-"),
-            BinaryOperator::Mul => write!(f, "*"),
-            BinaryOperator::Div => write!(f, "/"),
-            BinaryOperator::Modulus => write!(f, "%"),
-            BinaryOperator::NotEqual => write!(f, "!="),
-            BinaryOperator::Equal => write!(f, "=="),
-            BinaryOperator::LessThan => write!(f, "<"),
-            BinaryOperator::LessThanOrEqual => write!(f, "<="),
-            BinaryOperator::GreaterThan => write!(f, ">"),
-            BinaryOperator::GreaterThanOrEqual => write!(f, ">="),
-            BinaryOperator::And => write!(f, "&&"),
-            BinaryOperator::Or => write!(f, "||"),
-            BinaryOperator::Assignment => write!(f, "="),
+            Operator::Add => write!(f, "+"),
+            Operator::Sub => write!(f, "-"),
+            Operator::Mul => write!(f, "*"),
+            Operator::Div => write!(f, "/"),
+            Operator::Modulus => write!(f, "%"),
+            Operator::NotEqual => write!(f, "!="),
+            Operator::Equal => write!(f, "=="),
+            Operator::LessThan => write!(f, "<"),
+            Operator::LessThanOrEqual => write!(f, "<="),
+            Operator::GreaterThan => write!(f, ">"),
+            Operator::GreaterThanOrEqual => write!(f, ">="),
+            Operator::And => write!(f, "&&"),
+            Operator::Or => write!(f, "||"),
+            Operator::Assignment => write!(f, "="),
         }
     }
 }
@@ -102,7 +102,7 @@ pub enum Token {
     BuiltInType(BuiltInTypeToken),
     Identifier(String),
     Integer(String),
-    Operator(BinaryOperator),
+    Operator(Operator),
     String(String),
 }
 impl Token {
@@ -238,21 +238,20 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
     let string_ = single_quote_string.or(double_quote_string);
 
     let operator = choice::<_, CompilerError>((
-        just::<char, _, CompilerError>('+').to(Token::Operator(BinaryOperator::Add)),
-        just::<char, _, CompilerError>('-').to(Token::Operator(BinaryOperator::Sub)),
-        just::<char, _, CompilerError>('*').to(Token::Operator(BinaryOperator::Mul)),
-        just::<char, _, CompilerError>('/').to(Token::Operator(BinaryOperator::Div)),
-        just::<char, _, CompilerError>('%').to(Token::Operator(BinaryOperator::Modulus)),
-        just::<char, _, CompilerError>("==").to(Token::Operator(BinaryOperator::Equal)),
-        just::<char, _, CompilerError>("!=").to(Token::Operator(BinaryOperator::NotEqual)),
-        just::<char, _, CompilerError>("<=").to(Token::Operator(BinaryOperator::LessThanOrEqual)),
-        just::<char, _, CompilerError>("<").to(Token::Operator(BinaryOperator::LessThan)),
-        just::<char, _, CompilerError>(">=")
-            .to(Token::Operator(BinaryOperator::GreaterThanOrEqual)),
-        just::<char, _, CompilerError>(">").to(Token::Operator(BinaryOperator::GreaterThan)),
-        just::<char, _, CompilerError>("&&").to(Token::Operator(BinaryOperator::And)),
-        just::<char, _, CompilerError>("||").to(Token::Operator(BinaryOperator::Or)),
-        just::<char, _, CompilerError>("=").to(Token::Operator(BinaryOperator::Assignment)),
+        just::<char, _, CompilerError>('+').to(Token::Operator(Operator::Add)),
+        just::<char, _, CompilerError>('-').to(Token::Operator(Operator::Sub)),
+        just::<char, _, CompilerError>('*').to(Token::Operator(Operator::Mul)),
+        just::<char, _, CompilerError>('/').to(Token::Operator(Operator::Div)),
+        just::<char, _, CompilerError>('%').to(Token::Operator(Operator::Modulus)),
+        just::<char, _, CompilerError>("==").to(Token::Operator(Operator::Equal)),
+        just::<char, _, CompilerError>("!=").to(Token::Operator(Operator::NotEqual)),
+        just::<char, _, CompilerError>("<=").to(Token::Operator(Operator::LessThanOrEqual)),
+        just::<char, _, CompilerError>("<").to(Token::Operator(Operator::LessThan)),
+        just::<char, _, CompilerError>(">=").to(Token::Operator(Operator::GreaterThanOrEqual)),
+        just::<char, _, CompilerError>(">").to(Token::Operator(Operator::GreaterThan)),
+        just::<char, _, CompilerError>("&&").to(Token::Operator(Operator::And)),
+        just::<char, _, CompilerError>("||").to(Token::Operator(Operator::Or)),
+        just::<char, _, CompilerError>("=").to(Token::Operator(Operator::Assignment)),
         just::<char, _, CompilerError>(".").to(Token::PropertyAccessOp),
     ));
 

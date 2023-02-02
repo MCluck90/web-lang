@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     errors::CompilerError,
     phases::{
-        frontend::{BinaryOperator, Span},
+        frontend::{ir::BinaryOperator, Span},
         shared::{ObjectType, Type},
     },
     types::{

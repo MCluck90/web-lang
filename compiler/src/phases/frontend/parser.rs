@@ -1,8 +1,7 @@
 use chumsky::prelude::*;
 
+use super::{ast::*, lexer::Operator, BuiltInTypeToken, Span, Token};
 use crate::{errors::CompilerError, phases::shared::Type};
-
-use super::{ast::*, BinaryOperator, BuiltInTypeToken, Span, Token};
 
 pub fn module_parser(path: String) -> impl Parser<Token, ModuleAST, Error = CompilerError> + Clone {
     import_parser()
@@ -53,11 +52,11 @@ fn type_parser() -> impl Parser<Token, Type, Error = CompilerError> + Clone {
 }
 
 fn import_parser() -> impl Parser<Token, Import, Error = CompilerError> + Clone {
-    let path_parser = just(Token::Operator(BinaryOperator::Div))
+    let path_parser = just(Token::Operator(Operator::Div))
         .map(|_| Vec::<Identifier>::new())
         .or(identifier_parser()
             .separated_by(just(Token::ListSeparator))
-            .then_ignore(just(Token::Operator(BinaryOperator::Div))))
+            .then_ignore(just(Token::Operator(Operator::Div))))
         .or_not();
 
     let named_selector_parser = identifier_parser().map_with_span(|ident, span| ImportSelector {
@@ -72,7 +71,7 @@ fn import_parser() -> impl Parser<Token, Import, Error = CompilerError> + Clone 
         .ignore_then(identifier_parser())
         .then_ignore(just(Token::KeyValueSeparator))
         .then(identifier_parser())
-        .then_ignore(just(Token::Operator(BinaryOperator::Div)))
+        .then_ignore(just(Token::Operator(Operator::Div)))
         .then(path_parser)
         .then(selector_parser)
         .map_with_span(|(((scope, package), path), selectors), span| Import {
@@ -101,7 +100,7 @@ fn top_level_statement_parser(
                 .ignore_then(type_parser())
                 .or_not(),
         )
-        .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
+        .then_ignore(just(Token::Operator(Operator::Assignment)))
         .then(expression_parser(statement_parser()))
         .then_ignore(just(Token::Terminator))
         .map_with_span(
@@ -227,7 +226,7 @@ fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + 
                     .ignore_then(type_parser())
                     .or_not(),
             )
-            .then_ignore(just(Token::Operator(BinaryOperator::Assignment)))
+            .then_ignore(just(Token::Operator(Operator::Assignment)))
             .then(expression_parser(statement.clone()))
             .then_ignore(just(Token::Terminator))
             .map_with_span(
@@ -517,10 +516,10 @@ fn expression_parser<'a>(
                 }
             });
 
-        let operator = just(Token::Operator(BinaryOperator::Mul))
+        let operator = just(Token::Operator(Operator::Mul))
             .to(BinaryOperator::Mul)
-            .or(just(Token::Operator(BinaryOperator::Div)).to(BinaryOperator::Div))
-            .or(just(Token::Operator(BinaryOperator::Modulus)).to(BinaryOperator::Modulus));
+            .or(just(Token::Operator(Operator::Div)).to(BinaryOperator::Div))
+            .or(just(Token::Operator(Operator::Modulus)).to(BinaryOperator::Modulus));
         let factor = prop_or_fn_call
             .clone()
             .then(operator.then(prop_or_fn_call).repeated())
@@ -532,9 +531,9 @@ fn expression_parser<'a>(
                 )
             });
 
-        let operator = just(Token::Operator(BinaryOperator::Add))
+        let operator = just(Token::Operator(Operator::Add))
             .to(BinaryOperator::Add)
-            .or(just(Token::Operator(BinaryOperator::Sub)).to(BinaryOperator::Sub));
+            .or(just(Token::Operator(Operator::Sub)).to(BinaryOperator::Sub));
         let sum =
             factor
                 .clone()
@@ -547,12 +546,12 @@ fn expression_parser<'a>(
                     )
                 });
 
-        let operator = just(Token::Operator(BinaryOperator::LessThan))
+        let operator = just(Token::Operator(Operator::LessThan))
             .to(BinaryOperator::LessThan)
-            .or(just(Token::Operator(BinaryOperator::LessThanOrEqual))
+            .or(just(Token::Operator(Operator::LessThanOrEqual))
                 .to(BinaryOperator::LessThanOrEqual))
-            .or(just(Token::Operator(BinaryOperator::GreaterThan)).to(BinaryOperator::GreaterThan))
-            .or(just(Token::Operator(BinaryOperator::GreaterThanOrEqual))
+            .or(just(Token::Operator(Operator::GreaterThan)).to(BinaryOperator::GreaterThan))
+            .or(just(Token::Operator(Operator::GreaterThanOrEqual))
                 .to(BinaryOperator::GreaterThanOrEqual));
         let comparison =
             sum.clone()
@@ -565,9 +564,9 @@ fn expression_parser<'a>(
                     )
                 });
 
-        let operator = just(Token::Operator(BinaryOperator::Equal))
+        let operator = just(Token::Operator(Operator::Equal))
             .to(BinaryOperator::Equal)
-            .or(just(Token::Operator(BinaryOperator::NotEqual)).to(BinaryOperator::NotEqual));
+            .or(just(Token::Operator(Operator::NotEqual)).to(BinaryOperator::NotEqual));
         let equality = comparison
             .clone()
             .then(operator.then(comparison).repeated())
@@ -579,9 +578,9 @@ fn expression_parser<'a>(
                 )
             });
 
-        let operator = just(Token::Operator(BinaryOperator::And))
+        let operator = just(Token::Operator(Operator::And))
             .to(BinaryOperator::And)
-            .or(just(Token::Operator(BinaryOperator::Or)).to(BinaryOperator::Or));
+            .or(just(Token::Operator(Operator::Or)).to(BinaryOperator::Or));
         let logical = equality
             .clone()
             .then(operator.then(equality.clone()).repeated())
@@ -593,8 +592,7 @@ fn expression_parser<'a>(
                 )
             });
 
-        let operator =
-            just(Token::Operator(BinaryOperator::Assignment)).to(BinaryOperator::Assignment);
+        let operator = just(Token::Operator(Operator::Assignment)).to(BinaryOperator::Assignment);
         let assignment = logical
             .clone()
             .then(operator.then(equality).repeated())

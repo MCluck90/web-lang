@@ -9,7 +9,7 @@ use std::{
 };
 
 use chumsky::{Parser, Stream};
-pub use lexer::{BinaryOperator, BuiltInTypeToken, Span, Token};
+pub use lexer::{BuiltInTypeToken, Span, Token};
 
 use crate::errors::{print_error_report, CompilerError};
 
