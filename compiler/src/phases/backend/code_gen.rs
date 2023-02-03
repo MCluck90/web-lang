@@ -120,7 +120,9 @@ fn visit_expression(expression: &Expression) -> String {
 
         Expression::PreUnaryExpression(op, expr) => match op {
             PreUnaryOperator::Not => format!("{}({})", op, visit_expression(expr)),
-            PreUnaryOperator::Increment => format!("({}{})", op, visit_expression(expr)),
+            PreUnaryOperator::Increment | PreUnaryOperator::Decrement => {
+                format!("({}{})", op, visit_expression(expr))
+            }
         },
 
         Expression::PropertyAccess(left, right) => {

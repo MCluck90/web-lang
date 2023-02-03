@@ -1,0 +1,7 @@
+use @std:io/{ log };
+
+log((!true).toString());
+
+mut i = 0;
+log((++i).toString());
+log((--i).toString());

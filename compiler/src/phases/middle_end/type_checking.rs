@@ -550,7 +550,7 @@ fn visit_expression(
                         Ok(expr_type)
                     }
                 }
-                PreUnaryOperator::Increment => match &expr.kind {
+                PreUnaryOperator::Increment | PreUnaryOperator::Decrement => match &expr.kind {
                     ExpressionKind::Boolean(_)
                     | ExpressionKind::Integer(_)
                     | ExpressionKind::Block(_)

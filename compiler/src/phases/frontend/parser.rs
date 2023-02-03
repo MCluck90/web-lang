@@ -518,7 +518,8 @@ fn expression_parser<'a>(
 
         let operator = just(Token::Operator(Operator::Not))
             .to(PreUnaryOperator::Not)
-            .or(just(Token::Operator(Operator::Increment)).to(PreUnaryOperator::Increment));
+            .or(just(Token::Operator(Operator::Increment)).to(PreUnaryOperator::Increment))
+            .or(just(Token::Operator(Operator::Decrement)).to(PreUnaryOperator::Decrement));
         let pre_unary = operator
             .repeated()
             .then(prop_or_fn_call.clone())

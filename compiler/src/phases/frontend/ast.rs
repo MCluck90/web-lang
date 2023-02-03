@@ -271,6 +271,7 @@ impl fmt::Display for BinaryOperator {
 pub enum PreUnaryOperator {
     Not,
     Increment,
+    Decrement,
 }
 
 impl fmt::Display for PreUnaryOperator {
@@ -278,6 +279,7 @@ impl fmt::Display for PreUnaryOperator {
         match self {
             PreUnaryOperator::Not => write!(f, "!"),
             PreUnaryOperator::Increment => write!(f, "++"),
+            PreUnaryOperator::Decrement => write!(f, "--"),
         }
     }
 }

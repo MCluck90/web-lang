@@ -31,6 +31,7 @@ pub enum Operator {
     Div,
     Modulus,
     Increment,
+    Decrement,
     Not,
     NotEqual,
     Equal,
@@ -52,6 +53,7 @@ impl fmt::Display for Operator {
             Operator::Div => write!(f, "/"),
             Operator::Modulus => write!(f, "%"),
             Operator::Increment => write!(f, "++"),
+            Operator::Decrement => write!(f, "--"),
             Operator::Not => write!(f, "!"),
             Operator::NotEqual => write!(f, "!="),
             Operator::Equal => write!(f, "=="),
@@ -243,6 +245,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
 
     let operator = choice::<_, CompilerError>((
         just::<char, _, CompilerError>("++").to(Token::Operator(Operator::Increment)),
+        just::<char, _, CompilerError>("--").to(Token::Operator(Operator::Decrement)),
         just::<char, _, CompilerError>('+').to(Token::Operator(Operator::Add)),
         just::<char, _, CompilerError>('-').to(Token::Operator(Operator::Sub)),
         just::<char, _, CompilerError>('*').to(Token::Operator(Operator::Mul)),
