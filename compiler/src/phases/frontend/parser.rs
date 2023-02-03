@@ -516,13 +516,18 @@ fn expression_parser<'a>(
                 }
             });
 
-        let operator = just(Token::Operator(Operator::Not)).to(PreUnaryOperator::Not);
-        let not = operator
+        let operator = just(Token::Operator(Operator::Not))
+            .to(PreUnaryOperator::Not)
+            .or(just(Token::Operator(Operator::Increment)).to(PreUnaryOperator::Increment));
+        let pre_unary = operator
             .repeated()
             .then(prop_or_fn_call.clone())
             .map_with_span(|(ops, expr): (Vec<PreUnaryOperator>, Expression), span| {
                 ops.into_iter().fold(expr, |acc, op| {
-                    Expression::new(ExpressionKind::PreUnaryExpression(op, Box::new(acc)), span.clone())
+                    Expression::new(
+                        ExpressionKind::PreUnaryExpression(op, Box::new(acc)),
+                        span.clone(),
+                    )
                 })
             });
 
@@ -530,7 +535,7 @@ fn expression_parser<'a>(
             .to(BinaryOperator::Mul)
             .or(just(Token::Operator(Operator::Div)).to(BinaryOperator::Div))
             .or(just(Token::Operator(Operator::Modulus)).to(BinaryOperator::Modulus));
-        let factor = not
+        let factor = pre_unary
             .clone()
             .then(operator.then(prop_or_fn_call).repeated())
             .foldl(|left, (op, right)| {

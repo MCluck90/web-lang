@@ -3,7 +3,7 @@ use @std:io/{ log, write-stdout };
 mut state: [bool] = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true];
 
 let print-state() {
-  for (mut i = 0; i < state.length; i = i + 1) {
+  for (mut i = 0; i < state.length; ++i) {
     write-stdout(if state[i] { '#' } else { ' ' });
   }
   log('');
@@ -21,7 +21,7 @@ let step() {
   print-state();
   let new-state: [bool] = state.shallow-copy();
   new-state[0] = compute-next-state(state[0], false, state[1]);
-  for (mut i = 1; i < state.length - 1; i = i + 1) {
+  for (mut i = 1; i < state.length - 1; ++i) {
     new-state[i] = compute-next-state(state[i], state[i - 1], state[i + 1]);
   }
   new-state[new-state.length - 1] = compute-next-state(
@@ -33,6 +33,6 @@ let step() {
   state = new-state;
 }
 
-for (mut i = 0; i < 45; i = i + 1) {
+for (mut i = 0; i < 45; ++i) {
   step();
 }

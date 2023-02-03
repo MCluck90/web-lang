@@ -270,12 +270,14 @@ impl fmt::Display for BinaryOperator {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum PreUnaryOperator {
     Not,
+    Increment,
 }
 
 impl fmt::Display for PreUnaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             PreUnaryOperator::Not => write!(f, "!"),
+            PreUnaryOperator::Increment => write!(f, "++"),
         }
     }
 }

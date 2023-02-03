@@ -30,6 +30,7 @@ pub enum Operator {
     Mul,
     Div,
     Modulus,
+    Increment,
     Not,
     NotEqual,
     Equal,
@@ -50,6 +51,7 @@ impl fmt::Display for Operator {
             Operator::Mul => write!(f, "*"),
             Operator::Div => write!(f, "/"),
             Operator::Modulus => write!(f, "%"),
+            Operator::Increment => write!(f, "++"),
             Operator::Not => write!(f, "!"),
             Operator::NotEqual => write!(f, "!="),
             Operator::Equal => write!(f, "=="),
@@ -240,6 +242,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
     let string_ = single_quote_string.or(double_quote_string);
 
     let operator = choice::<_, CompilerError>((
+        just::<char, _, CompilerError>("++").to(Token::Operator(Operator::Increment)),
         just::<char, _, CompilerError>('+').to(Token::Operator(Operator::Add)),
         just::<char, _, CompilerError>('-').to(Token::Operator(Operator::Sub)),
         just::<char, _, CompilerError>('*').to(Token::Operator(Operator::Mul)),
@@ -261,6 +264,9 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
     fn is_start_or_end_of_identifier(c: &char) -> bool {
         c.is_alphabetic() || *c == '_'
     }
+    fn is_middle_of_identifier(c: &char) -> bool {
+        c.is_alphanumeric() || *c == '_'
+    }
     fn is_dash(c: &char) -> bool {
         *c == '-'
     }
@@ -268,9 +274,9 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
         .map(|c| Some(c.to_string()))
         .chain::<String, Vec<_>, _>(
             filter(|c: &char| is_dash(c))
-                .then(filter(is_start_or_end_of_identifier))
+                .then(filter(is_middle_of_identifier))
                 .map(|(a, b)| format!("{}{}", a, b))
-                .or(filter(is_start_or_end_of_identifier).map(|c| c.to_string()))
+                .or(filter(is_middle_of_identifier).map(|c| c.to_string()))
                 .repeated(),
         )
         .collect();

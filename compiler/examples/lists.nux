@@ -2,7 +2,7 @@ use @std:io/{ log };
 
 let fibonacci: [int] = [1, 2, 3, 5, 8];
 fibonacci.push(13);
-for (mut i = 0; i < fibonacci.length; i = i + 1) {
+for (mut i = 0; i < fibonacci.length; ++i) {
   log(fibonacci[i].toString());
 }
 

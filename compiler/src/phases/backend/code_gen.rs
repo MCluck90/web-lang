@@ -1,3 +1,5 @@
+use crate::phases::frontend::ir::PreUnaryOperator;
+
 use super::ir::{Expression, Statement};
 
 pub struct CodeGenOutput {
@@ -116,7 +118,10 @@ fn visit_expression(expression: &Expression) -> String {
         )
         .to_string(),
 
-        Expression::PreUnaryExpression(op, expr) => format!("{}({})", op, visit_expression(expr)),
+        Expression::PreUnaryExpression(op, expr) => match op {
+            PreUnaryOperator::Not => format!("{}({})", op, visit_expression(expr)),
+            PreUnaryOperator::Increment => format!("({}{})", op, visit_expression(expr)),
+        },
 
         Expression::PropertyAccess(left, right) => {
             format!("{}.{}", visit_expression(left), right.replace("-", "$"))

@@ -140,6 +140,13 @@ impl CompilerError {
         }
     }
 
+    pub fn invalid_rhs_expression_in_prefix_operation(span: &Span) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::InvalidRhsExpressionInPrefixOperation,
+        }
+    }
+
     pub fn mismatched_types(
         span: &Span,
         expected: &TypeSymbol,
@@ -334,9 +341,13 @@ pub enum CompilerErrorReason {
         types: Vec<TypeSymbol>,
     },
 
+    // Ex: Unary not (`!`) is not supported on type `{}`. Can only be used on boolean values
     UnaryNotOperatorNotSupportedOnTypeSymbol {
         found: TypeSymbol,
     },
+
+    // Ex: Invalid right-hand side expression in prefix operation
+    InvalidRhsExpressionInPrefixOperation,
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -357,6 +368,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidImport { .. } => 13,
             CompilerErrorReason::MixedTypesInList { .. } => 14,
             CompilerErrorReason::UnaryNotOperatorNotSupportedOnTypeSymbol { .. } => 15,
+            CompilerErrorReason::InvalidRhsExpressionInPrefixOperation => 16,
         }
     }
 
@@ -494,6 +506,9 @@ impl CompilerErrorReason {
                 "Unary not (`!`) is not supported on type `{}`. Can only be used on boolean values",
                 found
             ),
+            CompilerErrorReason::InvalidRhsExpressionInPrefixOperation => {
+                "Invalid right-hand side expression in prefix operation".to_owned()
+            }
         }
     }
 
@@ -562,6 +577,9 @@ impl CompilerErrorReason {
             CompilerErrorReason::UnaryNotOperatorNotSupportedOnTypeSymbol { .. } => label
                 .with_message("this value is not a boolean")
                 .with_color(Color::Red),
+            CompilerErrorReason::InvalidRhsExpressionInPrefixOperation => {
+                label.with_color(Color::Red)
+            }
         }
     }
 }

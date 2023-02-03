@@ -550,6 +550,43 @@ fn visit_expression(
                         Ok(expr_type)
                     }
                 }
+                PreUnaryOperator::Increment => match &expr.kind {
+                    ExpressionKind::Boolean(_)
+                    | ExpressionKind::Integer(_)
+                    | ExpressionKind::Block(_)
+                    | ExpressionKind::JsBlock(_, _)
+                    | ExpressionKind::List(_)
+                    | ExpressionKind::BinaryExpression(_, _, _)
+                    | ExpressionKind::FunctionCall { .. }
+                    | ExpressionKind::If { .. }
+                    | ExpressionKind::String(_) => Err(vec![
+                        CompilerError::invalid_rhs_expression_in_prefix_operation(&expr.span),
+                    ]),
+
+                    ExpressionKind::Identifier(ident) => {
+                        let symbol = symbol_table
+                            .get_value(&ValueId(ident.name.clone()))
+                            .unwrap();
+                        match (symbol.is_mutable, &expr_type.type_) {
+                            (true, Type::Int) => Ok(expr_type),
+                            (false, Type::Int) => {
+                                Err(vec![CompilerError::assignment_to_immutable_variable(
+                                    &expr.span,
+                                    &ident.original_name,
+                                )])
+                            }
+                            (_, _) => Err(vec![
+                                CompilerError::invalid_rhs_expression_in_prefix_operation(
+                                    &expr.span,
+                                ),
+                            ]),
+                        }
+                    }
+
+                    ExpressionKind::PreUnaryExpression(_, _) => todo!(),
+                    ExpressionKind::PropertyAccess(_, _) => todo!(),
+                    ExpressionKind::ArrayAccess(_, _) => todo!(),
+                },
             }
         }
         ExpressionKind::PropertyAccess(left, right) => {

@@ -23,7 +23,7 @@ loop {
 log('');
 
 log('`for` loop');
-for (mut i = 1; i <= 30; i = i + 1) {
+for (mut i = 1; i <= 30; ++i) {
   if i % 15 == 0 {
     logWithMessage(i, 'Fizzbuzz');
   } else if i % 3 == 0 {
