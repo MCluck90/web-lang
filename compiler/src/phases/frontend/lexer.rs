@@ -258,10 +258,20 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
         just::<char, _, CompilerError>(".").to(Token::PropertyAccessOp),
     ));
 
-    let identifier = filter::<char, _, CompilerError>(|c| c.is_ascii_alphabetic() || *c == '_')
-        .map(Some)
-        .chain::<char, Vec<_>, _>(
-            filter(|c: &char| c.is_ascii_alphanumeric() || *c == '_' || *c == '-').repeated(),
+    fn is_start_or_end_of_identifier(c: &char) -> bool {
+        c.is_alphabetic() || *c == '_'
+    }
+    fn is_dash(c: &char) -> bool {
+        *c == '-'
+    }
+    let identifier = filter::<char, _, CompilerError>(is_start_or_end_of_identifier)
+        .map(|c| Some(c.to_string()))
+        .chain::<String, Vec<_>, _>(
+            filter(|c: &char| is_dash(c))
+                .then(filter(is_start_or_end_of_identifier))
+                .map(|(a, b)| format!("{}{}", a, b))
+                .or(filter(is_start_or_end_of_identifier).map(|c| c.to_string()))
+                .repeated(),
         )
         .collect();
     let ident = identifier.map(|ident: String| match ident.as_str() {

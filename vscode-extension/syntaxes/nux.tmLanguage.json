@@ -68,8 +68,12 @@
         },
         {
           "comment": "Operators",
-          "name": "keyword.operator.nux",
-          "match": "/|\\+|\\s-|\\*|%"
+          "match": "(/|(\\+{1,2})|(--)|\\s(-)|(\\*)|(%))",
+          "captures": {
+            "1": {
+              "name": "keyword.operator.nux"
+            }
+          }
         }
       ]
     },
