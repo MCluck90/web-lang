@@ -1,7 +1,10 @@
 use chumsky::prelude::*;
 use core::fmt;
+use std::collections::VecDeque;
 
 use crate::errors::CompilerError;
+
+use super::ast::Identifier;
 
 pub type Span = std::ops::Range<usize>;
 pub type Spanned<T> = (T, Span);
@@ -192,7 +195,106 @@ impl fmt::Display for Token {
     }
 }
 
-pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> {
+pub struct Lexer {
+    tokens: VecDeque<Spanned<Token>>,
+    errors: Vec<CompilerError>,
+    end: usize,
+}
+impl Lexer {
+    fn new(tokens: Option<Vec<Spanned<Token>>>, errors: Vec<CompilerError>, end: usize) -> Self {
+        Self {
+            tokens: tokens.map(|t| t.into()).unwrap_or(VecDeque::new()),
+            errors,
+            end,
+        }
+    }
+
+    pub fn to_errors(self) -> Vec<CompilerError> {
+        self.errors
+    }
+
+    pub fn span(&self) -> Span {
+        self.tokens
+            .front()
+            .map(|t| t.1.clone())
+            .unwrap_or(self.end..self.end)
+    }
+
+    pub fn peek(&self) -> Option<&Token> {
+        self.tokens.front().map(|(t, _)| t)
+    }
+
+    pub fn peek_with_span(&self) -> Option<Spanned<Token>> {
+        self.tokens.front().map(|t| t.clone())
+    }
+
+    pub fn consume(&mut self) -> Option<Spanned<Token>> {
+        self.tokens.pop_front()
+    }
+
+    pub fn expect(&mut self, token: Token) -> Result<Spanned<Token>, ()> {
+        match self.peek_with_span() {
+            Some((t, span)) => {
+                if t == token {
+                    Ok(self.consume().unwrap())
+                } else {
+                    self.errors.push(CompilerError::unexpected_token(
+                        &span,
+                        vec![Some(token)],
+                        Some(t.clone()),
+                    ));
+                    Err(())
+                }
+            }
+            None => {
+                self.errors.push(CompilerError::unexpected_token(
+                    &(self.end..self.end),
+                    vec![Some(token)],
+                    None,
+                ));
+                Err(())
+            }
+        }
+    }
+
+    pub fn expect_identifier(&mut self) -> Result<Identifier, ()> {
+        match self.peek_with_span() {
+            Some((Token::Identifier(ident), span)) => {
+                self.consume();
+                Ok(Identifier {
+                    name: ident.clone(),
+                    span: span.clone(),
+                })
+            }
+            Some((token, span)) => {
+                self.errors.push(CompilerError::unexpected_token(
+                    &span,
+                    vec![Some(Token::Identifier(String::new()))],
+                    Some(token),
+                ));
+                Err(())
+            }
+            None => {
+                self.errors.push(CompilerError::unexpected_token(
+                    &self.span(),
+                    vec![Some(Token::Identifier(String::new()))],
+                    None,
+                ));
+                Err(())
+            }
+        }
+    }
+
+    pub fn expected_one_of(&mut self, tokens: Vec<Token>) {
+        self.errors.push(CompilerError::unexpected_token(
+            &self.span(),
+            tokens.into_iter().map(Some).collect(),
+            self.peek().map(|t| t.clone()),
+        ))
+    }
+}
+
+pub fn create_lexer(source: &str) -> Lexer {
     let num = text::int::<char, CompilerError>(10).map(Token::Integer);
 
     // Grouping or delimiting marker
@@ -321,9 +423,11 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = CompilerError> 
         .padded()
         .ignored();
 
-    token
+    let (tokens, errors) = token
         .map_with_span(|tok, span| (tok, span))
         .padded_by(comment.repeated())
         .padded()
         .repeated()
+        .parse_recovery(source);
+    Lexer::new(tokens, errors, source.chars().count())
 }

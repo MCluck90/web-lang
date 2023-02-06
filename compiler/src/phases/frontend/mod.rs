@@ -8,7 +8,6 @@ use std::{
     path::Path,
 };
 
-use chumsky::{Parser, Stream};
 pub use lexer::{BuiltInTypeToken, Span, Token};
 
 use crate::errors::{print_error_report, CompilerError};
@@ -109,29 +108,20 @@ impl Program {
         import_span: &Span,
     ) -> Result<ast::Module, (String, CompilerError)> {
         if !file_path.exists() {
-            println!("{} vs. {}", file_path.display(), requester_path);
             return Err((
                 requester_path.clone(),
-                CompilerError::could_not_find_module(import_span, requester_path),
+                CompilerError::could_not_find_module(import_span, &file_path.display().to_string()),
             ));
         }
 
         let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
         let src = std::fs::read_to_string(&file_path).unwrap();
-        let (tokens, mut errors) = lexer::lexer().parse_recovery(src.as_str());
-
-        let ast = tokens.and_then(|tokens| {
-            let len = src.chars().count();
-            let (module, mut parse_errs) = module_parser(file_name)
-                .parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
-
-            errors.append(&mut parse_errs);
-            module
-        });
+        let lexer = lexer::create_lexer(src.as_str());
+        let (ast, errors) = module_parser(file_name, lexer);
 
         Ok(ast::Module {
             path: file_path.to_str().unwrap().to_string(),
-            ast,
+            ast: if errors.is_empty() { Some(ast) } else { None }, // TODO: Is this necessary?
             errors,
         })
     }
