@@ -121,7 +121,7 @@ impl Program {
 
         Ok(ast::Module {
             path: file_path.to_str().unwrap().to_string(),
-            ast: if errors.is_empty() { Some(ast) } else { None }, // TODO: Is this necessary?
+            ast: Some(ast), // TODO: Change type to not be an Option
             errors,
         })
     }

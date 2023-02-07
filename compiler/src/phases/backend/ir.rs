@@ -340,6 +340,10 @@ fn expression_to_block(
     expression: middle_end::ir::Expression,
 ) -> (Expression, Option<BasicBlock>) {
     match expression.kind {
+        middle_end::ir::ExpressionKind::Parenthesized(expr) => {
+            let (expr, maybe_block) = expression_to_block(ctx, *expr);
+            (Expression::Parenthesized(Box::new(expr)), maybe_block)
+        }
         middle_end::ir::ExpressionKind::Boolean(value) => (Expression::Boolean(value), None),
         middle_end::ir::ExpressionKind::Integer(value) => (Expression::Integer(value), None),
         middle_end::ir::ExpressionKind::String(value) => (Expression::String(value), None),
@@ -636,6 +640,7 @@ pub enum Expression {
     Identifier(String),
     Integer(i64),
     String(String),
+    Parenthesized(Box<Expression>),
     List(Vec<Expression>),
     JsBlock(Vec<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),

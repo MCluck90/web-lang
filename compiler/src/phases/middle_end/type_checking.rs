@@ -323,6 +323,7 @@ fn visit_expression(
     type_context: &mut TypeContext,
 ) -> Result<TypeSymbol, Vec<CompilerError>> {
     match &expression.kind {
+        ExpressionKind::Parenthesized(expr) => visit_expression(expr, symbol_table, type_context),
         ExpressionKind::Boolean(_) => Ok(TypeSymbol::bool()),
         ExpressionKind::Identifier(identifier) => {
             match symbol_table.get_value(&identifier.name.clone().into()) {
@@ -518,7 +519,8 @@ fn visit_expression(
                         | ExpressionKind::If { .. }
                         | ExpressionKind::FunctionCall { .. }
                         | ExpressionKind::List(_)
-                        | ExpressionKind::PreUnaryExpression(_, _) => {
+                        | ExpressionKind::PreUnaryExpression(_, _)
+                        | ExpressionKind::Parenthesized(_) => {
                             Err(vec![CompilerError::invalid_lhs_in_assignment(&left.span)])
                         }
                         ExpressionKind::JsBlock(type_, _) => {
@@ -559,7 +561,8 @@ fn visit_expression(
                     | ExpressionKind::BinaryExpression(_, _, _)
                     | ExpressionKind::FunctionCall { .. }
                     | ExpressionKind::If { .. }
-                    | ExpressionKind::String(_) => Err(vec![
+                    | ExpressionKind::String(_)
+                    | ExpressionKind::Parenthesized(_) => Err(vec![
                         CompilerError::invalid_rhs_expression_in_prefix_operation(&expr.span),
                     ]),
 

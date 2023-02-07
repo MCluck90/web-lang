@@ -110,6 +110,7 @@ fn visit_statement(statement: &Statement) -> String {
 
 fn visit_expression(expression: &Expression) -> String {
     match &expression {
+        Expression::Parenthesized(expr) => format!("({})", visit_expression(expr)),
         Expression::BinaryExpression(left, op, right) => format!(
             "{}{}{}",
             visit_expression(&left),

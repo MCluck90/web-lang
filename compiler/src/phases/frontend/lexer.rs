@@ -224,6 +224,21 @@ impl Lexer {
         self.tokens.front().map(|(t, _)| t)
     }
 
+    pub fn peek_slice(&self, length: usize) -> VecDeque<Option<&Token>> {
+        let mut slice: VecDeque<Option<&Token>> = VecDeque::new();
+        let mut i = 0;
+        loop {
+            if i == length {
+                break;
+            }
+
+            slice.push_back(self.tokens.get(i).map(|(t, _)| t));
+
+            i += 1;
+        }
+        slice
+    }
+
     pub fn peek_with_span(&self) -> Option<Spanned<Token>> {
         self.tokens.front().map(|t| t.clone())
     }
@@ -281,6 +296,65 @@ impl Lexer {
                     None,
                 ));
                 Err(())
+            }
+        }
+    }
+
+    pub fn expect_integer(&mut self) -> Result<Spanned<String>, ()> {
+        match self.peek_with_span() {
+            Some((Token::Integer(n), span)) => {
+                self.consume();
+                Ok((n, span.clone()))
+            }
+            Some((token, span)) => {
+                self.errors.push(CompilerError::unexpected_token(
+                    &span,
+                    vec![Some(Token::Identifier(String::new()))],
+                    Some(token),
+                ));
+                Err(())
+            }
+            None => {
+                self.errors.push(CompilerError::unexpected_token(
+                    &self.span(),
+                    vec![Some(Token::Identifier(String::new()))],
+                    None,
+                ));
+                Err(())
+            }
+        }
+    }
+
+    pub fn expect_eof(&mut self) {
+        match self.peek_with_span() {
+            None => {}
+            Some((token, span)) => {
+                self.errors.push(CompilerError::unexpected_token(
+                    &span,
+                    vec![None],
+                    Some(token),
+                ));
+            }
+        }
+    }
+
+    pub fn expect_or_end_statement(&mut self, token: Token) -> Result<Spanned<Token>, ()> {
+        match self.expect(token) {
+            Ok(res) => Ok(res),
+            Err(err) => {
+                self.consume_until_end_of_statement();
+                Err(err)
+            }
+        }
+    }
+
+    pub fn consume_until_end_of_statement(&mut self) {
+        loop {
+            let next = self.peek();
+            if next != None && next != Some(&Token::Terminator) {
+                self.consume();
+            } else {
+                break;
             }
         }
     }

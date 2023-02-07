@@ -584,6 +584,13 @@ fn resolve_expression(
         (middle_end::ir::Expression { span, kind }, errors)
     };
     match &expression.kind {
+        frontend::ir::ExpressionKind::Parenthesized(expr) => {
+            let (expr, errs) = resolve_expression(ctx, expr);
+            to_expression(
+                middle_end::ir::ExpressionKind::Parenthesized(Box::new(expr)),
+                errs,
+            )
+        }
         frontend::ir::ExpressionKind::Boolean(value) => {
             to_expression(middle_end::ir::ExpressionKind::Boolean(*value), Vec::new())
         }

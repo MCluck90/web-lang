@@ -140,6 +140,8 @@ pub enum ExpressionKind {
     Block(Box<Block>),
     List(Vec<Expression>),
 
+    Parenthesized(Box<Expression>),
+
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
     PreUnaryExpression(PreUnaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
