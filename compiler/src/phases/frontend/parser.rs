@@ -123,14 +123,18 @@ mod top_level_statement {
     use super::*;
 
     pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement, ()>> {
-        match top_level_variable_declaration::peek(lexer) {
+        match top_level_variable_declaration::peek(lexer)
+            .or(top_level_function_definition::peek(lexer))
+        {
             Some(_) => Some(parse),
             None => None,
         }
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
-        match top_level_variable_declaration::peek(lexer) {
+        match top_level_variable_declaration::peek(lexer)
+            .or(top_level_function_definition::peek(lexer))
+        {
             Some(parse) => parse(lexer),
             None => Err(()),
         }
@@ -140,6 +144,8 @@ mod top_level_statement {
         use super::*;
 
         pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement, ()>> {
+            // TODO: Change this so that we check if this is potentially an "Item" (i.e. it starts with `pub`)
+            // then we can just use `variable_declaration::peek`. Same with function definitions.
             let mut slice = lexer.peek_slice(4);
             let token = *slice.get(0).unwrap();
             if token == Some(&Token::Pub) {
@@ -188,12 +194,65 @@ mod top_level_statement {
             })
         }
     }
+
+    mod top_level_function_definition {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement, ()>> {
+            let mut slice = lexer.peek_slice(4);
+            let token = *slice.get(0).unwrap();
+            if token == Some(&Token::Pub) {
+                slice.pop_front();
+            }
+
+            let token = slice.pop_front().unwrap();
+            if token != Some(&Token::Let) {
+                return None;
+            }
+
+            let token = slice.pop_front().unwrap();
+            if let Some(&Token::Identifier(_)) = token {
+            } else {
+                return None;
+            }
+
+            let token = slice.pop_front().unwrap();
+            if token != Some(&Token::OpenParen) {
+                return None;
+            }
+
+            Some(parse)
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
+            let is_public = if lexer.peek() == Some(&Token::Pub) {
+                lexer.consume();
+                true
+            } else {
+                false
+            };
+
+            let function_definition = function_definition::parse(lexer)?;
+            Ok(TopLevelStatement {
+                span: Span::default(),
+                kind: TopLevelStatementKind::FunctionDefinition {
+                    is_public,
+                    name: function_definition.name,
+                    parameters: function_definition.parameters,
+                    return_type: function_definition.return_type,
+                    body: function_definition.body,
+                },
+            })
+        }
+    }
 }
 
 mod statement {
     use super::*;
 
     pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Statement, ()>> {
+        // TODO: I should probably create a specific rule to allow for parsing statements
+        // and later checking if they can be the final expression of a block
         todo!()
     }
 
@@ -294,12 +353,24 @@ mod variable_declaration {
     use super::*;
 
     pub(super) fn peek(lexer: &Lexer) -> Option<Parser<VariableDeclaration, ()>> {
-        let token = lexer.peek();
-        if token == Some(&Token::Let) || token == Some(&Token::Mut) {
-            Some(parse)
-        } else {
-            None
+        let tokens = lexer.peek_slice(3);
+        let first_token = *tokens.get(0).unwrap();
+        let second_token = *tokens.get(1).unwrap();
+        let third_token = *tokens.get(2).unwrap();
+        if first_token != Some(&Token::Let) && first_token != Some(&Token::Mut) {
+            return None;
         }
+        if let Some(&Token::Identifier(_)) = second_token {
+        } else {
+            return None;
+        }
+
+        if third_token != Some(&Token::KeyValueSeparator)
+            && third_token != Some(&Token::Operator(Operator::Assignment))
+        {
+            return None;
+        }
+        Some(parse)
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<VariableDeclaration, ()> {
@@ -332,6 +403,96 @@ mod variable_declaration {
             identifier,
             initializer,
         })
+    }
+}
+
+struct FunctionDefinition {
+    span: Span,
+    name: Identifier,
+    parameters: Vec<Parameter>,
+    return_type: Type,
+    body: Block,
+}
+mod function_definition {
+    use super::*;
+
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<FunctionDefinition, ()>> {
+        let tokens = lexer.peek_slice(3);
+        let first_token = *tokens.get(0).unwrap();
+        let second_token = *tokens.get(1).unwrap();
+        let third_token = *tokens.get(2).unwrap();
+        if first_token != Some(&Token::Let) && first_token != Some(&Token::Mut) {
+            return None;
+        }
+        if let Some(&Token::Identifier(_)) = second_token {
+        } else {
+            return None;
+        }
+
+        if third_token != Some(&Token::OpenParen) {
+            return None;
+        }
+        Some(parse)
+    }
+
+    pub(super) fn parse(lexer: &mut Lexer) -> Result<FunctionDefinition, ()> {
+        let (_, start_span) = lexer.expect(Token::Let)?;
+        let name = identifier::parse(lexer)?;
+        let parameters = parameters::parse(lexer)?;
+        let return_type = match lexer.peek() {
+            Some(&Token::KeyValueSeparator) => {
+                lexer.consume();
+                type_::parse(lexer)?
+            }
+            _ => Type::Void,
+        };
+        let body = block::parse(lexer)?;
+        let span = start_span.start..body.span.end;
+        Ok(FunctionDefinition {
+            span,
+            name,
+            parameters,
+            return_type,
+            body,
+        })
+    }
+
+    mod parameters {
+        use super::*;
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<Vec<Parameter>, ()> {
+            lexer.expect(Token::OpenParen)?;
+            let mut parameters: Vec<Parameter> = Vec::new();
+            loop {
+                if !parameters.is_empty() {
+                    lexer.expect(Token::ListSeparator)?;
+                }
+
+                match identifier::peek(lexer) {
+                    None => break,
+                    Some(parse) => {
+                        let ident = parse(lexer)?;
+                        lexer.expect(Token::KeyValueSeparator)?;
+                        let type_ = type_::parse(lexer)?;
+                        parameters.push(Parameter::new(ident.clone().span, ident, type_));
+                    }
+                }
+            }
+
+            // Allow trailing commas
+            if !parameters.is_empty() && lexer.peek() == Some(&Token::ListSeparator) {
+                lexer.consume();
+            }
+            lexer.expect(Token::CloseParen)?;
+            Ok(parameters)
+        }
+        //     let parameters = identifier_parser()
+        //         .then_ignore(just(Token::KeyValueSeparator))
+        //         .then(type_parser())
+        //         .map(|(identifier, type_)| Parameter::new(identifier.clone().span, identifier, type_))
+        //         .separated_by(just(Token::ListSeparator))
+        //         .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
+        //         .map_with_span(|parameters, span| (parameters, span));
     }
 }
 
@@ -1031,6 +1192,33 @@ mod block_based_expression {
                 span,
             ))
         }
+    }
+}
+
+mod block {
+    use super::*;
+
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Block, ()>> {
+        match lexer.peek() {
+            Some(&Token::OpenBlock) => Some(parse),
+            _ => None,
+        }
+    }
+
+    pub(super) fn parse(lexer: &mut Lexer) -> Result<Block, ()> {
+        let (_, start_span) = lexer.expect(Token::OpenBlock)?;
+        let statements = zero_or_more(statement::peek, lexer);
+        let return_expression = match expression::peek(lexer) {
+            Some(parse) => Some(parse(lexer)?),
+            None => None,
+        };
+        let (_, end_span) = lexer.expect(Token::CloseBlock)?;
+        let span = start_span.start..end_span.end;
+        Ok(Block {
+            span,
+            statements,
+            return_expression,
+        })
     }
 }
 
