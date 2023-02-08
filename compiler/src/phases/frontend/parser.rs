@@ -298,7 +298,7 @@ mod top_level_statement {
 
         pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
             let (_, start_span) = lexer.expect(Token::Loop)?;
-            let block = block::parse(lexer)?;
+            let block = void_block::parse(lexer)?;
             let span = start_span.start..block.span.end;
             Ok(TopLevelStatement {
                 span,
@@ -500,7 +500,7 @@ mod statement {
 
         pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
             let (_, start_span) = lexer.expect(Token::Loop)?;
-            let block = block::parse(lexer)?;
+            let block = void_block::parse(lexer)?;
             let span = start_span.start..block.span.end;
             Ok(StatementWithTerminationStatus::Block(Statement {
                 span,
@@ -551,7 +551,7 @@ mod statement {
             };
             lexer.expect(Token::CloseParen)?;
 
-            let body = block::parse(lexer)?;
+            let body = void_block::parse(lexer)?;
             let span = start_span.start..body.span.end;
             let body = body.statements;
 
