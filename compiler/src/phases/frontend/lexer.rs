@@ -300,31 +300,6 @@ impl Lexer {
         }
     }
 
-    pub fn expect_integer(&mut self) -> Result<Spanned<String>, ()> {
-        match self.peek_with_span() {
-            Some((Token::Integer(n), span)) => {
-                self.consume();
-                Ok((n, span.clone()))
-            }
-            Some((token, span)) => {
-                self.errors.push(CompilerError::unexpected_token(
-                    &span,
-                    vec![Some(Token::Identifier(String::new()))],
-                    Some(token),
-                ));
-                Err(())
-            }
-            None => {
-                self.errors.push(CompilerError::unexpected_token(
-                    &self.span(),
-                    vec![Some(Token::Identifier(String::new()))],
-                    None,
-                ));
-                Err(())
-            }
-        }
-    }
-
     pub fn expect_eof(&mut self) {
         match self.peek_with_span() {
             None => {}

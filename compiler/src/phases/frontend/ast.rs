@@ -156,8 +156,6 @@ pub enum ExpressionKind {
         body: Box<Expression>,
         else_: Option<Box<Expression>>,
     },
-
-    Error,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

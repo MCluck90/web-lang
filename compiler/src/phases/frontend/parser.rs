@@ -8,8 +8,8 @@ use crate::{
     },
 };
 
-type Parser<T, E> = fn(&mut Lexer) -> Result<T, E>;
-type Peek<T, E> = fn(&Lexer) -> Option<Parser<T, E>>;
+type Parser<T> = fn(&mut Lexer) -> Result<T, ()>;
+type Peek<T> = fn(&Lexer) -> Option<Parser<T>>;
 
 pub fn module_parser(path: String, mut lexer: Lexer) -> (ModuleAST, Vec<CompilerError>) {
     let imports = zero_or_more(import::peek, &mut lexer);
@@ -29,7 +29,7 @@ pub fn module_parser(path: String, mut lexer: Lexer) -> (ModuleAST, Vec<Compiler
 mod import {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Import, ()>> {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Import>> {
         if lexer.peek() == Some(&Token::Use) {
             Some(parse)
         } else {
@@ -122,9 +122,12 @@ mod import {
 mod top_level_statement {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement, ()>> {
-        match top_level_variable_declaration::peek(lexer)
-            .or(top_level_function_definition::peek(lexer))
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
+        match loop_statement::peek(lexer)
+            .or_else(|| for_loop_statement::peek(lexer))
+            .or_else(|| top_level_variable_declaration::peek(lexer))
+            .or_else(|| top_level_function_definition::peek(lexer))
+            .or_else(|| top_level_expression::peek(lexer))
         {
             Some(_) => Some(parse),
             None => None,
@@ -132,8 +135,11 @@ mod top_level_statement {
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
-        match top_level_variable_declaration::peek(lexer)
-            .or(top_level_function_definition::peek(lexer))
+        match loop_statement::peek(lexer)
+            .or_else(|| for_loop_statement::peek(lexer))
+            .or_else(|| top_level_variable_declaration::peek(lexer))
+            .or_else(|| top_level_function_definition::peek(lexer))
+            .or_else(|| top_level_expression::peek(lexer))
         {
             Some(parse) => parse(lexer),
             None => Err(()),
@@ -143,7 +149,7 @@ mod top_level_statement {
     mod top_level_variable_declaration {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
             // TODO: Change this so that we check if this is potentially an "Item" (i.e. it starts with `pub`)
             // then we can just use `variable_declaration::peek`. Same with function definitions.
             let mut slice = lexer.peek_slice(4);
@@ -198,7 +204,7 @@ mod top_level_statement {
     mod top_level_function_definition {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
             let mut slice = lexer.peek_slice(4);
             let token = *slice.get(0).unwrap();
             if token == Some(&Token::Pub) {
@@ -234,7 +240,7 @@ mod top_level_statement {
 
             let function_definition = function_definition::parse(lexer)?;
             Ok(TopLevelStatement {
-                span: Span::default(),
+                span: function_definition.span,
                 kind: TopLevelStatementKind::FunctionDefinition {
                     is_public,
                     name: function_definition.name,
@@ -245,19 +251,357 @@ mod top_level_statement {
             })
         }
     }
+
+    mod top_level_expression {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
+            match expression::peek(lexer) {
+                Some(_) => Some(parse),
+                None => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
+            if let Some(parse) = non_block_expression::peek(lexer) {
+                let expr = parse(lexer)?;
+                lexer.expect(Token::Terminator)?;
+                Ok(TopLevelStatement {
+                    span: expr.span.clone(),
+                    kind: TopLevelStatementKind::Expression(expr),
+                })
+            } else if let Some(parse) = block_based_expression::peek(lexer) {
+                let expr = parse(lexer)?;
+                Ok(TopLevelStatement {
+                    span: expr.span.clone(),
+                    kind: TopLevelStatementKind::Expression(expr),
+                })
+            } else {
+                Err(())
+            }
+        }
+    }
+
+    mod loop_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
+            match lexer.peek() {
+                Some(&Token::Loop) => Some(parse),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
+            let (_, start_span) = lexer.expect(Token::Loop)?;
+            let block = block::parse(lexer)?;
+            let span = start_span.start..block.span.end;
+            Ok(TopLevelStatement {
+                span,
+                kind: TopLevelStatementKind::Loop(block),
+            })
+        }
+    }
+
+    mod for_loop_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
+            match lexer.peek() {
+                Some(&Token::For) => Some(parse),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
+            let (_, start_span) = lexer.expect(Token::For)?;
+            lexer.expect(Token::OpenParen)?;
+            let initializer = match statement::peek(lexer) {
+                Some(parse) => {
+                    let result = parse(lexer)?;
+                    match result {
+                        StatementWithTerminationStatus::Terminated(statement) => {
+                            Some(Box::new(statement))
+                        }
+                        StatementWithTerminationStatus::Block(statement) => {
+                            lexer.expect(Token::Terminator)?;
+                            Some(Box::new(statement))
+                        }
+                        StatementWithTerminationStatus::NotTerminated(_) => return Err(()),
+                    }
+                }
+                None => None,
+            };
+
+            let condition = match expression::peek(lexer) {
+                Some(parse) => Some(parse(lexer)?),
+                None => None,
+            };
+            lexer.expect(Token::Terminator)?;
+
+            let post_loop = match expression::peek(lexer) {
+                Some(parse) => Some(parse(lexer)?),
+                None => None,
+            };
+            lexer.expect(Token::CloseParen)?;
+
+            let body = block::parse(lexer)?;
+            let span = start_span.start..body.span.end;
+            let body = body.statements;
+
+            Ok(TopLevelStatement {
+                span,
+                kind: TopLevelStatementKind::ForLoop {
+                    initializer,
+                    condition,
+                    post_loop,
+                    body,
+                },
+            })
+        }
+    }
 }
 
+enum StatementWithTerminationStatus {
+    Terminated(Statement),
+    NotTerminated(Statement),
+    Block(Statement),
+}
 mod statement {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Statement, ()>> {
-        // TODO: I should probably create a specific rule to allow for parsing statements
-        // and later checking if they can be the final expression of a block
-        todo!()
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+        match loop_statement::peek(lexer)
+            .or_else(|| for_loop_statement::peek(lexer))
+            .or_else(|| break_statement::peek(lexer))
+            .or_else(|| return_statement::peek(lexer))
+            .or_else(|| variable_declaration_statement::peek(lexer))
+            .or_else(|| function_definition_statement::peek(lexer))
+            .or_else(|| expression_statement::peek(lexer))
+        {
+            Some(_) => Some(parse),
+            None => None,
+        }
     }
 
-    pub(super) fn parse(lexer: &mut Lexer) -> Result<Statement, ()> {
-        todo!()
+    pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+        match loop_statement::peek(lexer)
+            .or_else(|| for_loop_statement::peek(lexer))
+            .or_else(|| break_statement::peek(lexer))
+            .or_else(|| return_statement::peek(lexer))
+            .or_else(|| variable_declaration_statement::peek(lexer))
+            .or_else(|| function_definition_statement::peek(lexer))
+            .or_else(|| expression_statement::peek(lexer))
+        {
+            Some(parse) => parse(lexer),
+            None => Err(()),
+        }
+    }
+
+    mod variable_declaration_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+            match variable_declaration::peek(lexer) {
+                Some(_) => Some(parse),
+                None => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+            let decl = variable_declaration::parse(lexer)?;
+            Ok(StatementWithTerminationStatus::Terminated(Statement {
+                span: decl.span,
+                kind: StatementKind::VariableDeclaration {
+                    is_mutable: decl.is_mutable,
+                    type_: decl.type_,
+                    identifier: decl.identifier,
+                    initializer: decl.initializer,
+                },
+            }))
+        }
+    }
+
+    mod function_definition_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+            match function_definition::peek(lexer) {
+                Some(_) => Some(parse),
+                None => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+            let function = function_definition::parse(lexer)?;
+            Ok(StatementWithTerminationStatus::NotTerminated(Statement {
+                span: function.span,
+                kind: StatementKind::FunctionDefinition {
+                    name: function.name,
+                    parameters: function.parameters,
+                    return_type: function.return_type,
+                    body: function.body,
+                },
+            }))
+        }
+    }
+
+    mod expression_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+            match expression::peek(lexer) {
+                Some(_) => Some(parse),
+                None => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+            if let Some(parse) = non_block_expression::peek(lexer) {
+                let expr = parse(lexer)?;
+                let to_status = if lexer.peek() == Some(&Token::Terminator) {
+                    lexer.consume();
+                    StatementWithTerminationStatus::Terminated
+                } else {
+                    StatementWithTerminationStatus::NotTerminated
+                };
+                Ok(to_status(Statement {
+                    span: expr.span.clone(),
+                    kind: StatementKind::Expression(expr),
+                }))
+            } else if let Some(parse) = block_based_expression::peek(lexer) {
+                let expr = parse(lexer)?;
+                Ok(StatementWithTerminationStatus::Block(Statement {
+                    span: expr.span.clone(),
+                    kind: StatementKind::Expression(expr),
+                }))
+            } else {
+                Err(())
+            }
+        }
+    }
+
+    mod loop_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+            match lexer.peek() {
+                Some(&Token::Loop) => Some(parse),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+            let (_, start_span) = lexer.expect(Token::Loop)?;
+            let block = block::parse(lexer)?;
+            let span = start_span.start..block.span.end;
+            Ok(StatementWithTerminationStatus::Block(Statement {
+                span,
+                kind: StatementKind::Loop(block),
+            }))
+        }
+    }
+
+    mod for_loop_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+            match lexer.peek() {
+                Some(&Token::For) => Some(parse),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+            let (_, start_span) = lexer.expect(Token::For)?;
+            lexer.expect(Token::OpenParen)?;
+            let initializer = match statement::peek(lexer) {
+                Some(parse) => {
+                    let result = parse(lexer)?;
+                    match result {
+                        StatementWithTerminationStatus::Terminated(statement) => {
+                            Some(Box::new(statement))
+                        }
+                        StatementWithTerminationStatus::Block(statement) => {
+                            lexer.expect(Token::Terminator)?;
+                            Some(Box::new(statement))
+                        }
+                        StatementWithTerminationStatus::NotTerminated(_) => return Err(()),
+                    }
+                }
+                None => None,
+            };
+
+            let condition = match expression::peek(lexer) {
+                Some(parse) => Some(parse(lexer)?),
+                None => None,
+            };
+            lexer.expect(Token::Terminator)?;
+
+            let post_loop = match expression::peek(lexer) {
+                Some(parse) => Some(parse(lexer)?),
+                None => None,
+            };
+            lexer.expect(Token::CloseParen)?;
+
+            let body = block::parse(lexer)?;
+            let span = start_span.start..body.span.end;
+            let body = body.statements;
+
+            Ok(StatementWithTerminationStatus::Block(Statement {
+                span,
+                kind: StatementKind::ForLoop {
+                    initializer,
+                    condition,
+                    post_loop,
+                    body,
+                },
+            }))
+        }
+    }
+
+    mod break_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+            match lexer.peek() {
+                Some(&Token::Break) => Some(parse),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+            let (_, span) = lexer.expect(Token::Break)?;
+            lexer.expect(Token::Terminator)?;
+            Ok(StatementWithTerminationStatus::Terminated(Statement {
+                span,
+                kind: StatementKind::Break,
+            }))
+        }
+    }
+
+    mod return_statement {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<StatementWithTerminationStatus>> {
+            match lexer.peek() {
+                Some(&Token::Return) => Some(parse),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
+            let (_, span) = lexer.expect(Token::Return)?;
+            let expression = match expression::peek(lexer) {
+                Some(parse) => Some(parse(lexer)?),
+                None => None,
+            };
+            lexer.expect(Token::Terminator)?;
+            Ok(StatementWithTerminationStatus::Terminated(Statement {
+                span,
+                kind: StatementKind::Return(expression),
+            }))
+        }
     }
 }
 
@@ -265,7 +609,7 @@ mod type_ {
     use super::*;
     use crate::phases::frontend::BuiltInTypeToken;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Type, ()>> {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Type>> {
         match lexer.peek() {
             Some(&Token::Identifier(_))
             | Some(&Token::BuiltInType(_))
@@ -327,32 +671,17 @@ mod type_ {
 }
 
 struct VariableDeclaration {
+    span: Span,
     is_mutable: bool,
     type_: Option<Type>,
     identifier: Identifier,
     initializer: Box<Expression>,
 }
-impl Default for VariableDeclaration {
-    fn default() -> Self {
-        Self {
-            is_mutable: false,
-            type_: None,
-            identifier: Identifier {
-                name: String::new(),
-                span: 0usize..0usize,
-            },
-            initializer: Box::new(Expression {
-                span: 0usize..0usize,
-                kind: ExpressionKind::Error,
-            }),
-        }
-    }
-}
 
 mod variable_declaration {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<VariableDeclaration, ()>> {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<VariableDeclaration>> {
         let tokens = lexer.peek_slice(3);
         let first_token = *tokens.get(0).unwrap();
         let second_token = *tokens.get(1).unwrap();
@@ -374,12 +703,12 @@ mod variable_declaration {
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<VariableDeclaration, ()> {
-        let is_mutable = if lexer.peek() == Some(&Token::Let) {
-            lexer.consume();
-            false
+        let (is_mutable, start_span) = if lexer.peek() == Some(&Token::Let) {
+            let (_, span) = lexer.consume().unwrap();
+            (false, span)
         } else if lexer.peek() == Some(&Token::Mut) {
-            lexer.consume();
-            true
+            let (_, span) = lexer.consume().unwrap();
+            (true, span)
         } else {
             lexer.expected_one_of(vec![Token::Let, Token::Mut]);
             lexer.consume_until_end_of_statement();
@@ -396,8 +725,9 @@ mod variable_declaration {
 
         lexer.expect_or_end_statement(Token::Operator(Operator::Assignment))?;
         let initializer = Box::new(expression::parse(lexer)?);
-        lexer.expect_or_end_statement(Token::Terminator)?;
+        let (_, end_span) = lexer.expect_or_end_statement(Token::Terminator)?;
         Ok(VariableDeclaration {
+            span: start_span.start..end_span.end,
             is_mutable,
             type_,
             identifier,
@@ -416,7 +746,7 @@ struct FunctionDefinition {
 mod function_definition {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<FunctionDefinition, ()>> {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<FunctionDefinition>> {
         let tokens = lexer.peek_slice(3);
         let first_token = *tokens.get(0).unwrap();
         let second_token = *tokens.get(1).unwrap();
@@ -499,15 +829,15 @@ mod function_definition {
 mod expression {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
-        match non_block_expression::peek(lexer) {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
+        match non_block_expression::peek(lexer).or_else(|| block_based_expression::peek(lexer)) {
             Some(_) => Some(parse),
             None => None,
         }
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<Expression, ()> {
-        match non_block_expression::peek(lexer).or(block_based_expression::peek(lexer)) {
+        match non_block_expression::peek(lexer).or_else(|| block_based_expression::peek(lexer)) {
             Some(parse) => parse(lexer),
             None => Err(()),
         }
@@ -517,7 +847,7 @@ mod expression {
 mod non_block_expression {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
         match assignment::peek(lexer) {
             Some(_) => Some(parse),
             None => None,
@@ -531,7 +861,7 @@ mod non_block_expression {
     mod parenthesized {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match lexer.peek() {
                 Some(&Token::OpenParen) => Some(parse),
                 _ => None,
@@ -552,7 +882,7 @@ mod non_block_expression {
     mod value {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match lexer.peek() {
                 Some(&Token::Boolean(_)) | Some(&Token::Integer(_)) | Some(&Token::String(_)) => {
                     Some(parse)
@@ -581,7 +911,7 @@ mod non_block_expression {
     mod ident {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match identifier::peek(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -601,7 +931,7 @@ mod non_block_expression {
     mod list {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match lexer.peek() {
                 Some(&Token::OpenList) => Some(parse),
                 _ => None,
@@ -638,11 +968,11 @@ mod non_block_expression {
     mod atom {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match value::peek(lexer)
-                .or(ident::peek(lexer))
-                .or(list::peek(lexer))
-                .or(parenthesized::peek(lexer))
+                .or_else(|| ident::peek(lexer))
+                .or_else(|| list::peek(lexer))
+                .or_else(|| parenthesized::peek(lexer))
             {
                 Some(_) => Some(parse),
                 None => None,
@@ -676,7 +1006,7 @@ mod non_block_expression {
             Args((Vec<Expression>, Span)),
         }
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<MemberAccessOrArgs, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<MemberAccessOrArgs>> {
             match lexer.peek() {
                 Some(&Token::OpenList)
                 | Some(&Token::PropertyAccessOp)
@@ -729,11 +1059,11 @@ mod non_block_expression {
 
         use super::{member_access_or_args::MemberAccessOrArgs, *};
 
-        const PEEK_LEFT: Peek<Expression, ()> = atom::peek;
-        const PARSE_LEFT: Parser<Expression, ()> = atom::parse;
-        const PEEK_RIGHT: Peek<MemberAccessOrArgs, ()> = member_access_or_args::peek;
+        const PEEK_LEFT: Peek<Expression> = atom::peek;
+        const PARSE_LEFT: Parser<Expression> = atom::parse;
+        const PEEK_RIGHT: Peek<MemberAccessOrArgs> = member_access_or_args::peek;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match PEEK_LEFT(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -786,16 +1116,17 @@ mod non_block_expression {
 
         use super::*;
 
-        const PEEK_RIGHT: Peek<Expression, ()> = prop_or_fn_call::peek;
-        const PARSE_RIGHT: Parser<Expression, ()> = prop_or_fn_call::parse;
+        const PEEK_RIGHT: Peek<Expression> = prop_or_fn_call::peek;
+        const PARSE_RIGHT: Parser<Expression> = prop_or_fn_call::parse;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             if PEEK_RIGHT(lexer).is_some() {
                 return Some(parse);
             }
 
             match lexer.peek() {
-                Some(&Token::Operator(Operator::Increment))
+                Some(&Token::Operator(Operator::Not))
+                | Some(&Token::Operator(Operator::Increment))
                 | Some(&Token::Operator(Operator::Decrement)) => Some(parse),
                 _ => None,
             }
@@ -805,6 +1136,10 @@ mod non_block_expression {
             let mut operators: VecDeque<Spanned<PreUnaryOperator>> = VecDeque::new();
             loop {
                 match lexer.peek() {
+                    Some(&Token::Operator(Operator::Not)) => {
+                        let (_, span) = lexer.consume().unwrap();
+                        operators.push_back((PreUnaryOperator::Not, span));
+                    }
                     Some(&Token::Operator(Operator::Increment)) => {
                         let (_, span) = lexer.consume().unwrap();
                         operators.push_back((PreUnaryOperator::Increment, span));
@@ -836,11 +1171,11 @@ mod non_block_expression {
     mod factor {
         use super::*;
 
-        const PEEK_LEFT: Peek<Expression, ()> = pre_unary::peek;
-        const PARSE_LEFT: Parser<Expression, ()> = pre_unary::parse;
-        const PARSE_RIGHT: Parser<Expression, ()> = pre_unary::parse;
+        const PEEK_LEFT: Peek<Expression> = pre_unary::peek;
+        const PARSE_LEFT: Parser<Expression> = pre_unary::parse;
+        const PARSE_RIGHT: Parser<Expression> = pre_unary::parse;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match PEEK_LEFT(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -853,6 +1188,7 @@ mod non_block_expression {
                 let operator = lexer.peek().and_then(|t| match t {
                     &Token::Operator(Operator::Mul) => Some(BinaryOperator::Mul),
                     &Token::Operator(Operator::Div) => Some(BinaryOperator::Div),
+                    &Token::Operator(Operator::Modulus) => Some(BinaryOperator::Modulus),
                     _ => None,
                 });
                 if let Some(operator) = operator {
@@ -875,11 +1211,11 @@ mod non_block_expression {
     mod sum {
         use super::*;
 
-        const PEEK_LEFT: Peek<Expression, ()> = factor::peek;
-        const PARSE_LEFT: Parser<Expression, ()> = factor::parse;
-        const PARSE_RIGHT: Parser<Expression, ()> = factor::parse;
+        const PEEK_LEFT: Peek<Expression> = factor::peek;
+        const PARSE_LEFT: Parser<Expression> = factor::parse;
+        const PARSE_RIGHT: Parser<Expression> = factor::parse;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match PEEK_LEFT(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -914,11 +1250,11 @@ mod non_block_expression {
     mod comparison {
         use super::*;
 
-        const PEEK_LEFT: Peek<Expression, ()> = sum::peek;
-        const PARSE_LEFT: Parser<Expression, ()> = sum::parse;
-        const PARSE_RIGHT: Parser<Expression, ()> = sum::parse;
+        const PEEK_LEFT: Peek<Expression> = sum::peek;
+        const PARSE_LEFT: Parser<Expression> = sum::parse;
+        const PARSE_RIGHT: Parser<Expression> = sum::parse;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match PEEK_LEFT(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -959,11 +1295,11 @@ mod non_block_expression {
     mod equality {
         use super::*;
 
-        const PEEK_LEFT: Peek<Expression, ()> = comparison::peek;
-        const PARSE_LEFT: Parser<Expression, ()> = comparison::parse;
-        const PARSE_RIGHT: Parser<Expression, ()> = comparison::parse;
+        const PEEK_LEFT: Peek<Expression> = comparison::peek;
+        const PARSE_LEFT: Parser<Expression> = comparison::parse;
+        const PARSE_RIGHT: Parser<Expression> = comparison::parse;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match PEEK_LEFT(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -998,11 +1334,11 @@ mod non_block_expression {
     mod logical {
         use super::*;
 
-        const PEEK_LEFT: Peek<Expression, ()> = equality::peek;
-        const PARSE_LEFT: Parser<Expression, ()> = equality::parse;
-        const PARSE_RIGHT: Parser<Expression, ()> = equality::parse;
+        const PEEK_LEFT: Peek<Expression> = equality::peek;
+        const PARSE_LEFT: Parser<Expression> = equality::parse;
+        const PARSE_RIGHT: Parser<Expression> = equality::parse;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match PEEK_LEFT(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -1037,11 +1373,11 @@ mod non_block_expression {
     mod assignment {
         use super::*;
 
-        const PEEK_LEFT: Peek<Expression, ()> = logical::peek;
-        const PARSE_LEFT: Parser<Expression, ()> = logical::parse;
-        const PARSE_RIGHT: Parser<Expression, ()> = logical::parse;
+        const PEEK_LEFT: Peek<Expression> = logical::peek;
+        const PARSE_LEFT: Parser<Expression> = logical::parse;
+        const PARSE_RIGHT: Parser<Expression> = logical::parse;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match PEEK_LEFT(lexer) {
                 Some(_) => Some(parse),
                 None => None,
@@ -1075,10 +1411,10 @@ mod non_block_expression {
 mod block_based_expression {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
-        match block::peek(lexer)
-            .or(if_::peek(lexer))
-            .or(js_block::peek(lexer))
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
+        match block_expr::peek(lexer)
+            .or_else(|| if_::peek(lexer))
+            .or_else(|| js_block::peek(lexer))
         {
             Some(_) => Some(parse),
             None => None,
@@ -1086,41 +1422,30 @@ mod block_based_expression {
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<Expression, ()> {
-        match block::peek(lexer)
-            .or(if_::peek(lexer))
-            .or(js_block::peek(lexer))
+        match block_expr::peek(lexer)
+            .or_else(|| if_::peek(lexer))
+            .or_else(|| js_block::peek(lexer))
         {
             Some(parse) => parse(lexer),
             None => Err(()),
         }
     }
 
-    mod block {
+    mod block_expr {
         use crate::phases::frontend::ast::Expression;
 
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
-            match lexer.peek() {
-                Some(&Token::OpenBlock) => Some(parse),
-                _ => None,
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
+            match block::peek(lexer) {
+                Some(_) => Some(parse),
+                None => None,
             }
         }
 
         pub(super) fn parse(lexer: &mut Lexer) -> Result<Expression, ()> {
-            let (_, open_block_span) = lexer.expect(Token::OpenBlock)?;
-            let statements = zero_or_more(statement::peek, lexer);
-            let return_expression = match expression::peek(lexer) {
-                Some(parse) => Some(parse(lexer)?),
-                None => None,
-            };
-            let (_, close_block_span) = lexer.expect(Token::CloseBlock)?;
-            let span = open_block_span.start..close_block_span.end;
-            let block = Block {
-                span: span.clone(),
-                statements,
-                return_expression,
-            };
+            let block = block::parse(lexer)?;
+            let span = block.span.clone();
             Ok(Expression::new(
                 ExpressionKind::Block(Box::new(block)),
                 span,
@@ -1131,7 +1456,7 @@ mod block_based_expression {
     mod if_ {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match lexer.peek() {
                 Some(&Token::If) => Some(parse),
                 _ => None,
@@ -1167,7 +1492,7 @@ mod block_based_expression {
     mod js_block {
         use super::*;
 
-        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression, ()>> {
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Expression>> {
             match lexer.peek() {
                 Some(&Token::StartJsBlock) => Some(parse),
                 _ => None,
@@ -1198,7 +1523,7 @@ mod block_based_expression {
 mod block {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Block, ()>> {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Block>> {
         match lexer.peek() {
             Some(&Token::OpenBlock) => Some(parse),
             _ => None,
@@ -1207,11 +1532,61 @@ mod block {
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<Block, ()> {
         let (_, start_span) = lexer.expect(Token::OpenBlock)?;
-        let statements = zero_or_more(statement::peek, lexer);
-        let return_expression = match expression::peek(lexer) {
-            Some(parse) => Some(parse(lexer)?),
-            None => None,
-        };
+        let mut statements: Vec<Statement> = Vec::new();
+        let mut return_expression: Option<Expression> = None;
+        let mut has_hit_non_terminated = false;
+        loop {
+            if let Some(parse) = statement::peek(lexer) {
+                if has_hit_non_terminated {
+                    lexer.expect(Token::Terminator)?;
+                }
+
+                let statement = parse(lexer)?;
+                if let Some(expr) = return_expression {
+                    // Moves things like `if` expressions in to the statements list
+                    statements.push(Statement {
+                        span: expr.span.clone(),
+                        kind: StatementKind::Expression(expr),
+                    });
+                    return_expression = None;
+                }
+                match statement {
+                    StatementWithTerminationStatus::Terminated(statement) => {
+                        statements.push(statement);
+                    }
+                    StatementWithTerminationStatus::NotTerminated(statement) => {
+                        has_hit_non_terminated = true;
+                        match statement.kind {
+                            StatementKind::Expression(expr) => {
+                                return_expression = Some(expr);
+                            }
+                            StatementKind::FunctionDefinition { .. }
+                            | StatementKind::ForLoop { .. }
+                            | StatementKind::Loop(_) => {
+                                statements.push(statement);
+                            }
+                            StatementKind::VariableDeclaration { .. }
+                            | StatementKind::Return(_)
+                            | StatementKind::Break => unreachable!(),
+                        }
+                    }
+                    StatementWithTerminationStatus::Block(statement) => match statement.kind {
+                        StatementKind::Expression(expr) => {
+                            return_expression = Some(expr);
+                        }
+                        StatementKind::ForLoop { .. } | StatementKind::Loop(_) => {
+                            statements.push(statement);
+                        }
+                        StatementKind::VariableDeclaration { .. }
+                        | StatementKind::FunctionDefinition { .. }
+                        | StatementKind::Return(_)
+                        | StatementKind::Break => unreachable!(),
+                    },
+                }
+            } else {
+                break;
+            }
+        }
         let (_, end_span) = lexer.expect(Token::CloseBlock)?;
         let span = start_span.start..end_span.end;
         Ok(Block {
@@ -1225,7 +1600,7 @@ mod block {
 mod identifier {
     use super::*;
 
-    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Identifier, ()>> {
+    pub(super) fn peek(lexer: &Lexer) -> Option<Parser<Identifier>> {
         match lexer.peek() {
             Some(&Token::Identifier(_)) => Some(parse),
             _ => None,
@@ -1237,7 +1612,7 @@ mod identifier {
     }
 }
 
-fn zero_or_more<TOk, TErr>(peek: Peek<TOk, TErr>, lexer: &mut Lexer) -> Vec<TOk> {
+fn zero_or_more<TOk>(peek: Peek<TOk>, lexer: &mut Lexer) -> Vec<TOk> {
     let mut results: Vec<TOk> = Vec::new();
 
     loop {
@@ -1254,132 +1629,6 @@ fn zero_or_more<TOk, TErr>(peek: Peek<TOk, TErr>, lexer: &mut Lexer) -> Vec<TOk>
 
     results
 }
-
-// fn top_level_statement_parser(
-// ) -> impl Parser<Token, TopLevelStatement, Error = CompilerError> + Clone {
-//     let variable_declaration = just(Token::Pub)
-//         .or_not()
-//         .then(just(Token::Let).to(false).or(just(Token::Mut).to(true)))
-//         .then(identifier_parser())
-//         .then(
-//             just(Token::KeyValueSeparator)
-//                 .ignore_then(type_parser())
-//                 .or_not(),
-//         )
-//         .then_ignore(just(Token::Operator(Operator::Assignment)))
-//         .then(expression_parser(statement_parser()))
-//         .then_ignore(just(Token::Terminator))
-//         .map_with_span(
-//             |((((is_public, is_mutable), identifier), type_), initializer), span| {
-//                 TopLevelStatement {
-//                     span,
-//                     kind: TopLevelStatementKind::VariableDeclaration {
-//                         is_public: is_public.is_some(),
-//                         is_mutable,
-//                         type_,
-//                         identifier,
-//                         initializer: Box::new(initializer),
-//                     },
-//                 }
-//             },
-//         );
-
-//     let block = just(Token::OpenBlock)
-//         .ignore_then(statement_parser().repeated())
-//         .then(expression_parser(statement_parser()).or_not())
-//         .then_ignore(just(Token::CloseBlock))
-//         .map_with_span(|(statements, return_expression), span| Block {
-//             span: span.clone(),
-//             statements,
-//             return_expression,
-//         });
-
-//     let parameters = identifier_parser()
-//         .then_ignore(just(Token::KeyValueSeparator))
-//         .then(type_parser())
-//         .map(|(identifier, type_)| Parameter::new(identifier.clone().span, identifier, type_))
-//         .separated_by(just(Token::ListSeparator))
-//         .delimited_by(just(Token::OpenParen), just(Token::CloseParen))
-//         .map_with_span(|parameters, span| (parameters, span));
-
-//     let function_definition = just(Token::Pub)
-//         .or_not()
-//         .then_ignore(just(Token::Let))
-//         .then(identifier_parser())
-//         .then(parameters)
-//         .then(
-//             just(Token::KeyValueSeparator)
-//                 .ignore_then(type_parser())
-//                 .or_not(),
-//         )
-//         .then(block.clone())
-//         .map_with_span(
-//             |((((is_public, name), parameters), return_type), body), span| TopLevelStatement {
-//                 span,
-//                 kind: TopLevelStatementKind::FunctionDefinition {
-//                     is_public: is_public.is_some(),
-//                     name,
-//                     parameters: parameters.0,
-//                     return_type: return_type.unwrap_or(Type::Void),
-//                     body,
-//                 },
-//             },
-//         );
-
-//     let loop_ = just(Token::Loop)
-//         .ignore_then(block)
-//         .map_with_span(|block, span| TopLevelStatement {
-//             span,
-//             kind: TopLevelStatementKind::Loop(block),
-//         });
-
-//     let for_loop = just(Token::For)
-//         .then(just(Token::OpenParen))
-//         .ignore_then(
-//             // Pre-loop
-//             statement_parser().or_not(),
-//         )
-//         .then(
-//             // Condition
-//             expression_parser(statement_parser()).or_not(),
-//         )
-//         .then_ignore(just(Token::Terminator))
-//         .then(
-//             // Post-loop
-//             expression_parser(statement_parser()).or_not(),
-//         )
-//         .then_ignore(just(Token::CloseParen))
-//         .then(
-//             // Body
-//             statement_parser()
-//                 .repeated()
-//                 .delimited_by(just(Token::OpenBlock), just(Token::CloseBlock)),
-//         )
-//         .map_with_span(
-//             |(((initializer, condition), post_loop), body), span| TopLevelStatement {
-//                 span,
-//                 kind: TopLevelStatementKind::ForLoop {
-//                     initializer: initializer.map(Box::new),
-//                     condition,
-//                     post_loop,
-//                     body,
-//                 },
-//             },
-//         );
-
-//     let expression = expression_parser(statement_parser().clone())
-//         .then_ignore(just(Token::Terminator))
-//         .map(|expression| TopLevelStatement {
-//             span: expression.span.clone(),
-//             kind: TopLevelStatementKind::Expression(expression),
-//         });
-
-//     variable_declaration
-//         .or(function_definition)
-//         .or(loop_)
-//         .or(for_loop)
-//         .or(expression)
-// }
 
 // fn statement_parser() -> impl Parser<Token, Statement, Error = CompilerError> + Clone {
 //     recursive(|statement| {
