@@ -32,11 +32,13 @@ fn main() {
         .map(|f| f.file_name().unwrap().to_str().unwrap().to_string());
 
     for file_name in example_files {
-        run_test(&file_name, &mode);
+        if !run_test(&file_name, &mode) {
+            break;
+        }
     }
 }
 
-fn run_test(file_name: &String, mode: &Mode) {
+fn run_test(file_name: &String, mode: &Mode) -> bool {
     let path_to_file = format!("examples/{}", file_name);
     let path_to_file = Path::new(path_to_file.as_str());
     let path_to_snapshot = format!("examples/snapshots/{}.snapshot", file_name);
@@ -114,6 +116,7 @@ fn run_test(file_name: &String, mode: &Mode) {
                         old_snapshot.exit_code, new_snapshot.exit_code
                     );
                 }
+                return false;
             } else {
                 println!("✅ {}", path_to_file.to_str().unwrap());
             }
@@ -123,4 +126,6 @@ fn run_test(file_name: &String, mode: &Mode) {
             println!("✅ {}: Saved snapshot!", path_to_file.to_str().unwrap());
         }
     }
+
+    true
 }

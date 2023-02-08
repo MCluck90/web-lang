@@ -345,9 +345,8 @@ mod top_level_statement {
             };
             lexer.expect(Token::CloseParen)?;
 
-            let body = block::parse(lexer)?;
+            let body = void_block::parse(lexer)?;
             let span = start_span.start..body.span.end;
-            let body = body.statements;
 
             Ok(TopLevelStatement {
                 span,
@@ -355,7 +354,7 @@ mod top_level_statement {
                     initializer,
                     condition,
                     post_loop,
-                    body,
+                    body: body.statements,
                 },
             })
         }
@@ -434,7 +433,7 @@ mod statement {
 
         pub(super) fn parse(lexer: &mut Lexer) -> Result<StatementWithTerminationStatus, ()> {
             let function = function_definition::parse(lexer)?;
-            Ok(StatementWithTerminationStatus::NotTerminated(Statement {
+            Ok(StatementWithTerminationStatus::Block(Statement {
                 span: function.span,
                 kind: StatementKind::FunctionDefinition {
                     name: function.name,
@@ -639,7 +638,7 @@ mod type_ {
             Some((Token::OpenParen, _)) => {
                 let mut parameters: Vec<Type> = Vec::new();
                 loop {
-                    if !parameters.is_empty() {
+                    if !parameters.is_empty() && lexer.peek() != Some(&Token::CloseParen) {
                         lexer.expect(Token::ListSeparator)?;
                     }
                     match type_::peek(lexer) {
@@ -794,11 +793,10 @@ mod function_definition {
             lexer.expect(Token::OpenParen)?;
             let mut parameters: Vec<Parameter> = Vec::new();
             loop {
-                if !parameters.is_empty() {
+                if !parameters.is_empty() && lexer.peek() != Some(&Token::CloseParen) {
                     lexer.expect(Token::ListSeparator)?;
                 }
-
-                match identifier::peek(lexer) {
+                match identifier::peek(&lexer) {
                     None => break,
                     Some(parse) => {
                         let ident = parse(lexer)?;
@@ -810,7 +808,7 @@ mod function_definition {
             }
 
             // Allow trailing commas
-            if !parameters.is_empty() && lexer.peek() == Some(&Token::ListSeparator) {
+            if lexer.peek() == Some(&Token::ListSeparator) {
                 lexer.consume();
             }
             lexer.expect(Token::CloseParen)?;
@@ -1567,6 +1565,54 @@ mod block {
                         StatementKind::Expression(expr) => {
                             return_expression = Some(expr);
                         }
+                        StatementKind::FunctionDefinition { .. }
+                        | StatementKind::ForLoop { .. }
+                        | StatementKind::Loop(_) => {
+                            statements.push(statement);
+                        }
+                        StatementKind::VariableDeclaration { .. }
+                        | StatementKind::Return(_)
+                        | StatementKind::Break => unreachable!(),
+                    },
+                }
+            } else {
+                break;
+            }
+        }
+        let (_, end_span) = lexer.expect(Token::CloseBlock)?;
+        let span = start_span.start..end_span.end;
+        Ok(Block {
+            span,
+            statements,
+            return_expression,
+        })
+    }
+}
+
+// A block but must evaluate to a `void` value. Useful for loops
+mod void_block {
+    use super::*;
+
+    pub(super) fn parse(lexer: &mut Lexer) -> Result<Block, ()> {
+        let (_, start_span) = lexer.expect(Token::OpenBlock)?;
+        let mut statements: Vec<Statement> = Vec::new();
+        loop {
+            if let Some(parse) = statement::peek(lexer) {
+                let statement = parse(lexer)?;
+                match statement {
+                    StatementWithTerminationStatus::Terminated(statement) => {
+                        statements.push(statement);
+                    }
+                    StatementWithTerminationStatus::NotTerminated(_) => {
+                        lexer.expect(Token::Terminator)?;
+                    }
+                    StatementWithTerminationStatus::Block(statement) => match statement.kind {
+                        StatementKind::Expression(expr) => {
+                            statements.push(Statement {
+                                span: expr.span.clone(),
+                                kind: StatementKind::Expression(expr),
+                            });
+                        }
                         StatementKind::ForLoop { .. } | StatementKind::Loop(_) => {
                             statements.push(statement);
                         }
@@ -1585,7 +1631,7 @@ mod block {
         Ok(Block {
             span,
             statements,
-            return_expression,
+            return_expression: None,
         })
     }
 }

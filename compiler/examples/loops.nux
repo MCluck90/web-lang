@@ -13,12 +13,12 @@ loop {
     logWithMessage(i, 'Fizz');
   } else if i % 5 == 0 {
     logWithMessage(i, 'Buzz');
-  };
+  }
 
   i = i + 1;
   if i > 30 {
     break;
-  };
+  }
 }
 log('');
 
@@ -30,5 +30,5 @@ for (mut i = 1; i <= 30; ++i) {
     logWithMessage(i, 'Fizz');
   } else if i % 5 == 0 {
     logWithMessage(i, 'Buzz');
-  };
+  }
 }

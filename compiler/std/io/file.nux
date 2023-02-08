@@ -2,6 +2,6 @@ pub let read-file(path: string): string {
   mut contents = '';
   #js {
     contents "=require('fs').readFileSync(" path ").toString();"
-  };
+  }
   contents
 }
