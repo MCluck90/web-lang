@@ -341,6 +341,17 @@ impl Lexer {
             self.peek().map(|t| t.clone()),
         ))
     }
+
+    // Get rid of zero of more terminators
+    pub fn hasta_la_vista(&mut self) {
+        loop {
+            if self.peek() == Some(&Token::Terminator) {
+                self.consume();
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 pub fn create_lexer(source: &str) -> Lexer {

@@ -141,7 +141,11 @@ mod top_level_statement {
             .or_else(|| top_level_function_definition::peek(lexer))
             .or_else(|| top_level_expression::peek(lexer))
         {
-            Some(parse) => parse(lexer),
+            Some(parse) => {
+                let result = parse(lexer);
+                lexer.hasta_la_vista();
+                result
+            }
             None => Err(()),
         }
     }
@@ -392,7 +396,11 @@ mod statement {
             .or_else(|| function_definition_statement::peek(lexer))
             .or_else(|| expression_statement::peek(lexer))
         {
-            Some(parse) => parse(lexer),
+            Some(parse) => {
+                let result = parse(lexer);
+                lexer.hasta_la_vista();
+                result
+            }
             None => Err(()),
         }
     }
