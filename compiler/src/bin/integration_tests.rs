@@ -53,7 +53,14 @@ fn run_test(file_name: &String, mode: &Mode) -> bool {
     };
 
     let cargo = Command::new("cargo")
-        .args(["run", "-q", path_to_file.to_str().unwrap()])
+        .args([
+            "run",
+            "-q",
+            "--",
+            "-o",
+            "test-output",
+            path_to_file.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 
@@ -61,19 +68,14 @@ fn run_test(file_name: &String, mode: &Mode) -> bool {
     let mut stderr = String::from_utf8(cargo.stderr).unwrap();
     let mut exit_code = cargo.status.code().unwrap();
     if cargo.status.success() {
-        std::fs::write("target/_integration-test.js", stdout)
-            .expect("failed to write to test file");
-
         let node = Command::new("node")
-            .args(["target/_integration-test.js"])
+            .args(["test-output/main.js"])
             .output()
             .unwrap();
 
         stdout = String::from_utf8(node.stdout).unwrap();
         stderr = String::from_utf8(node.stderr).unwrap();
         exit_code = node.status.code().unwrap();
-
-        std::fs::remove_file("target/_integration-test.js").expect("failed to delete test file");
     }
 
     let new_snapshot = Snapshot {

@@ -1,4 +1,6 @@
 .vscode/
+output/
+test-output/
 target/
 
 # I use these files when quickly trying things out
