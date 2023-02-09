@@ -3,7 +3,7 @@
 ## Getting Started
 
 ```shell
-$ cargo run <path-to-file>
+$ ./run <path-to-file>
 ```
 
 ## Tests
@@ -11,11 +11,11 @@ $ cargo run <path-to-file>
 To run the tests:
 
 ```shell
-$ cargo run --bin integration-tests
+$ ./integration-tests
 ```
 
 To update the test snapshots:
 
 ```shell
-$ cargo run --bin integration-tests -- --update
+$ ./integration-tests --update
 ```
