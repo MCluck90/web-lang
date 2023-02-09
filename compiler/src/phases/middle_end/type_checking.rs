@@ -175,6 +175,12 @@ fn visit_top_level_statement(
             }
             Ok(())
         }
+        TopLevelStatementKind::EnvironmentBlock(_, statements) => {
+            for stmt in statements {
+                visit_statement(stmt, symbol_table, type_context)?;
+            }
+            Ok(())
+        }
     }
 }
 

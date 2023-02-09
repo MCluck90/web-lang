@@ -125,6 +125,7 @@ mod top_level_statement {
     pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
         match loop_statement::peek(lexer)
             .or_else(|| for_loop_statement::peek(lexer))
+            .or_else(|| environment_block::peek(lexer))
             .or_else(|| top_level_variable_declaration::peek(lexer))
             .or_else(|| top_level_function_definition::peek(lexer))
             .or_else(|| top_level_expression::peek(lexer))
@@ -137,6 +138,7 @@ mod top_level_statement {
     pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
         match loop_statement::peek(lexer)
             .or_else(|| for_loop_statement::peek(lexer))
+            .or_else(|| environment_block::peek(lexer))
             .or_else(|| top_level_variable_declaration::peek(lexer))
             .or_else(|| top_level_function_definition::peek(lexer))
             .or_else(|| top_level_expression::peek(lexer))
@@ -360,6 +362,51 @@ mod top_level_statement {
                     post_loop,
                     body: body.statements,
                 },
+            })
+        }
+    }
+
+    mod environment_block {
+        use super::*;
+
+        pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
+            match lexer.peek() {
+                Some(&Token::Front) | Some(&Token::Back) => Some(parse),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
+            let (environment_type, start_span) = match lexer.consume() {
+                Some((Token::Back, span)) => (EnvironmentType::Backend, span),
+                Some((Token::Front, span)) => (EnvironmentType::Frontend, span),
+                _ => {
+                    lexer.expected_one_of(vec![Token::Back, Token::Front]);
+                    return Err(());
+                }
+            };
+
+            lexer.expect(Token::OpenBlock)?;
+            let mut statements: Vec<Statement> = Vec::new();
+            loop {
+                match statement::peek(lexer) {
+                    Some(parse) => match parse(lexer)? {
+                        StatementWithTerminationStatus::Terminated(stmt)
+                        | StatementWithTerminationStatus::Block(stmt) => {
+                            statements.push(stmt);
+                        }
+                        StatementWithTerminationStatus::NotTerminated(_) => {
+                            lexer.expect(Token::Terminator)?;
+                        }
+                    },
+                    None => break,
+                }
+            }
+            let (_, end_span) = lexer.expect(Token::CloseBlock)?;
+            let span = start_span.start..end_span.end;
+            Ok(TopLevelStatement {
+                span,
+                kind: TopLevelStatementKind::EnvironmentBlock(environment_type, statements),
             })
         }
     }

@@ -6,7 +6,7 @@ use crate::{
         frontend::Span,
         frontend::{
             self,
-            ir::{BinaryOperator, PreUnaryOperator},
+            ir::{BinaryOperator, EnvironmentType, PreUnaryOperator},
         },
         shared::Type,
     },
@@ -114,6 +114,7 @@ pub enum TopLevelStatementKind {
         post_loop: Option<Expression>,
         body: Vec<Statement>,
     },
+    EnvironmentBlock(EnvironmentType, Vec<Statement>),
 }
 
 #[derive(Clone, Debug)]

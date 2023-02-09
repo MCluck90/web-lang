@@ -49,12 +49,12 @@
       "patterns": [
         {
           "name": "keyword.control.nux",
-          "match": "\\b(if|else|for|loop|break|pub|return|use)\\b"
+          "match": "\\b(if|else|for|loop|break|pub|return|use|back|front)\\b"
         },
         {
           "comment": "storage keywords",
           "name": "keyword.other.nux storage.type.nux",
-          "match": "\\b(let|mut|use)\\b"
+          "match": "\\b(let|mut)\\b"
         },
         {
           "comment": "function arrow",

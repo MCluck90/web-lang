@@ -222,6 +222,7 @@ fn resolve_module(
             middle_end::ir::TopLevelStatementKind::Expression(_) => {}
             middle_end::ir::TopLevelStatementKind::Loop(_) => {}
             middle_end::ir::TopLevelStatementKind::ForLoop { .. } => {}
+            middle_end::ir::TopLevelStatementKind::EnvironmentBlock(_, _) => {}
         }
         statements.push(statement);
     }
@@ -403,6 +404,28 @@ fn resolve_top_level_statement(
                         post_loop,
                         body: body_statements,
                     },
+                },
+                errors,
+            )
+        }
+        frontend::ir::TopLevelStatementKind::EnvironmentBlock(environment, statements) => {
+            let mut errors: Vec<CompilerError> = Vec::new();
+            let mut inner_statements: Vec<middle_end::ir::Statement> = Vec::new();
+            ctx.start_scope();
+            for stmt in statements {
+                let (stmt, mut errs) = resolve_statement(ctx, stmt);
+                inner_statements.push(stmt);
+                errors.append(&mut errs);
+            }
+            ctx.end_scope();
+
+            (
+                middle_end::ir::TopLevelStatement {
+                    span: statement.span.clone(),
+                    kind: middle_end::ir::TopLevelStatementKind::EnvironmentBlock(
+                        *environment,
+                        inner_statements,
+                    ),
                 },
                 errors,
             )

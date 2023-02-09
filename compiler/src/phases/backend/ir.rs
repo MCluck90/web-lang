@@ -179,6 +179,7 @@ fn top_level_statement_to_block_or_statement(
 
             BlockOrStatement::Block(block)
         }
+        middle_end::ir::TopLevelStatementKind::EnvironmentBlock(_, _) => todo!(),
     }
 }
 

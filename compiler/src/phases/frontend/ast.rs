@@ -101,6 +101,13 @@ pub enum TopLevelStatementKind {
         post_loop: Option<Expression>,
         body: Vec<Statement>,
     },
+    EnvironmentBlock(EnvironmentType, Vec<Statement>),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EnvironmentType {
+    Frontend,
+    Backend,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
