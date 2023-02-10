@@ -1,5 +1,8 @@
 use crate::phases::{
-    frontend::ir::{BinaryOperator, PreUnaryOperator},
+    frontend::{
+        self,
+        ir::{BinaryOperator, PreUnaryOperator},
+    },
     middle_end,
 };
 
@@ -51,6 +54,7 @@ fn top_level_statement_to_block_or_statement(
             initializer,
         } => match expression_to_block(ctx, *initializer) {
             (expr, None) => BlockOrStatement::Statement(Statement::VariableDeclaration {
+                environment: ctx.environment(),
                 is_mutable,
                 identifier: identifier.name,
                 initializer: Some(Box::new(expr)),
@@ -59,6 +63,7 @@ fn top_level_statement_to_block_or_statement(
                 block_or_statements: vec![
                     BlockOrStatement::Block(block),
                     BlockOrStatement::Statement(Statement::VariableDeclaration {
+                        environment: ctx.environment(),
                         is_mutable,
                         identifier: identifier.name,
                         initializer: Some(Box::new(expr)),
@@ -73,6 +78,7 @@ fn top_level_statement_to_block_or_statement(
             return_type: _,
             body,
         } => BlockOrStatement::Statement(Statement::FunctionDefinition {
+            environment: ctx.environment(),
             name: name.name,
             parameters: parameters.into_iter().map(|p| p.identifier.name).collect(),
             body: body
@@ -103,6 +109,7 @@ fn top_level_statement_to_block_or_statement(
         }
         middle_end::ir::TopLevelStatementKind::Loop(statements) => {
             BlockOrStatement::Statement(Statement::WhileLoop(
+                ctx.environment(),
                 statements
                     .into_iter()
                     .map(|stmt| {
@@ -139,12 +146,14 @@ fn top_level_statement_to_block_or_statement(
                     loop_statements.append(&mut block_to_statements(block));
                 }
                 loop_statements.push(Statement::If {
-                    condition: Expression::BinaryExpression(
+                    environment: ctx.environment(),
+                    condition: Expression::new_binary_expression(
+                        ctx,
                         Box::new(condition),
                         BinaryOperator::Equal,
-                        Box::new(Expression::Boolean(false)),
+                        Box::new(Expression::new_boolean(ctx, false)),
                     ),
-                    body: vec![Statement::Break],
+                    body: vec![Statement::Break(ctx.environment())],
                     else_: Vec::new(),
                 });
             }
@@ -172,14 +181,28 @@ fn top_level_statement_to_block_or_statement(
                 loop_statements.push(Statement::Expression(post_loop));
             }
 
-            let loop_ = Statement::WhileLoop(loop_statements);
+            let loop_ = Statement::WhileLoop(ctx.environment(), loop_statements);
             block
                 .block_or_statements
                 .push(BlockOrStatement::Statement(loop_));
 
             BlockOrStatement::Block(block)
         }
-        middle_end::ir::TopLevelStatementKind::EnvironmentBlock(_, _) => todo!(),
+        middle_end::ir::TopLevelStatementKind::EnvironmentBlock(environment, statements) => {
+            ctx.start_environment(match environment {
+                frontend::ir::EnvironmentType::Frontend => EnvironmentType::Frontend,
+                frontend::ir::EnvironmentType::Backend => EnvironmentType::Backend,
+            });
+
+            let mut block_or_statements: Vec<BlockOrStatement> = Vec::new();
+            for stmt in statements {
+                block_or_statements.append(&mut middle_statement_to_block_or_statement(ctx, stmt));
+            }
+            ctx.end_environment();
+            BlockOrStatement::Block(BasicBlock {
+                block_or_statements,
+            })
+        }
     }
 }
 
@@ -195,6 +218,7 @@ fn middle_statement_to_block_or_statement(
             initializer,
         } => vec![match expression_to_block(ctx, *initializer) {
             (expr, None) => BlockOrStatement::Statement(Statement::VariableDeclaration {
+                environment: ctx.environment(),
                 is_mutable,
                 identifier: identifier.name,
                 initializer: Some(Box::new(expr)),
@@ -203,6 +227,7 @@ fn middle_statement_to_block_or_statement(
                 block_or_statements: vec![
                     BlockOrStatement::Block(block),
                     BlockOrStatement::Statement(Statement::VariableDeclaration {
+                        environment: ctx.environment(),
                         is_mutable,
                         identifier: identifier.name,
                         initializer: Some(Box::new(expr)),
@@ -216,6 +241,7 @@ fn middle_statement_to_block_or_statement(
             return_type: _,
             body,
         } => vec![BlockOrStatement::Statement(Statement::FunctionDefinition {
+            environment: ctx.environment(),
             name: name.name,
             parameters: parameters.into_iter().map(|p| p.identifier.name).collect(),
             body: body
@@ -246,16 +272,26 @@ fn middle_statement_to_block_or_statement(
                 if let Some(block) = maybe_block {
                     vec![
                         BlockOrStatement::Block(block),
-                        BlockOrStatement::Statement(Statement::Return(Some(expr))),
+                        BlockOrStatement::Statement(Statement::Return(
+                            ctx.environment(),
+                            Some(expr),
+                        )),
                     ]
                 } else {
-                    vec![BlockOrStatement::Statement(Statement::Return(Some(expr)))]
+                    vec![BlockOrStatement::Statement(Statement::Return(
+                        ctx.environment(),
+                        Some(expr),
+                    ))]
                 }
             }
-            None => vec![BlockOrStatement::Statement(Statement::Return(None))],
+            None => vec![BlockOrStatement::Statement(Statement::Return(
+                ctx.environment(),
+                None,
+            ))],
         },
         middle_end::ir::StatementKind::Loop(statements) => {
             vec![BlockOrStatement::Statement(Statement::WhileLoop(
+                ctx.environment(),
                 statements
                     .into_iter()
                     .map(|stmt| {
@@ -268,7 +304,9 @@ fn middle_statement_to_block_or_statement(
                     .collect(),
             ))]
         }
-        middle_end::ir::StatementKind::Break => vec![BlockOrStatement::Statement(Statement::Break)],
+        middle_end::ir::StatementKind::Break => vec![BlockOrStatement::Statement(
+            Statement::Break(ctx.environment()),
+        )],
         middle_end::ir::StatementKind::ForLoop {
             initializer,
             condition,
@@ -293,12 +331,14 @@ fn middle_statement_to_block_or_statement(
                     loop_statements.append(&mut block_to_statements(block));
                 }
                 loop_statements.push(Statement::If {
-                    condition: Expression::BinaryExpression(
+                    environment: ctx.environment(),
+                    condition: Expression::new_binary_expression(
+                        ctx,
                         Box::new(condition),
                         BinaryOperator::Equal,
-                        Box::new(Expression::Boolean(false)),
+                        Box::new(Expression::new_boolean(ctx, false)),
                     ),
-                    body: vec![Statement::Break],
+                    body: vec![Statement::Break(ctx.environment())],
                     else_: Vec::new(),
                 });
             }
@@ -326,7 +366,7 @@ fn middle_statement_to_block_or_statement(
                 loop_statements.push(Statement::Expression(post_loop));
             }
 
-            let loop_ = Statement::WhileLoop(loop_statements);
+            let loop_ = Statement::WhileLoop(ctx.environment(), loop_statements);
             block
                 .block_or_statements
                 .push(BlockOrStatement::Statement(loop_));
@@ -343,13 +383,20 @@ fn expression_to_block(
     match expression.kind {
         middle_end::ir::ExpressionKind::Parenthesized(expr) => {
             let (expr, maybe_block) = expression_to_block(ctx, *expr);
-            (Expression::Parenthesized(Box::new(expr)), maybe_block)
+            (
+                Expression::new_parenthesized(ctx, Box::new(expr)),
+                maybe_block,
+            )
         }
-        middle_end::ir::ExpressionKind::Boolean(value) => (Expression::Boolean(value), None),
-        middle_end::ir::ExpressionKind::Integer(value) => (Expression::Integer(value), None),
-        middle_end::ir::ExpressionKind::String(value) => (Expression::String(value), None),
+        middle_end::ir::ExpressionKind::Boolean(value) => {
+            (Expression::new_boolean(ctx, value), None)
+        }
+        middle_end::ir::ExpressionKind::Integer(value) => {
+            (Expression::new_integer(ctx, value), None)
+        }
+        middle_end::ir::ExpressionKind::String(value) => (Expression::new_string(ctx, value), None),
         middle_end::ir::ExpressionKind::Identifier(identifier) => {
-            (Expression::Identifier(identifier.name), None)
+            (Expression::new_identifier(ctx, identifier.name), None)
         }
         middle_end::ir::ExpressionKind::Block(block) => {
             ctx.begin_scope();
@@ -359,6 +406,7 @@ fn expression_to_block(
                 .block_or_statements
                 .push(BlockOrStatement::Statement(
                     Statement::VariableDeclaration {
+                        environment: ctx.environment(),
                         is_mutable: true,
                         identifier: temp_variable.clone(),
                         initializer: None,
@@ -379,15 +427,19 @@ fn expression_to_block(
                 basic_block
                     .block_or_statements
                     .push(BlockOrStatement::Statement(Statement::Expression(
-                        Expression::BinaryExpression(
-                            Box::new(Expression::Identifier(temp_variable.clone())),
+                        Expression::new_binary_expression(
+                            ctx,
+                            Box::new(Expression::new_identifier(ctx, temp_variable.clone())),
                             BinaryOperator::Assignment,
                             Box::new(return_expr.0),
                         ),
                     )));
             }
             ctx.end_scope();
-            (Expression::Identifier(temp_variable), Some(basic_block))
+            (
+                Expression::new_identifier(ctx, temp_variable),
+                Some(basic_block),
+            )
         }
         middle_end::ir::ExpressionKind::JsBlock(_, expressions) => {
             let mut converted_expressions: Vec<Expression> = Vec::new();
@@ -403,12 +455,12 @@ fn expression_to_block(
             }
 
             if blocks.is_empty() {
-                (Expression::JsBlock(converted_expressions), None)
+                (Expression::new_js_block(ctx, converted_expressions), None)
             } else {
                 let mut basic_block = BasicBlock::new();
                 basic_block.block_or_statements.append(&mut blocks);
                 (
-                    Expression::JsBlock(converted_expressions),
+                    Expression::new_js_block(ctx, converted_expressions),
                     Some(basic_block),
                 )
             }
@@ -417,7 +469,7 @@ fn expression_to_block(
             let (left, maybe_block_lhs) = expression_to_block(ctx, *left);
             let (right, maybe_block_rhs) = expression_to_block(ctx, *right);
             (
-                Expression::BinaryExpression(Box::new(left), op, Box::new(right)),
+                Expression::new_binary_expression(ctx, Box::new(left), op, Box::new(right)),
                 match (maybe_block_lhs, maybe_block_rhs) {
                     (None, None) => None,
                     (Some(left_block), Some(right_block)) => {
@@ -437,14 +489,14 @@ fn expression_to_block(
         middle_end::ir::ExpressionKind::PreUnaryExpression(op, expr) => {
             let (expr, maybe_block) = expression_to_block(ctx, *expr);
             (
-                Expression::PreUnaryExpression(op, Box::new(expr)),
+                Expression::new_pre_unary_expression(ctx, op, Box::new(expr)),
                 maybe_block,
             )
         }
         middle_end::ir::ExpressionKind::PropertyAccess(left, right) => {
             let (left, maybe_block) = expression_to_block(ctx, *left);
             (
-                Expression::PropertyAccess(Box::new(left), right.name),
+                Expression::new_property_access(ctx, Box::new(left), right.name),
                 maybe_block,
             )
         }
@@ -468,20 +520,14 @@ fn expression_to_block(
 
             if blocks.is_empty() {
                 (
-                    Expression::FunctionCall {
-                        callee: Box::new(callee),
-                        arguments: args,
-                    },
+                    Expression::new_function_call(ctx, Box::new(callee), args),
                     None,
                 )
             } else {
                 let mut basic_block = BasicBlock::new();
                 basic_block.block_or_statements.append(&mut blocks);
                 (
-                    Expression::FunctionCall {
-                        callee: Box::new(callee),
-                        arguments: args,
-                    },
+                    Expression::new_function_call(ctx, Box::new(callee), args),
                     Some(basic_block),
                 )
             }
@@ -500,6 +546,7 @@ fn expression_to_block(
                 .block_or_statements
                 .push(BlockOrStatement::Statement(
                     Statement::VariableDeclaration {
+                        environment: ctx.environment(),
                         is_mutable: true,
                         identifier: temp_variable.clone(),
                         initializer: None,
@@ -512,8 +559,9 @@ fn expression_to_block(
             }
 
             let mut body_statements = body.1.map(block_to_statements).unwrap_or(Vec::new());
-            body_statements.push(Statement::Expression(Expression::BinaryExpression(
-                Box::new(Expression::Identifier(temp_variable.clone())),
+            body_statements.push(Statement::Expression(Expression::new_binary_expression(
+                ctx,
+                Box::new(Expression::new_identifier(ctx, temp_variable.clone())),
                 BinaryOperator::Assignment,
                 Box::new(body.0),
             )));
@@ -522,8 +570,9 @@ fn expression_to_block(
                 .map(|(expr, maybe_block)| {
                     let mut else_statements =
                         maybe_block.map(block_to_statements).unwrap_or(Vec::new());
-                    else_statements.push(Statement::Expression(Expression::BinaryExpression(
-                        Box::new(Expression::Identifier(temp_variable.clone())),
+                    else_statements.push(Statement::Expression(Expression::new_binary_expression(
+                        ctx,
+                        Box::new(Expression::new_identifier(ctx, temp_variable.clone())),
                         BinaryOperator::Assignment,
                         Box::new(expr),
                     )));
@@ -533,11 +582,15 @@ fn expression_to_block(
             basic_block
                 .block_or_statements
                 .push(BlockOrStatement::Statement(Statement::If {
+                    environment: ctx.environment(),
                     condition: condition.0,
                     body: body_statements,
                     else_: else_statements,
                 }));
-            (Expression::Identifier(temp_variable), Some(basic_block))
+            (
+                Expression::new_identifier(ctx, temp_variable),
+                Some(basic_block),
+            )
         }
         middle_end::ir::ExpressionKind::List(expressions) => {
             let mut inner_blocks: Vec<BasicBlock> = Vec::new();
@@ -551,10 +604,10 @@ fn expression_to_block(
             }
 
             if inner_blocks.is_empty() {
-                (Expression::List(initial_values), None)
+                (Expression::new_list(ctx, initial_values), None)
             } else {
                 (
-                    Expression::List(initial_values),
+                    Expression::new_list(ctx, initial_values),
                     Some(BasicBlock {
                         block_or_statements: inner_blocks
                             .into_iter()
@@ -579,7 +632,7 @@ fn expression_to_block(
                 }),
             };
             (
-                Expression::ArrayAccess(Box::new(left), Box::new(index)),
+                Expression::new_array_access(ctx, Box::new(left), Box::new(index)),
                 maybe_block,
             )
         }
@@ -615,28 +668,140 @@ impl BlockOrStatement {
 #[derive(Debug)]
 pub enum Statement {
     VariableDeclaration {
+        environment: EnvironmentType,
         is_mutable: bool,
         identifier: String,
         initializer: Option<Box<Expression>>,
     },
     FunctionDefinition {
+        environment: EnvironmentType,
         name: String,
         parameters: Vec<String>,
         body: Vec<Statement>,
     },
-    Return(Option<Expression>),
+    Return(EnvironmentType, Option<Expression>),
     Expression(Expression),
     If {
+        environment: EnvironmentType,
         condition: Expression,
         body: Vec<Statement>,
         else_: Vec<Statement>,
     },
-    WhileLoop(Vec<Statement>),
-    Break,
+    WhileLoop(EnvironmentType, Vec<Statement>),
+    Break(EnvironmentType),
+}
+impl Statement {
+    pub fn environment(&self) -> EnvironmentType {
+        match self {
+            Statement::VariableDeclaration { environment, .. } => *environment,
+            Statement::FunctionDefinition { environment, .. } => *environment,
+            Statement::Return(environment, _) => *environment,
+            Statement::Expression(expr) => expr.environment,
+            Statement::If { environment, .. } => *environment,
+            Statement::WhileLoop(environment, _) => *environment,
+            Statement::Break(environment) => *environment,
+        }
+    }
 }
 
 #[derive(Debug)]
-pub enum Expression {
+pub struct Expression {
+    pub environment: EnvironmentType,
+    pub kind: ExpressionKind,
+}
+impl Expression {
+    fn new_boolean(ctx: &Context, value: bool) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::Boolean(value),
+        }
+    }
+
+    fn new_identifier(ctx: &Context, ident: String) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::Identifier(ident),
+        }
+    }
+
+    fn new_integer(ctx: &Context, value: i64) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::Integer(value),
+        }
+    }
+
+    fn new_string(ctx: &Context, value: String) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::String(value),
+        }
+    }
+    fn new_parenthesized(ctx: &Context, expression: Box<Expression>) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::Parenthesized(expression),
+        }
+    }
+    fn new_list(ctx: &Context, elements: Vec<Expression>) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::List(elements),
+        }
+    }
+    fn new_js_block(ctx: &Context, expressions: Vec<Expression>) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::JsBlock(expressions),
+        }
+    }
+    fn new_binary_expression(
+        ctx: &Context,
+        left: Box<Expression>,
+        operator: BinaryOperator,
+        right: Box<Expression>,
+    ) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::BinaryExpression(left, operator, right),
+        }
+    }
+    fn new_pre_unary_expression(
+        ctx: &Context,
+        operator: PreUnaryOperator,
+        expr: Box<Expression>,
+    ) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::PreUnaryExpression(operator, expr),
+        }
+    }
+    fn new_property_access(ctx: &Context, left: Box<Expression>, right: String) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::PropertyAccess(left, right),
+        }
+    }
+    fn new_array_access(ctx: &Context, array: Box<Expression>, index: Box<Expression>) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::ArrayAccess(array, index),
+        }
+    }
+    fn new_function_call(
+        ctx: &Context,
+        callee: Box<Expression>,
+        arguments: Vec<Expression>,
+    ) -> Self {
+        Self {
+            environment: ctx.environment(),
+            kind: ExpressionKind::FunctionCall { callee, arguments },
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ExpressionKind {
     Boolean(bool),
     Identifier(String),
     Integer(i64),
@@ -654,13 +819,22 @@ pub enum Expression {
     },
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum EnvironmentType {
+    Frontend,
+    Backend,
+    Isomorphic,
+}
+
 struct Context {
     id_counters: Vec<IdCounter>,
+    environments: Vec<EnvironmentType>,
 }
 impl Context {
     fn new() -> Self {
         Self {
             id_counters: vec![IdCounter::new()],
+            environments: vec![EnvironmentType::Isomorphic],
         }
     }
 
@@ -671,11 +845,30 @@ impl Context {
     }
 
     fn end_scope(&mut self) {
-        self.id_counters.pop().unwrap();
+        self.id_counters
+            .pop()
+            .expect("Attempted to end scope but was not in a scope");
     }
 
     fn new_temp_identifier(&mut self) -> String {
         format!("$tmp{}", self.id_counters.last_mut().unwrap().next())
+    }
+
+    fn start_environment(&mut self, environment: EnvironmentType) {
+        self.environments.push(environment);
+    }
+
+    fn end_environment(&mut self) {
+        self.environments
+            .pop()
+            .expect("Attempted to end an environment but was not in an environment");
+    }
+
+    fn environment(&self) -> EnvironmentType {
+        *self
+            .environments
+            .last()
+            .expect("Attempted to access current environment but no environment available")
     }
 }
 

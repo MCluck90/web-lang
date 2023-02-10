@@ -37,9 +37,14 @@ fn main() {
                 ));
             }
             let output = backend::run_backend(program);
-            if let Some(be_js) = output.js {
+            if let Some(backend_js) = output.backend_js {
                 let js_path = output_dir.join("main.js");
-                std::fs::write(&js_path, be_js)
+                std::fs::write(&js_path, backend_js)
+                    .expect(&format!("Failed to write to {}", js_path.display()));
+            }
+            if let Some(frontend_js) = output.frontend_js {
+                let js_path = output_dir.join("main.frontend.js");
+                std::fs::write(&js_path, frontend_js)
                     .expect(&format!("Failed to write to {}", js_path.display()));
             }
         }

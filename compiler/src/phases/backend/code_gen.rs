@@ -1,25 +1,34 @@
 use crate::phases::frontend::ir::PreUnaryOperator;
 
-use super::ir::{Expression, Statement};
+use super::ir::{EnvironmentType, Expression, ExpressionKind, Statement};
 
 pub struct CodeGenOutput {
     pub html: Option<String>,
-    pub js: Option<String>,
+    pub backend_js: Option<String>,
+    pub frontend_js: Option<String>,
 }
 
 struct OutputBuilder {
     html: String,
-    js: String,
+    backend_js: String,
+    frontend_js: String,
 }
 
 pub fn generate_code(statements: Vec<Statement>) -> CodeGenOutput {
     let mut builder = OutputBuilder {
         html: String::new(),
-        js: String::new(),
+        backend_js: String::new(),
+        frontend_js: String::new(),
     };
 
     for statement in statements {
-        builder.js.push_str(visit_statement(&statement).as_str());
+        let output = visit_statement(&statement);
+        match statement.environment() {
+            EnvironmentType::Frontend => builder.frontend_js.push_str(output.as_str()),
+            EnvironmentType::Backend => builder.backend_js.push_str(output.as_str()),
+            // TODO: Do something smarter here
+            EnvironmentType::Isomorphic => builder.backend_js.push_str(output.as_str()),
+        }
     }
 
     CodeGenOutput {
@@ -28,11 +37,17 @@ pub fn generate_code(statements: Vec<Statement>) -> CodeGenOutput {
         } else {
             Some(builder.html)
         },
-        js: if builder.js.is_empty() {
+        backend_js: if builder.backend_js.is_empty() {
             None
         } else {
             let prelude = std::fs::read_to_string("./std/prelude.js").unwrap();
-            Some(format!("{}{}", prelude, builder.js))
+            Some(format!("{}{}", prelude, builder.backend_js))
+        },
+        frontend_js: if builder.frontend_js.is_empty() {
+            None
+        } else {
+            let prelude = std::fs::read_to_string("./std/prelude.js").unwrap();
+            Some(format!("{}{}", prelude, builder.frontend_js))
         },
     }
 }
@@ -42,6 +57,7 @@ fn visit_statement(statement: &Statement) -> String {
         "{};",
         match &statement {
             Statement::VariableDeclaration {
+                environment: _,
                 is_mutable,
                 identifier,
                 initializer,
@@ -55,6 +71,7 @@ fn visit_statement(statement: &Statement) -> String {
                 }
             ),
             Statement::FunctionDefinition {
+                environment: _,
                 name,
                 parameters,
                 body,
@@ -67,12 +84,13 @@ fn visit_statement(statement: &Statement) -> String {
                     .collect::<Vec<_>>()
                     .join("")
             ),
-            Statement::Return(expr) => match expr {
+            Statement::Return(_, expr) => match expr {
                 Some(expr) => format!("return {}", visit_expression(expr)),
                 None => "return".to_string(),
             },
             Statement::Expression(expr) => visit_expression(expr),
             Statement::If {
+                environment: _,
                 condition,
                 body,
                 else_,
@@ -96,22 +114,22 @@ fn visit_statement(statement: &Statement) -> String {
                     "".to_string()
                 }
             ),
-            Statement::WhileLoop(body) => format!(
+            Statement::WhileLoop(_, body) => format!(
                 "while(true){{{}}}",
                 body.into_iter()
                     .map(visit_statement)
                     .collect::<Vec<_>>()
                     .join("")
             ),
-            Statement::Break => "break".to_string(),
+            Statement::Break(_) => "break".to_string(),
         }
     )
 }
 
 fn visit_expression(expression: &Expression) -> String {
-    match &expression {
-        Expression::Parenthesized(expr) => format!("({})", visit_expression(expr)),
-        Expression::BinaryExpression(left, op, right) => format!(
+    match &expression.kind {
+        ExpressionKind::Parenthesized(expr) => format!("({})", visit_expression(expr)),
+        ExpressionKind::BinaryExpression(left, op, right) => format!(
             "{}{}{}",
             visit_expression(&left),
             op,
@@ -119,23 +137,23 @@ fn visit_expression(expression: &Expression) -> String {
         )
         .to_string(),
 
-        Expression::PreUnaryExpression(op, expr) => match op {
+        ExpressionKind::PreUnaryExpression(op, expr) => match op {
             PreUnaryOperator::Not => format!("{}({})", op, visit_expression(expr)),
             PreUnaryOperator::Increment | PreUnaryOperator::Decrement => {
                 format!("({}{})", op, visit_expression(expr))
             }
         },
 
-        Expression::PropertyAccess(left, right) => {
+        ExpressionKind::PropertyAccess(left, right) => {
             format!("{}.{}", visit_expression(left), right.replace("-", "$"))
         }
 
-        Expression::Boolean(b) => b.to_string(),
+        ExpressionKind::Boolean(b) => b.to_string(),
 
-        Expression::JsBlock(expressions) => expressions
+        ExpressionKind::JsBlock(expressions) => expressions
             .iter()
             .map(|expr| {
-                if let Expression::String(contents) = &expr {
+                if let ExpressionKind::String(contents) = &expr.kind {
                     contents.clone()
                 } else {
                     visit_expression(expr)
@@ -144,7 +162,7 @@ fn visit_expression(expression: &Expression) -> String {
             .collect::<Vec<_>>()
             .join(""),
 
-        Expression::FunctionCall { callee, arguments } => format!(
+        ExpressionKind::FunctionCall { callee, arguments } => format!(
             "{}({})",
             visit_expression(&callee),
             arguments
@@ -154,18 +172,18 @@ fn visit_expression(expression: &Expression) -> String {
                 .join(",")
         ),
 
-        Expression::Identifier(ident) => ident.clone().replace("-", "$"),
+        ExpressionKind::Identifier(ident) => ident.clone().replace("-", "$"),
 
-        Expression::Integer(n) => n.to_string(),
+        ExpressionKind::Integer(n) => n.to_string(),
 
-        Expression::String(s) => format!(
+        ExpressionKind::String(s) => format!(
             "`{}`",
             s.replace("`", "\\`")
                 .replace("\r", "\\r")
                 .replace("\n", "\\n")
                 .replace("\t", "\\t")
         ),
-        Expression::List(expressions) => format!(
+        ExpressionKind::List(expressions) => format!(
             "[{}]",
             expressions
                 .into_iter()
@@ -173,7 +191,7 @@ fn visit_expression(expression: &Expression) -> String {
                 .collect::<Vec<_>>()
                 .join(",")
         ),
-        Expression::ArrayAccess(left, index) => {
+        ExpressionKind::ArrayAccess(left, index) => {
             format!("{}[{}]", visit_expression(left), visit_expression(index))
         }
     }

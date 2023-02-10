@@ -1,0 +1,9 @@
+use @std:io/{ log };
+
+back {
+  log('I run on the backend');
+}
+
+front {
+  log('I run on the frontend');
+}
