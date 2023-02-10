@@ -10,7 +10,7 @@ use crate::{
         shared::{ObjectType, Type},
     },
     types::{
-        built_ins::{build_built_in_types, build_list_type},
+        built_ins::{build_built_in_types, build_future_type, build_list_type},
         symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
     },
 };
@@ -647,6 +647,26 @@ fn visit_expression(
                         )])
                     }
                 }
+
+                Type::Generic { base, parameters } => match &**base {
+                    Type::Custom(name) => {
+                        if name == "Future" {
+                            let type_ = build_future_type(parameters.first().unwrap());
+                            if let Some(type_) = type_.key_to_type.get(&right.name) {
+                                Ok(TypeSymbol::from(*type_.clone()))
+                            } else {
+                                Err(vec![CompilerError::no_field_on_type(
+                                    &expression.span,
+                                    &right.name,
+                                    &left_type_symbol,
+                                )])
+                            }
+                        } else {
+                            unimplemented!()
+                        }
+                    }
+                    _ => unimplemented!(),
+                },
 
                 _ => Err(vec![CompilerError::no_field_on_type(
                     &expression.span,

@@ -96,3 +96,24 @@ pub fn build_list_type(element_type: &Type) -> ObjectType {
         key_to_type: shared.key_to_type,
     }
 }
+
+pub fn build_future_type(value_type: &Type) -> ObjectType {
+    ObjectType {
+        key_to_type: [(
+            "then",
+            Type::Function {
+                parameters: vec![Type::Function {
+                    parameters: vec![value_type.clone()],
+                    return_type: Box::new(Type::Void),
+                }],
+                return_type: Box::new(Type::Generic {
+                    base: Box::new(Type::Custom("Future".into())),
+                    parameters: vec![value_type.clone()],
+                }),
+            },
+        )]
+        .iter()
+        .map(|(key, type_)| (key.to_string(), Box::new(type_.clone())))
+        .collect(),
+    }
+}

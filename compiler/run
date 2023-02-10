@@ -1,5 +1,4 @@
 #!/bin/sh
 rm -rf output
-cargo run -- -o output "$@"
-node output/main.js
+cargo run -- -o output "$@" && node output/main.js
 

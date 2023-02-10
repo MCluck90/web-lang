@@ -675,7 +675,33 @@ mod type_ {
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<Type, ()> {
         Ok(match lexer.consume() {
-            Some((Token::Identifier(name), _)) => Type::Custom(name.clone()),
+            Some((Token::Identifier(name), _)) => {
+                let base = Type::Custom(name.clone());
+                if lexer.peek() == Some(&Token::Operator(Operator::LessThan)) {
+                    lexer.consume();
+                    let mut parameters: Vec<Type> = Vec::new();
+                    loop {
+                        if !parameters.is_empty()
+                            && lexer.peek() != Some(&Token::Operator(Operator::GreaterThan))
+                        {
+                            lexer.expect(Token::ListSeparator)?;
+                        }
+                        match peek(lexer) {
+                            None => break,
+                            Some(parse) => {
+                                parameters.push(parse(lexer)?);
+                            }
+                        }
+                    }
+                    lexer.expect(Token::Operator(Operator::GreaterThan))?;
+                    Type::Generic {
+                        base: Box::new(base),
+                        parameters,
+                    }
+                } else {
+                    base
+                }
+            }
             Some((Token::BuiltInType(typ), _)) => match typ {
                 BuiltInTypeToken::Bool => Type::Bool,
                 BuiltInTypeToken::Int => Type::Int,

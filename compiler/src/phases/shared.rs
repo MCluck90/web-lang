@@ -31,6 +31,10 @@ pub enum Type {
     },
     Custom(String),
     Union(Box<Type>, Box<Type>),
+    Generic {
+        base: Box<Type>,
+        parameters: Vec<Type>,
+    },
 }
 impl Type {
     /// Simplifies a type to it's base type.
@@ -52,6 +56,10 @@ impl Type {
             },
             Type::Custom(_) => Type::Custom("".to_string()),
             Type::Union(_, _) => Type::Union(Box::new(Type::Unknown), Box::new(Type::Unknown)),
+            Type::Generic {
+                base,
+                parameters: _,
+            } => base.to_base_type(),
         }
     }
 
@@ -68,7 +76,8 @@ impl Type {
             | Type::Object(_)
             | Type::Function { .. }
             | Type::Custom(_)
-            | Type::Union(_, _) => false,
+            | Type::Union(_, _)
+            | Type::Generic { .. } => false,
         }
     }
 }
@@ -105,6 +114,16 @@ impl fmt::Display for Type {
                     .join(", "),
             ),
             Type::Union(left, right) => write!(f, "{} | {}", left, right),
+            Type::Generic { base, parameters } => write!(
+                f,
+                "{}<{}>",
+                base,
+                parameters
+                    .iter()
+                    .map(|p| format!("{}", p))
+                    .collect::<Vec<String>>()
+                    .join(", "),
+            ),
         }
     }
 }
