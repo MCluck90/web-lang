@@ -5,5 +5,12 @@ back {
 }
 
 front {
+  let html-log(msg: string) {
+    #js {
+      "document.body.innerHTML=\"<p>\"+" msg "+\"</p>\""
+    }
+  }
+
   log('I run on the frontend');
+  html-log('I run on the frontend');
 }
