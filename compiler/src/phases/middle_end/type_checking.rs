@@ -650,6 +650,7 @@ fn visit_expression(
 
                 Type::Generic { base, parameters } => match &**base {
                     Type::Custom(name) => {
+                        // TODO: This is a horrible nightmare. Clean this up
                         if name == "Future" {
                             let type_ = build_future_type(parameters.first().unwrap());
                             if let Some(type_) = type_.key_to_type.get(&right.name) {
