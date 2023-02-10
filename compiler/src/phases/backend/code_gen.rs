@@ -26,8 +26,10 @@ pub fn generate_code(statements: Vec<Statement>) -> CodeGenOutput {
         match statement.environment() {
             EnvironmentType::Frontend => builder.frontend_js.push_str(output.as_str()),
             EnvironmentType::Backend => builder.backend_js.push_str(output.as_str()),
-            // TODO: Do something smarter here
-            EnvironmentType::Isomorphic => builder.backend_js.push_str(output.as_str()),
+            EnvironmentType::Isomorphic => {
+                builder.frontend_js.push_str(output.as_str());
+                builder.backend_js.push_str(output.as_str());
+            }
         }
     }
 

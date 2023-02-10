@@ -46,6 +46,20 @@ fn main() {
                 let js_path = output_dir.join("main.frontend.js");
                 std::fs::write(&js_path, frontend_js)
                     .expect(&format!("Failed to write to {}", js_path.display()));
+                let html_path = output_dir.join("index.html");
+                std::fs::write(
+                    &html_path,
+                    "
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+  <script src=\"main.frontend.js\"></script>
+</body>
+</html>"
+                        .trim(),
+                )
+                .expect(&format!("Failed to write to {}", html_path.display()));
             }
         }
         Err(error_message) => {
