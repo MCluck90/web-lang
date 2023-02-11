@@ -1,10 +1,10 @@
-pub let log(msg: string) {
+pub fn log(msg: string) {
   #js { 
     "console.log(" msg ")"
   }
 }
 
-pub let write-stdout(msg: string) {
+pub fn write-stdout(msg: string) {
   #js {
     "process.stdout.write(" msg ")"
   }

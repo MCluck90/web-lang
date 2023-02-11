@@ -2,14 +2,14 @@ use @std:io/{ log, write-stdout };
 
 mut state: [bool] = [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, true];
 
-let print-state() {
+fn print-state() {
   for (mut i = 0; i < state.length; ++i) {
     write-stdout(if state[i] { '#' } else { ' ' });
   }
   log('');
 }
 
-let compute-next-state(state: bool, left: bool, right: bool): bool {
+fn compute-next-state(state: bool, left: bool, right: bool): bool {
   if state {
     !(left && right)
   } else {
@@ -17,7 +17,7 @@ let compute-next-state(state: bool, left: bool, right: bool): bool {
   }
 }
 
-let step() {
+fn step() {
   print-state();
   let new-state: [bool] = state.shallow-copy();
   new-state[0] = compute-next-state(state[0], false, state[1]);

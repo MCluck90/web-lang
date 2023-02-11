@@ -1,6 +1,6 @@
 use @std:io/{ log };
 
-let fibonacci(n: int): int {
+fn fibonacci(n: int): int {
   if n < 2 {
     1
   } else {

@@ -54,7 +54,7 @@
         {
           "comment": "storage keywords",
           "name": "keyword.other.nux storage.type.nux",
-          "match": "\\b(let|mut)\\b"
+          "match": "\\b(let|mut|fn)\\b"
         },
         {
           "comment": "function arrow",

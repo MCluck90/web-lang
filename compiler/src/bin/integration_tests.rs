@@ -10,17 +10,20 @@ struct Snapshot {
     exit_code: i32,
 }
 
+#[derive(PartialEq, Eq)]
 enum Mode {
     Run,
     Update,
+    UpdateOnce,
 }
 
 fn main() {
     let flag = std::env::args().nth(1).unwrap_or("--run".into());
     println!("{}", flag);
-    let mode = match flag.as_str() {
+    let mut mode = match flag.as_str() {
         "--run" => Mode::Run,
         "--update" => Mode::Update,
+        "--update-once" => Mode::UpdateOnce,
         _ => panic!("Unrecognized flag: {}", flag),
     };
     let examples_dir = Path::new("examples");
@@ -32,13 +35,26 @@ fn main() {
         .map(|f| f.file_name().unwrap().to_str().unwrap().to_string());
 
     for file_name in example_files {
-        if !run_test(&file_name, &mode) {
-            break;
+        match run_test(&file_name, &mode) {
+            TestResult::Success => {}
+            TestResult::Failed => {
+                break;
+            }
+            TestResult::Updated => {
+                if mode == Mode::UpdateOnce {
+                    mode = Mode::Run;
+                }
+            }
         }
     }
 }
 
-fn run_test(file_name: &String, mode: &Mode) -> bool {
+enum TestResult {
+    Success,
+    Failed,
+    Updated,
+}
+fn run_test(file_name: &String, mode: &Mode) -> TestResult {
     let path_to_file = format!("examples/{}", file_name);
     let path_to_file = Path::new(path_to_file.as_str());
     let path_to_snapshot = format!("examples/snapshots/{}.snapshot", file_name);
@@ -86,14 +102,15 @@ fn run_test(file_name: &String, mode: &Mode) -> bool {
 
     let serialized = serde_json::to_string(&new_snapshot).unwrap();
     match (mode, maybe_old_snapshot) {
-        (Mode::Run, None) => {
+        (_, None) => {
             println!(
-                "⚠ {}: No snapshot. Run with the --update flag to save a snapshot.\nstdout: {}\nstderr: {}\nexit code: {}",
+                "⚠ {}: No snapshot. Run with the --update or --update-once flag to save a snapshot.\nstdout: {}\nstderr: {}\nexit code: {}",
                 path_to_file.to_str().unwrap(),
                 new_snapshot.stdout,
                 new_snapshot.stderr,
                 new_snapshot.exit_code
             );
+            TestResult::Success
         }
         (Mode::Run, Some(old_snapshot)) => {
             let stdout_diff = diff_chars(&old_snapshot.stdout, &new_snapshot.stdout).format();
@@ -118,16 +135,29 @@ fn run_test(file_name: &String, mode: &Mode) -> bool {
                         old_snapshot.exit_code, new_snapshot.exit_code
                     );
                 }
-                return false;
+                TestResult::Failed
             } else {
                 println!("✅ {}", path_to_file.to_str().unwrap());
+                TestResult::Success
+            }
+        }
+        (Mode::UpdateOnce, Some(old_snapshot)) => {
+            if old_snapshot.stdout != new_snapshot.stdout
+                || old_snapshot.stderr != new_snapshot.stderr
+                || new_snapshot.exit_code != old_snapshot.exit_code
+            {
+                std::fs::write(path_to_snapshot, serialized).expect("failed to save snapshot");
+                println!("✅ {}: Saved snapshot!", path_to_file.to_str().unwrap());
+                TestResult::Updated
+            } else {
+                println!("✅ {}", path_to_file.to_str().unwrap());
+                TestResult::Success
             }
         }
         (Mode::Update, _) => {
             std::fs::write(path_to_snapshot, serialized).expect("failed to save snapshot");
             println!("✅ {}: Saved snapshot!", path_to_file.to_str().unwrap());
+            TestResult::Updated
         }
     }
-
-    true
 }

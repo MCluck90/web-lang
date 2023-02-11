@@ -156,33 +156,18 @@ mod top_level_statement {
         use super::*;
 
         pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
-            // TODO: Change this so that we check if this is potentially an "Item" (i.e. it starts with `pub`)
-            // then we can just use `variable_declaration::peek`. Same with function definitions.
-            let mut slice = lexer.peek_slice(4);
+            let mut slice = lexer.peek_slice(2);
             let token = *slice.get(0).unwrap();
             if token == Some(&Token::Pub) {
                 slice.pop_front();
             }
 
             let token = slice.pop_front().unwrap();
-            if token != Some(&Token::Let) && token != Some(&Token::Mut) {
-                return None;
-            }
-
-            let token = slice.pop_front().unwrap();
-            if let Some(&Token::Identifier(_)) = token {
+            if token == Some(&Token::Let) || token == Some(&Token::Mut) {
+                Some(parse)
             } else {
-                return None;
+                None
             }
-
-            let token = slice.pop_front().unwrap();
-            if token != Some(&Token::KeyValueSeparator)
-                && token != Some(&Token::Operator(Operator::Assignment))
-            {
-                return None;
-            }
-
-            Some(parse)
         }
 
         pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
@@ -211,29 +196,17 @@ mod top_level_statement {
         use super::*;
 
         pub(super) fn peek(lexer: &Lexer) -> Option<Parser<TopLevelStatement>> {
-            let mut slice = lexer.peek_slice(4);
+            let mut slice = lexer.peek_slice(2);
             let token = *slice.get(0).unwrap();
             if token == Some(&Token::Pub) {
                 slice.pop_front();
             }
 
             let token = slice.pop_front().unwrap();
-            if token != Some(&Token::Let) {
-                return None;
+            match token {
+                Some(&Token::Fn) => Some(parse),
+                _ => None,
             }
-
-            let token = slice.pop_front().unwrap();
-            if let Some(&Token::Identifier(_)) = token {
-            } else {
-                return None;
-            }
-
-            let token = slice.pop_front().unwrap();
-            if token != Some(&Token::OpenParen) {
-                return None;
-            }
-
-            Some(parse)
         }
 
         pub(super) fn parse(lexer: &mut Lexer) -> Result<TopLevelStatement, ()> {
@@ -762,24 +735,10 @@ mod variable_declaration {
     use super::*;
 
     pub(super) fn peek(lexer: &Lexer) -> Option<Parser<VariableDeclaration>> {
-        let tokens = lexer.peek_slice(3);
-        let first_token = *tokens.get(0).unwrap();
-        let second_token = *tokens.get(1).unwrap();
-        let third_token = *tokens.get(2).unwrap();
-        if first_token != Some(&Token::Let) && first_token != Some(&Token::Mut) {
-            return None;
+        match lexer.peek() {
+            Some(&Token::Let) | Some(&Token::Mut) => Some(parse),
+            _ => None,
         }
-        if let Some(&Token::Identifier(_)) = second_token {
-        } else {
-            return None;
-        }
-
-        if third_token != Some(&Token::KeyValueSeparator)
-            && third_token != Some(&Token::Operator(Operator::Assignment))
-        {
-            return None;
-        }
-        Some(parse)
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<VariableDeclaration, ()> {
@@ -827,26 +786,14 @@ mod function_definition {
     use super::*;
 
     pub(super) fn peek(lexer: &Lexer) -> Option<Parser<FunctionDefinition>> {
-        let tokens = lexer.peek_slice(3);
-        let first_token = *tokens.get(0).unwrap();
-        let second_token = *tokens.get(1).unwrap();
-        let third_token = *tokens.get(2).unwrap();
-        if first_token != Some(&Token::Let) && first_token != Some(&Token::Mut) {
-            return None;
+        match lexer.peek() {
+            Some(&Token::Fn) => Some(parse),
+            _ => None,
         }
-        if let Some(&Token::Identifier(_)) = second_token {
-        } else {
-            return None;
-        }
-
-        if third_token != Some(&Token::OpenParen) {
-            return None;
-        }
-        Some(parse)
     }
 
     pub(super) fn parse(lexer: &mut Lexer) -> Result<FunctionDefinition, ()> {
-        let (_, start_span) = lexer.expect(Token::Let)?;
+        let (_, start_span) = lexer.expect(Token::Fn)?;
         let name = identifier::parse(lexer)?;
         let parameters = parameters::parse(lexer)?;
         let return_type = match lexer.peek() {

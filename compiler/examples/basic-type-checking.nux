@@ -1,4 +1,4 @@
-let add(x: int, y: int): int { x + y }
+fn add(x: int, y: int): int { x + y }
 
 // good
 add(2, 3);
@@ -6,7 +6,7 @@ add(2, 3);
 // bad
 add("2", "3");
 
-let to-string(n: int): string {
+fn to-string(n: int): string {
   n
 }
 
@@ -25,7 +25,7 @@ n + 1 = n + 1;
 add(2, 3) = 5;
 
 // Detects invalid return values for functions
-let get-n(n: int): int {
+fn get-n(n: int): int {
   if n > 10 {
     return "big";
   }

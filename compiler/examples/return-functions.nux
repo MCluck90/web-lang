@@ -1,8 +1,8 @@
 use @std:io/{ log };
 
 
-let create-adder(x: int): (int) -> int {
-  let adder(y: int): int { x + y }
+fn create-adder(x: int): (int) -> int {
+  fn adder(y: int): int { x + y }
   adder
 }
 

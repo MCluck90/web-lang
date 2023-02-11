@@ -1,6 +1,6 @@
 use @std:io/{ log };
 
-let logWithMessage(n: int, msg: string) {
+fn logWithMessage(n: int, msg: string) {
   #js { "console.log(" n "," msg ")" }
 }
 

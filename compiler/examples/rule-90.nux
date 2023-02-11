@@ -16,11 +16,11 @@ mut state: [bool] = [
   true,
 ];
 
-let xor(l: bool, r: bool): bool {
+fn xor(l: bool, r: bool): bool {
   (l && !r) || (!l && r)
 }
 
-let print-state() {
+fn print-state() {
   for (mut i = 0; i < state.length; ++i) {
     write-stdout(if state[i] {
       'X'
@@ -31,7 +31,7 @@ let print-state() {
   log('');
 }
 
-let step() {
+fn step() {
   let new-state: [bool] = state.shallow-copy();
   let first = state[0];
   let last = state.last();
