@@ -1,6 +1,6 @@
-use crate::phases::frontend::ir::PreUnaryOperator;
+use crate::{phases::frontend::ir::PreUnaryOperator, types::environment::EnvironmentType};
 
-use super::ir::{EnvironmentType, Expression, ExpressionKind, Statement};
+use super::ir::{Expression, ExpressionKind, Statement};
 
 pub struct CodeGenOutput {
     pub html: Option<String>,

@@ -4,6 +4,7 @@ use crate::{
     errors::CompilerError,
     phases::{
         frontend::{
+            self,
             ir::{BinaryOperator, PreUnaryOperator},
             Span,
         },
@@ -11,6 +12,7 @@ use crate::{
     },
     types::{
         built_ins::{build_built_in_types, build_future_type, build_list_type},
+        environment::EnvironmentType,
         symbol_table::{SymbolTable, TypeSymbol, ValueId, ValueSymbol},
     },
 };
@@ -30,6 +32,26 @@ struct TypeContext {
     /// and where that return statement is. This allows us to both identify any potential type issues and report where
     /// those type issues occur.
     pub found_return_types: Vec<Vec<(TypeSymbol, Span)>>,
+
+    environment_stack: Vec<EnvironmentType>,
+}
+impl TypeContext {
+    pub fn enter_environment(&mut self, env: EnvironmentType) {
+        self.environment_stack.push(env);
+    }
+
+    pub fn exit_environment(&mut self) {
+        self.environment_stack
+            .pop()
+            .expect("Attempted to exit an environment but not inside of an environment");
+    }
+
+    pub fn environment(&self) -> EnvironmentType {
+        *self
+            .environment_stack
+            .last()
+            .expect("Attempted to read current environment but no environments available")
+    }
 }
 
 /// Infers and checks types.
@@ -37,6 +59,7 @@ pub fn check_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
     let mut type_context = &mut TypeContext {
         type_to_properties: build_built_in_types(),
         found_return_types: Vec::new(),
+        environment_stack: Vec::new(),
     };
     for module in modules {
         visit_module(module, symbol_table, &mut type_context);
@@ -97,7 +120,8 @@ fn visit_top_level_statement(
                 ValueId(identifier.name.clone()),
                 ValueSymbol::new()
                     .with_type(final_type)
-                    .with_mutability(*is_mutable),
+                    .with_mutability(*is_mutable)
+                    .with_environment(&type_context.environment()),
             );
 
             res
@@ -175,10 +199,16 @@ fn visit_top_level_statement(
             }
             Ok(())
         }
-        TopLevelStatementKind::EnvironmentBlock(_, statements) => {
+        TopLevelStatementKind::EnvironmentBlock(env, statements) => {
+            let env = match env {
+                frontend::ir::EnvironmentType::Frontend => EnvironmentType::Frontend,
+                frontend::ir::EnvironmentType::Backend => EnvironmentType::Backend,
+            };
+            type_context.enter_environment(env);
             for stmt in statements {
                 visit_statement(stmt, symbol_table, type_context)?;
             }
+            type_context.exit_environment();
             Ok(())
         }
     }
@@ -222,7 +252,8 @@ fn visit_statement(
                 ValueId(identifier.name.clone()),
                 ValueSymbol::new()
                     .with_type(final_type)
-                    .with_mutability(*is_mutable),
+                    .with_mutability(*is_mutable)
+                    .with_environment(&type_context.environment()),
             );
 
             res

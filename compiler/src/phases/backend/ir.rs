@@ -1,9 +1,12 @@
-use crate::phases::{
-    frontend::{
-        self,
-        ir::{BinaryOperator, PreUnaryOperator},
+use crate::{
+    phases::{
+        frontend::{
+            self,
+            ir::{BinaryOperator, PreUnaryOperator},
+        },
+        middle_end,
     },
-    middle_end,
+    types::environment::EnvironmentType,
 };
 
 pub fn from_middle_end(program: middle_end::Program) -> Vec<Statement> {
@@ -817,13 +820,6 @@ pub enum ExpressionKind {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
     },
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum EnvironmentType {
-    Frontend,
-    Backend,
-    Isomorphic,
 }
 
 struct Context {

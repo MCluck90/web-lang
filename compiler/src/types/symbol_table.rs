@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use crate::phases::shared::Type;
 
-use super::environment;
+use super::environment::{self, EnvironmentType};
 
 pub struct SymbolTable {
     values: HashMap<ValueId, ValueSymbol>,
@@ -64,6 +64,7 @@ pub struct ValueSymbol {
     pub type_id: Option<TypeId>,
     pub type_: Type,
     pub is_mutable: bool,
+    pub environment: EnvironmentType,
 }
 impl ValueSymbol {
     pub fn new() -> ValueSymbol {
@@ -71,6 +72,7 @@ impl ValueSymbol {
             type_id: None,
             type_: Type::Unknown,
             is_mutable: false,
+            environment: EnvironmentType::Isomorphic,
         }
     }
 
@@ -80,6 +82,13 @@ impl ValueSymbol {
 
     pub fn with_mutability(self, is_mutable: bool) -> Self {
         ValueSymbol { is_mutable, ..self }
+    }
+
+    pub fn with_environment(self, environment: &EnvironmentType) -> Self {
+        ValueSymbol {
+            environment: *environment,
+            ..self
+        }
     }
 }
 

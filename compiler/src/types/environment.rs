@@ -2,6 +2,13 @@ use crate::phases::shared::Type;
 
 use super::symbol_table::{SymbolTable, TypeId, TypeSymbol};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EnvironmentType {
+    Frontend,
+    Backend,
+    Isomorphic,
+}
+
 pub fn add_environment_to_table(mut symbol_table: SymbolTable) -> SymbolTable {
     macro_rules! add_primitive_type {
         ($name:ident,$type:ident) => {
