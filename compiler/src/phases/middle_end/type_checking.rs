@@ -59,7 +59,7 @@ pub fn check_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
     let mut type_context = &mut TypeContext {
         type_to_properties: build_built_in_types(),
         found_return_types: Vec::new(),
-        environment_stack: Vec::new(),
+        environment_stack: vec![EnvironmentType::Isomorphic]
     };
     for module in modules {
         visit_module(module, symbol_table, &mut type_context);
