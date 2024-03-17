@@ -1,6 +1,7 @@
 use std::str::FromStr;
 use crate::phases::frontend::lexer::Span;
 use crate::phases::frontend::ast::*;
+use crate::phases::shared::Type;
 
 grammar(module_path: &str);
 
@@ -46,6 +47,21 @@ TopLevelStatement: TopLevelStatement = {
       span: Span { start, end },
       kind: variable_declaration,
     },
+  <start: @L> <function_definition:TopLevelFunctionDefinition> <end: @R> =>
+    TopLevelStatement {
+      span: Span { start, end },
+      kind: function_definition,
+    },
+  <start: @L> <for_loop:TopLevelForLoop> <end: @R> =>
+    TopLevelStatement {
+      span: Span { start, end, },
+      kind: for_loop,
+    },
+  <start: @L> <loop_:TopLevelLoop> <end: @R> =>
+    TopLevelStatement {
+      span: Span { start, end, },
+      kind: loop_,
+    },
 
   #[precedence(level="1")]
   <start: @L> <expr:Expression> ";" <end: @R> => TopLevelStatement {
@@ -55,11 +71,11 @@ TopLevelStatement: TopLevelStatement = {
 };
 
 TopLevelVariableDeclaration: TopLevelStatementKind = {
-  <is_public:"pub"?> <is_mutable:VariableBinding> <identifier:Identifier> "=" <initializer:Expression> ";" =>
+  <is_public:"pub"?> <is_mutable:VariableBinding> <identifier:Identifier> <type_:(":" <Type>)?> "=" <initializer:Expression> ";" =>
     TopLevelStatementKind::VariableDeclaration {
       is_public: is_public.is_some(),
       is_mutable,
-      type_: None, // TODO
+      type_,
       identifier,
       initializer,
     },
@@ -72,12 +88,119 @@ VariableBinding: bool = {
   "mut" => true,
 }
 
+TopLevelFunctionDefinition: TopLevelStatementKind = {
+  <is_public:"pub"?> "fn" <name:Identifier> <parameters:Parameters> <return_type:(":" <Type>)?> <body:Block> =>
+    TopLevelStatementKind::FunctionDefinition {
+      is_public: is_public.is_some(),
+      name,
+      parameters,
+      return_type: return_type.unwrap_or(Type::Void),
+      body,
+    },
+};
+
+TopLevelForLoop: TopLevelStatementKind = {
+  "for" "(" <initializer:Statement> <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
+    TopLevelStatementKind::ForLoop {
+      initializer: Some(Box::new(initializer)),
+      condition: condition.map(|x| *x),
+      post_loop: post_loop.map(|x| *x),
+      body,
+    },
+  "for" "(" ";" <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
+    TopLevelStatementKind::ForLoop {
+      initializer: None,
+      condition: condition.map(|x| *x),
+      post_loop: post_loop.map(|x| *x),
+      body,
+    },
+};
+
+TopLevelLoop: TopLevelStatementKind = {
+  "loop" <Block> => TopLevelStatementKind::Loop(<>),
+};
+
+Parameters: Vec<Parameter> = "(" <CommaList<Parameter>> ")";
+
+Parameter: Parameter = <start: @L> <identifier:Identifier> ":" <type_:Type> <end: @R> => Parameter {
+  span: Span { start, end, },
+  identifier,
+  type_,
+};
+
+Type: Type = {
+  "bool" => Type::Bool,
+  "int" => Type::Int,
+  "string" => Type::String,
+
+  "[" <Type> "]" => Type::List(Box::new(<>)),
+};
+
 Statement: Statement = {
+  #[precedence(level="0")]
+  <start: @L> <variable_declaration:VariableDeclaration> <end: @R> =>
+    Statement {
+      span: Span { start, end },
+      kind: variable_declaration,
+    },
+  <start: @L> <for_loop:ForLoop> <end: @R> =>
+    Statement {
+      span: Span { start, end, },
+      kind: for_loop,
+    },
+  <start: @L> <loop_:Loop> <end: @R> =>
+    Statement {
+      span: Span { start, end, },
+      kind: loop_,
+    },
+  <start: @L> "return" <expr:Expression?> ";" <end: @R> =>
+    Statement {
+      span: Span { start, end, },
+      kind: StatementKind::Return(expr.map(|x| *x)),
+    },
+  <start: @L> "break" ";" <end: @R> =>
+    Statement {
+      span: Span { start, end, },
+      kind: StatementKind::Break,
+    },
+
+  #[precedence(level="1")]
   <start: @L> <expr:Expression> ";" <end: @R> => Statement {
     span: Span { start, end },
     kind: StatementKind::Expression(*expr),
-  }
+  },
 }
+
+VariableDeclaration: StatementKind = {
+  <is_mutable:VariableBinding> <identifier:Identifier> <type_:(":" <Type>)?> "=" <initializer:Expression> ";" =>
+    StatementKind::VariableDeclaration {
+      is_mutable,
+      type_,
+      identifier,
+      initializer,
+    },
+};
+
+ForLoop: StatementKind = {
+  "for" "(" <initializer:Statement> <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
+    StatementKind::ForLoop {
+      initializer: Some(Box::new(initializer)),
+      condition: condition.map(|x| *x),
+      post_loop: post_loop.map(|x| *x),
+      body,
+    },
+  "for" "(" ";" <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
+    StatementKind::ForLoop {
+      initializer: None,
+      condition: condition.map(|x| *x),
+      post_loop: post_loop.map(|x| *x),
+      body,
+    },
+};
+
+Loop: StatementKind = {
+  "loop" <Block> => StatementKind::Loop(<>),
+};
 
 Expression: Box<Expression> = {
   AssignmentExpression,
@@ -186,6 +309,12 @@ MultiplicativeExpression: Box<Expression> = {
       ExpressionKind::BinaryExpression(left, op, right),
       Span { start, end, }
     )),
+
+  <start: @L> <left:MultiplicativeExpression> <op:BinaryModulusOp> <right:UnaryExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
 };
 
 UnaryExpression: Box<Expression> = {
@@ -227,6 +356,11 @@ CallExpression: Box<Expression> = {
 
 MemberExpression: Box<Expression> = {
   IfExpression,
+
+  <start: @L> <left:CallExpression> "[" <index:Expression> "]" <end: @R> => Box::new(Expression::new(
+    ExpressionKind::ArrayAccess(left, index),
+    Span { start, end, }
+  )),
 };
 
 IfExpression: Box<Expression> = {
@@ -254,10 +388,10 @@ IfExpression: Box<Expression> = {
   },
 
   #[precedence(level="1")]
-  Term,
+  PrimaryExpression,
 };
 
-Term: Box<Expression> = {
+PrimaryExpression: Box<Expression> = {
   <start: @L> <value:Boolean> <end: @R> =>
     Box::new(Expression::new(ExpressionKind::Boolean(value), Span { start, end })),
 
@@ -272,6 +406,9 @@ Term: Box<Expression> = {
 
   <start: @L> <value:Identifier> <end: @R> =>
     Box::new(Expression::new(ExpressionKind::Identifier(value), Span { start, end })),
+
+  <start: @L> "[" <items:CommaList<Expression>> "]" <end: @R> =>
+    Box::new(Expression::new(ExpressionKind::List(items.into_iter().map(|item| *item).collect()), Span { start, end, })),
 
   "(" <Expression> ")",
 };
@@ -310,16 +447,6 @@ Block: Block = {
     return_expression: return_expression.map(|expr| *expr),
   }
 }
-
-FactorOp = {
-  BinaryMulOp,
-  BinaryDivOp,
-};
-
-TermOp = {
-  BinaryAddOp,
-  BinarySubOp,
-};
 
 // TODO: Rename. Implies they operate on bits
 BinaryAddOp: BinaryOperator                = "+"  => BinaryOperator::Add;
