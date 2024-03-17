@@ -1,0 +1,237 @@
+use std::str::FromStr;
+use crate::phases::frontend::lexer::Span;
+use crate::phases::frontend::ast::*;
+
+grammar(module_path: &str);
+
+pub Module: ModuleAST = {
+  <imports:ImportStatement*> <statements:TopLevelStatement*> => ModuleAST {
+    path: module_path.to_string(),
+    imports,
+    statements,
+  }
+};
+
+ImportStatement: Import = {
+  <start: @L> "use" "@" <scope:Identifier> ":" <package:Identifier> <path:Path> <selectors:ImportSelectors> ";" <end: @R> => Import {
+    span: Span { start, end },
+    kind: ImportKind::Package {
+      scope,
+      package,
+      path,
+      selectors,
+    }
+  }
+};
+
+Path: Vec<Identifier> = {
+  "/" <(<Identifier> "/")*>
+};
+
+ImportSelectors: Vec<ImportSelector> = {
+  "{" <CommaList<ImportSelector>> "}"
+};
+
+ImportSelector: ImportSelector = {
+  Identifier => ImportSelector {
+    span: <>.span,
+    kind: ImportSelectorKind::Name(<>.name),
+  }
+};
+
+TopLevelStatement: TopLevelStatement = {
+  #[precedence(level="0")]
+  <start: @L> <variable_declaration:TopLevelVariableDeclaration> <end: @R> =>
+    TopLevelStatement {
+      span: Span { start, end },
+      kind: variable_declaration,
+    },
+
+  #[precedence(level="1")]
+  <start: @L> <expr:Expression> ";" <end: @R> => TopLevelStatement {
+    span: Span { start, end },
+    kind: TopLevelStatementKind::Expression(*expr),
+  },
+};
+
+TopLevelVariableDeclaration: TopLevelStatementKind = {
+  <is_public:"pub"?> <is_mutable:VariableBinding> <identifier:Identifier> "=" <initializer:Expression> ";" =>
+    TopLevelStatementKind::VariableDeclaration {
+      is_public: is_public.is_some(),
+      is_mutable,
+      type_: None, // TODO
+      identifier,
+      initializer,
+    },
+};
+
+// true if mutable
+// TODO: Better way of handling this
+VariableBinding: bool = {
+  "let" => false,
+  "mut" => true,
+}
+
+Statement: Statement = {
+  <start: @L> <expr:Expression> ";" <end: @R> => Statement {
+    span: Span { start, end },
+    kind: StatementKind::Expression(*expr),
+  }
+}
+
+Expression: Box<Expression> = {
+  #[precedence(level="0")]
+  <start: @L> <if_expression:IfExpression> <end: @R> =>
+    Box::new(Expression::new(if_expression, Span { start, end })),
+
+  #[precedence(level="1")]
+  <term:Term> <args:FunctionCallArguments?> => match args {
+    None => term,
+    Some(args) => {
+      let start = term.span.start;
+      let end = args.last().map_or(term.span.end, |arg| arg.span.end);
+
+      Box::new(Expression::new(
+        ExpressionKind::FunctionCall {
+          callee: term,
+          arguments: args
+        },
+        Span { start, end }
+      ))
+    }
+  },
+
+  #[precedence(level="2")] #[assoc(side="left")]
+  <start: @L> <left:Expression> <op:FactorOp> <right:Expression> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::BinaryExpression(left, op, right),
+    Span { start, end }
+  )),
+
+  #[precedence(level="3")] #[assoc(side="left")]
+  <start: @L> <left:Expression> <op:TermOp> <right:Expression> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::BinaryExpression(left, op, right),
+    Span { start, end }
+  )),
+
+  #[precedence(level="4")] #[assoc(side="left")]
+  <start: @L> <left:Expression> "=" <right:Expression> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::BinaryExpression(left, BinaryOperator::Assignment, right),
+    Span { start, end }
+  )),
+};
+
+FunctionCallArguments: Vec<Expression> = {
+  "(" <CommaList<Expression>> ")" => <>.into_iter().map(|expr| *expr).collect(),
+};
+
+Term: Box<Expression> = {
+  <start: @L> <value:Boolean> <end: @R> =>
+    Box::new(Expression::new(ExpressionKind::Boolean(value), Span { start, end })),
+
+  <start: @L> <value:Integer> <end: @R> =>
+    Box::new(Expression::new(ExpressionKind::Integer(value), Span { start, end })),
+
+  <start: @L> <value:String> <end: @R> =>
+    Box::new(Expression::new(ExpressionKind::String(value), Span { start, end })),
+
+  <start: @L> <value:Block> <end: @R> =>
+    Box::new(Expression::new(ExpressionKind::Block(Box::new(value)), Span { start, end })),
+
+  <start: @L> <value:Identifier> <end: @R> =>
+    Box::new(Expression::new(ExpressionKind::Identifier(value), Span { start, end })),
+};
+
+Boolean: bool = {
+  "true" => true,
+  "false" => false,
+};
+
+Identifier: Identifier = {
+  <start: @L> <name:r"[a-zA-Z_][a-zA-Z_0-9]*(-+[a-zA-Z_0-9]+)*"> <end: @R> => {
+    Identifier {
+      name: name.to_string(),
+      span: Span { start, end },
+    }
+  }
+};
+
+IfExpression: ExpressionKind = {
+  "if" <condition:Expression> <body:Block> <else_:("else" <Block>)?> => {
+    let body_span = body.span.clone();
+
+    ExpressionKind::If {
+      condition,
+      body: Box::new(Expression::new(
+        ExpressionKind::Block(Box::new(body)),
+        body_span,
+      )),
+      else_: else_.map(|else_| {
+        let span = else_.span.clone();
+        Box::new(Expression::new(
+          ExpressionKind::Block(Box::new(else_)),
+          span,
+        ))
+      }),
+    }
+  }
+};
+
+Integer: i32 = {
+  r"0|[1-9][0-9]*(_[0-9]+)*" => i32::from_str(&str::replace(<>, "_", "")).unwrap(),
+};
+
+String: String = {
+  r#""(\\[rnt\"]|[^\"])*""# => <>[1..(<>.len() - 1)].to_string(),
+  r#"'(\\[rnt\']|[^\'])*'"# => <>[1..(<>.len() - 1)].to_string(),
+};
+
+Block: Block = {
+  <start: @L> "{" <statements:Statement*> <return_expression:Expression?> "}" <end: @R> => Block {
+    span: Span { start, end },
+    statements,
+    return_expression: return_expression.map(|expr| *expr),
+  }
+}
+
+FactorOp = {
+  BinaryMulOp,
+  BinaryDivOp,
+};
+
+TermOp = {
+  BinaryAddOp,
+  BinarySubOp,
+};
+
+BinaryAddOp: BinaryOperator                = "+"  => BinaryOperator::Add;
+BinarySubOp: BinaryOperator                = "-"  => BinaryOperator::Sub;
+BinaryMulOp: BinaryOperator                = "*"  => BinaryOperator::Mul;
+BinaryDivOp: BinaryOperator                = "/"  => BinaryOperator::Div;
+BinaryModulusOp: BinaryOperator            = "%"  => BinaryOperator::Modulus;
+BinaryNotEqualOp: BinaryOperator           = "!=" => BinaryOperator::NotEqual;
+BinaryEqualOp: BinaryOperator              = "==" => BinaryOperator::Equal;
+BinaryLessThanOp: BinaryOperator           = "<"  => BinaryOperator::LessThan;
+BinaryLessThanOrEqualOp: BinaryOperator    = "<=" => BinaryOperator::LessThanOrEqual;
+BinaryGreaterThanOp: BinaryOperator        = ">"  => BinaryOperator::GreaterThan;
+BinaryGreaterThanOrEqualOp: BinaryOperator = ">=" => BinaryOperator::GreaterThanOrEqual;
+BinaryAndOp: BinaryOperator                = "&&" => BinaryOperator::And;
+BinaryOrOp: BinaryOperator                 = "||" => BinaryOperator::Or;
+BinaryAssignmentOp: BinaryOperator         = "="  => BinaryOperator::Assignment;
+
+CommaList<T>: Vec<T> = {
+  <mut items:(<T> ",")*> <end:T?> => match end {
+    None => items,
+    Some(end) => {
+      items.push(end);
+      items
+    }
+  }
+};
+
+// Skip whitespace and comments
+match {
+  r"\s*" => { },
+  r"//[^\r\n]*[\r\n]*" => { },
+  r"/\*[^*]*\*+(?:[^/*][^*]*\*+)*/" => { },
+  _
+}

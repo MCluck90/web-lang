@@ -142,7 +142,7 @@ pub enum ExpressionKind {
     // Primitives
     Boolean(bool),
     Identifier(Identifier),
-    Integer(i64),
+    Integer(i32),
     String(String),
     Block(Box<Block>),
     List(Vec<Expression>),

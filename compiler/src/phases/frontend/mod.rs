@@ -2,6 +2,7 @@ mod ast;
 pub mod ir;
 pub mod lexer;
 mod parser;
+mod parser_tests;
 
 use std::{
     collections::{HashMap, HashSet},

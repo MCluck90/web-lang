@@ -727,7 +727,7 @@ impl Expression {
         }
     }
 
-    fn new_integer(ctx: &Context, value: i64) -> Self {
+    fn new_integer(ctx: &Context, value: i32) -> Self {
         Self {
             environment: ctx.environment(),
             kind: ExpressionKind::Integer(value),
@@ -807,7 +807,7 @@ impl Expression {
 pub enum ExpressionKind {
     Boolean(bool),
     Identifier(String),
-    Integer(i64),
+    Integer(i32),
     String(String),
     Parenthesized(Box<Expression>),
     List(Vec<Expression>),
