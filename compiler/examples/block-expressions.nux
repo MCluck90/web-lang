@@ -1,0 +1,11 @@
+use @std:io/{ log };
+
+log({
+  log('Hello');
+
+  'World'
+});
+
+// Outputs:
+// Hello
+// World
