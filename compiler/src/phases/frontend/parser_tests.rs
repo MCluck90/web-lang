@@ -30,4 +30,14 @@ fn example_files() {
     let _ = ModuleParser::new()
         .parse("variable-declarations.nux", variable_declarations_source)
         .unwrap();
+
+    let property_access_source = include_str!("../../../examples/property-access.nux");
+    let _ = ModuleParser::new()
+        .parse("property-access.nux", property_access_source)
+        .unwrap();
+
+    let unary_operators_source = include_str!("../../../examples/unary-operators.nux");
+    let _ = ModuleParser::new()
+        .parse("unary-operators.nux", unary_operators_source)
+        .unwrap();
 }

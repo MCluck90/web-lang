@@ -80,48 +80,181 @@ Statement: Statement = {
 }
 
 Expression: Box<Expression> = {
-  #[precedence(level="0")]
-  <start: @L> <if_expression:IfExpression> <end: @R> =>
-    Box::new(Expression::new(if_expression, Span { start, end })),
+  AssignmentExpression,
+};
 
-  #[precedence(level="1")]
-  <term:Term> <args:FunctionCallArguments?> => match args {
-    None => term,
-    Some(args) => {
-      let start = term.span.start;
-      let end = args.last().map_or(term.span.end, |arg| arg.span.end);
+AssignmentExpression: Box<Expression> = {
+  LogicalOrExpression,
 
-      Box::new(Expression::new(
-        ExpressionKind::FunctionCall {
-          callee: term,
-          arguments: args
-        },
-        Span { start, end }
-      ))
-    }
-  },
-
-  #[precedence(level="2")] #[assoc(side="left")]
-  <start: @L> <left:Expression> <op:FactorOp> <right:Expression> <end: @R> => Box::new(Expression::new(
+  <start: @L> <left:LeftHandSideExpression> <op:BinaryAssignmentOp> <right:AssignmentExpression> <end: @R> => Box::new(Expression::new(
     ExpressionKind::BinaryExpression(left, op, right),
-    Span { start, end }
-  )),
-
-  #[precedence(level="3")] #[assoc(side="left")]
-  <start: @L> <left:Expression> <op:TermOp> <right:Expression> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::BinaryExpression(left, op, right),
-    Span { start, end }
-  )),
-
-  #[precedence(level="4")] #[assoc(side="left")]
-  <start: @L> <left:Expression> "=" <right:Expression> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::BinaryExpression(left, BinaryOperator::Assignment, right),
     Span { start, end }
   )),
 };
 
-FunctionCallArguments: Vec<Expression> = {
-  "(" <CommaList<Expression>> ")" => <>.into_iter().map(|expr| *expr).collect(),
+LogicalOrExpression: Box<Expression> = {
+  LogicalAndExpression,
+
+  <start: @L> <left:LogicalOrExpression> <op:BinaryOrOp> <right:LogicalAndExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+};
+
+LogicalAndExpression: Box<Expression> = {
+  EqualityExpression,
+
+  <start: @L> <left:LogicalAndExpression> <op:BinaryAndOp> <right:EqualityExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+};
+
+EqualityExpression: Box<Expression> = {
+  RelationalExpression,
+
+  <start: @L> <left:EqualityExpression> <op:BinaryEqualOp> <right:RelationalExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+
+  <start: @L> <left:EqualityExpression> <op:BinaryNotEqualOp> <right:RelationalExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+};
+
+RelationalExpression: Box<Expression> = {
+  AdditiveExpression,
+
+  <start: @L> <left:RelationalExpression> <op:BinaryLessThanOrEqualOp> <right:AdditiveExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+
+  <start: @L> <left:RelationalExpression> <op:BinaryGreaterThanOrEqualOp> <right:AdditiveExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+
+  <start: @L> <left:RelationalExpression> <op:BinaryLessThanOp> <right:AdditiveExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+
+  <start: @L> <left:RelationalExpression> <op:BinaryGreaterThanOp> <right:AdditiveExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+};
+
+AdditiveExpression: Box<Expression> = {
+  MultiplicativeExpression,
+
+  <start: @L> <left:AdditiveExpression> <op:BinaryAddOp> <right:MultiplicativeExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+
+  <start: @L> <left:AdditiveExpression> <op:BinarySubOp> <right:MultiplicativeExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+};
+
+MultiplicativeExpression: Box<Expression> = {
+  UnaryExpression,
+
+  <start: @L> <left:MultiplicativeExpression> <op:BinaryMulOp> <right:UnaryExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+
+  <start: @L> <left:MultiplicativeExpression> <op:BinaryDivOp> <right:UnaryExpression> <end: @R> =>
+    Box::new(Expression::new(
+      ExpressionKind::BinaryExpression(left, op, right),
+      Span { start, end, }
+    )),
+};
+
+UnaryExpression: Box<Expression> = {
+  LeftHandSideExpression,
+
+  <start: @L> "!" <expr:UnaryExpression> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Not, expr),
+    Span { start, end, }
+  )),
+
+  <start: @L> "++" <expr:UnaryExpression> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Increment, expr),
+    Span { start, end, }
+  )),
+
+  <start: @L> "--" <expr:UnaryExpression> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Decrement, expr),
+    Span { start, end, }
+  )),
+};
+
+LeftHandSideExpression: Box<Expression> = {
+  CallExpression,
+};
+
+CallExpression: Box<Expression> = {
+  MemberExpression,
+
+  <start: @L> <callee:CallExpression> <arguments:Arguments> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::FunctionCall { callee, arguments, },
+    Span { start, end, }
+  )),
+
+  <start: @L> <left:CallExpression> "." <right:Identifier> <end: @R> => Box::new(Expression::new(
+    ExpressionKind::PropertyAccess(left, right),
+    Span { start, end, }
+  )),
+};
+
+MemberExpression: Box<Expression> = {
+  IfExpression,
+};
+
+IfExpression: Box<Expression> = {
+  #[precedence(level="0")]
+  <start: @L> "if" <condition:Expression> <body:Block> <else_:("else" <Block>)?> <end: @R> => {
+    let body_span = body.span.clone();
+
+    Box::new(Expression::new(
+      ExpressionKind::If {
+        condition,
+        body: Box::new(Expression::new(
+          ExpressionKind::Block(Box::new(body)),
+          body_span,
+        )),
+        else_: else_.map(|else_| {
+          let span = else_.span.clone();
+          Box::new(Expression::new(
+            ExpressionKind::Block(Box::new(else_)),
+            span,
+          ))
+        }),
+      },
+      Span { start, end, },
+    ))
+  },
+
+  #[precedence(level="1")]
+  Term,
 };
 
 Term: Box<Expression> = {
@@ -139,6 +272,12 @@ Term: Box<Expression> = {
 
   <start: @L> <value:Identifier> <end: @R> =>
     Box::new(Expression::new(ExpressionKind::Identifier(value), Span { start, end })),
+
+  "(" <Expression> ")",
+};
+
+Arguments: Vec<Expression> = {
+  "(" <CommaList<Expression>> ")" => <>.into_iter().map(|expr| *expr).collect(),
 };
 
 Boolean: bool = {
@@ -151,27 +290,6 @@ Identifier: Identifier = {
     Identifier {
       name: name.to_string(),
       span: Span { start, end },
-    }
-  }
-};
-
-IfExpression: ExpressionKind = {
-  "if" <condition:Expression> <body:Block> <else_:("else" <Block>)?> => {
-    let body_span = body.span.clone();
-
-    ExpressionKind::If {
-      condition,
-      body: Box::new(Expression::new(
-        ExpressionKind::Block(Box::new(body)),
-        body_span,
-      )),
-      else_: else_.map(|else_| {
-        let span = else_.span.clone();
-        Box::new(Expression::new(
-          ExpressionKind::Block(Box::new(else_)),
-          span,
-        ))
-      }),
     }
   }
 };
@@ -203,6 +321,7 @@ TermOp = {
   BinarySubOp,
 };
 
+// TODO: Rename. Implies they operate on bits
 BinaryAddOp: BinaryOperator                = "+"  => BinaryOperator::Add;
 BinarySubOp: BinaryOperator                = "-"  => BinaryOperator::Sub;
 BinaryMulOp: BinaryOperator                = "*"  => BinaryOperator::Mul;
