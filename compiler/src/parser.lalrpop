@@ -66,7 +66,7 @@ TopLevelStatement: TopLevelStatement = {
   #[precedence(level="1")]
   <start: @L> <expr:Expression> ";" <end: @R> => TopLevelStatement {
     span: Span { start, end },
-    kind: TopLevelStatementKind::Expression(*expr),
+    kind: TopLevelStatementKind::Expression(expr),
   },
 };
 
@@ -77,7 +77,7 @@ TopLevelVariableDeclaration: TopLevelStatementKind = {
       is_mutable,
       type_,
       identifier,
-      initializer,
+      initializer: Box::new(initializer),
     },
 };
 
@@ -103,15 +103,15 @@ TopLevelForLoop: TopLevelStatementKind = {
   "for" "(" <initializer:Statement> <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
     TopLevelStatementKind::ForLoop {
       initializer: Some(Box::new(initializer)),
-      condition: condition.map(|x| *x),
-      post_loop: post_loop.map(|x| *x),
+      condition: condition,
+      post_loop: post_loop,
       body,
     },
   "for" "(" ";" <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
     TopLevelStatementKind::ForLoop {
       initializer: None,
-      condition: condition.map(|x| *x),
-      post_loop: post_loop.map(|x| *x),
+      condition: condition,
+      post_loop: post_loop,
       body,
     },
 };
@@ -156,7 +156,7 @@ Statement: Statement = {
   <start: @L> "return" <expr:Expression?> ";" <end: @R> =>
     Statement {
       span: Span { start, end, },
-      kind: StatementKind::Return(expr.map(|x| *x)),
+      kind: StatementKind::Return(expr),
     },
   <start: @L> "break" ";" <end: @R> =>
     Statement {
@@ -167,7 +167,7 @@ Statement: Statement = {
   #[precedence(level="1")]
   <start: @L> <expr:Expression> ";" <end: @R> => Statement {
     span: Span { start, end },
-    kind: StatementKind::Expression(*expr),
+    kind: StatementKind::Expression(expr),
   },
 }
 
@@ -177,7 +177,7 @@ VariableDeclaration: StatementKind = {
       is_mutable,
       type_,
       identifier,
-      initializer,
+      initializer: Box::new(initializer),
     },
 };
 
@@ -185,15 +185,15 @@ ForLoop: StatementKind = {
   "for" "(" <initializer:Statement> <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
     StatementKind::ForLoop {
       initializer: Some(Box::new(initializer)),
-      condition: condition.map(|x| *x),
-      post_loop: post_loop.map(|x| *x),
+      condition: condition,
+      post_loop: post_loop,
       body,
     },
   "for" "(" ";" <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
     StatementKind::ForLoop {
       initializer: None,
-      condition: condition.map(|x| *x),
-      post_loop: post_loop.map(|x| *x),
+      condition: condition,
+      post_loop: post_loop,
       body,
     },
 };
@@ -202,175 +202,175 @@ Loop: StatementKind = {
   "loop" <Block> => StatementKind::Loop(<>),
 };
 
-Expression: Box<Expression> = {
+Expression: Expression = {
   AssignmentExpression,
 };
 
-AssignmentExpression: Box<Expression> = {
+AssignmentExpression: Expression = {
   LogicalOrExpression,
 
-  <start: @L> <left:LeftHandSideExpression> <op:BinaryAssignmentOp> <right:AssignmentExpression> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::BinaryExpression(left, op, right),
+  <start: @L> <left:LeftHandSideExpression> <op:BinaryAssignmentOp> <right:AssignmentExpression> <end: @R> => Expression::new(
+    ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
     Span { start, end }
-  )),
+  ),
 };
 
-LogicalOrExpression: Box<Expression> = {
+LogicalOrExpression: Expression = {
   LogicalAndExpression,
 
   <start: @L> <left:LogicalOrExpression> <op:BinaryOrOp> <right:LogicalAndExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 };
 
-LogicalAndExpression: Box<Expression> = {
+LogicalAndExpression: Expression = {
   EqualityExpression,
 
   <start: @L> <left:LogicalAndExpression> <op:BinaryAndOp> <right:EqualityExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+   Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 };
 
-EqualityExpression: Box<Expression> = {
+EqualityExpression: Expression = {
   RelationalExpression,
 
   <start: @L> <left:EqualityExpression> <op:BinaryEqualOp> <right:RelationalExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 
   <start: @L> <left:EqualityExpression> <op:BinaryNotEqualOp> <right:RelationalExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 };
 
-RelationalExpression: Box<Expression> = {
+RelationalExpression: Expression = {
   AdditiveExpression,
 
   <start: @L> <left:RelationalExpression> <op:BinaryLessThanOrEqualOp> <right:AdditiveExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 
   <start: @L> <left:RelationalExpression> <op:BinaryGreaterThanOrEqualOp> <right:AdditiveExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 
   <start: @L> <left:RelationalExpression> <op:BinaryLessThanOp> <right:AdditiveExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 
   <start: @L> <left:RelationalExpression> <op:BinaryGreaterThanOp> <right:AdditiveExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 };
 
-AdditiveExpression: Box<Expression> = {
+AdditiveExpression: Expression = {
   MultiplicativeExpression,
 
   <start: @L> <left:AdditiveExpression> <op:BinaryAddOp> <right:MultiplicativeExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 
   <start: @L> <left:AdditiveExpression> <op:BinarySubOp> <right:MultiplicativeExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 };
 
-MultiplicativeExpression: Box<Expression> = {
+MultiplicativeExpression: Expression = {
   UnaryExpression,
 
   <start: @L> <left:MultiplicativeExpression> <op:BinaryMulOp> <right:UnaryExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 
   <start: @L> <left:MultiplicativeExpression> <op:BinaryDivOp> <right:UnaryExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 
   <start: @L> <left:MultiplicativeExpression> <op:BinaryModulusOp> <right:UnaryExpression> <end: @R> =>
-    Box::new(Expression::new(
-      ExpressionKind::BinaryExpression(left, op, right),
+    Expression::new(
+      ExpressionKind::BinaryExpression(Box::new(left), op, Box::new(right)),
       Span { start, end, }
-    )),
+    ),
 };
 
-UnaryExpression: Box<Expression> = {
+UnaryExpression: Expression = {
   LeftHandSideExpression,
 
-  <start: @L> "!" <expr:UnaryExpression> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Not, expr),
+  <start: @L> "!" <expr:UnaryExpression> <end: @R> => Expression::new(
+    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Not, Box::new(expr)),
     Span { start, end, }
-  )),
+  ),
 
-  <start: @L> "++" <expr:UnaryExpression> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Increment, expr),
+  <start: @L> "++" <expr:UnaryExpression> <end: @R> => Expression::new(
+    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Increment, Box::new(expr)),
     Span { start, end, }
-  )),
+  ),
 
-  <start: @L> "--" <expr:UnaryExpression> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Decrement, expr),
+  <start: @L> "--" <expr:UnaryExpression> <end: @R> => Expression::new(
+    ExpressionKind::PreUnaryExpression(PreUnaryOperator::Decrement, Box::new(expr)),
     Span { start, end, }
-  )),
+  ),
 };
 
-LeftHandSideExpression: Box<Expression> = {
+LeftHandSideExpression: Expression = {
   CallExpression,
 };
 
-CallExpression: Box<Expression> = {
+CallExpression: Expression = {
   MemberExpression,
 
-  <start: @L> <callee:CallExpression> <arguments:Arguments> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::FunctionCall { callee, arguments, },
+  <start: @L> <callee:CallExpression> <arguments:Arguments> <end: @R> => Expression::new(
+    ExpressionKind::FunctionCall { callee: Box::new(callee), arguments, },
     Span { start, end, }
-  )),
+  ),
 
-  <start: @L> <left:CallExpression> "." <right:Identifier> <end: @R> => Box::new(Expression::new(
-    ExpressionKind::PropertyAccess(left, right),
+  <start: @L> <left:CallExpression> "." <right:Identifier> <end: @R> => Expression::new(
+    ExpressionKind::PropertyAccess(Box::new(left), right),
     Span { start, end, }
-  )),
+  ),
 };
 
-MemberExpression: Box<Expression> = {
+MemberExpression: Expression = {
   IfExpression,
 
-  <start: @L> <left:CallExpression> "[" <index:Expression> "]" <end: @R> => Box::new(Expression::new(
-    ExpressionKind::ArrayAccess(left, index),
+  <start: @L> <left:CallExpression> "[" <index:Expression> "]" <end: @R> => Expression::new(
+    ExpressionKind::ArrayAccess(Box::new(left), Box::new(index)),
     Span { start, end, }
-  )),
+  ),
 };
 
-IfExpression: Box<Expression> = {
+IfExpression: Expression = {
   #[precedence(level="0")]
   <start: @L> "if" <condition:Expression> <body:Block> <else_:("else" <Block>)?> <end: @R> => {
     let body_span = body.span.clone();
 
-    Box::new(Expression::new(
+    Expression::new(
       ExpressionKind::If {
-        condition,
+        condition: Box::new(condition),
         body: Box::new(Expression::new(
           ExpressionKind::Block(Box::new(body)),
           body_span,
@@ -384,37 +384,37 @@ IfExpression: Box<Expression> = {
         }),
       },
       Span { start, end, },
-    ))
+    )
   },
 
   #[precedence(level="1")]
   PrimaryExpression,
 };
 
-PrimaryExpression: Box<Expression> = {
+PrimaryExpression: Expression = {
   <start: @L> <value:Boolean> <end: @R> =>
-    Box::new(Expression::new(ExpressionKind::Boolean(value), Span { start, end })),
+    Expression::new(ExpressionKind::Boolean(value), Span { start, end }),
 
   <start: @L> <value:Integer> <end: @R> =>
-    Box::new(Expression::new(ExpressionKind::Integer(value), Span { start, end })),
+    Expression::new(ExpressionKind::Integer(value), Span { start, end }),
 
   <start: @L> <value:String> <end: @R> =>
-    Box::new(Expression::new(ExpressionKind::String(value), Span { start, end })),
+    Expression::new(ExpressionKind::String(value), Span { start, end }),
 
   <start: @L> <value:Block> <end: @R> =>
-    Box::new(Expression::new(ExpressionKind::Block(Box::new(value)), Span { start, end })),
+    Expression::new(ExpressionKind::Block(Box::new(value)), Span { start, end }),
 
   <start: @L> <value:Identifier> <end: @R> =>
-    Box::new(Expression::new(ExpressionKind::Identifier(value), Span { start, end })),
+    Expression::new(ExpressionKind::Identifier(value), Span { start, end }),
 
   <start: @L> "[" <items:CommaList<Expression>> "]" <end: @R> =>
-    Box::new(Expression::new(ExpressionKind::List(items.into_iter().map(|item| *item).collect()), Span { start, end, })),
+    Expression::new(ExpressionKind::List(items), Span { start, end, }),
 
   "(" <Expression> ")",
 };
 
 Arguments: Vec<Expression> = {
-  "(" <CommaList<Expression>> ")" => <>.into_iter().map(|expr| *expr).collect(),
+  "(" <CommaList<Expression>> ")" => <>,
 };
 
 Boolean: bool = {
@@ -444,7 +444,7 @@ Block: Block = {
   <start: @L> "{" <statements:Statement*> <return_expression:Expression?> "}" <end: @R> => Block {
     span: Span { start, end },
     statements,
-    return_expression: return_expression.map(|expr| *expr),
+    return_expression: return_expression,
   }
 }
 
