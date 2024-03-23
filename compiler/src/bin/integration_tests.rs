@@ -102,7 +102,7 @@ fn run_test(file_name: &String, mode: &Mode) -> TestResult {
 
     let serialized = serde_json::to_string(&new_snapshot).unwrap();
     match (mode, maybe_old_snapshot) {
-        (_, None) => {
+        (Mode::Run, None) => {
             println!(
                 "⚠ {}: No snapshot. Run with the --update or --update-once flag to save a snapshot.\nstdout: {}\nstderr: {}\nexit code: {}",
                 path_to_file.to_str().unwrap(),
@@ -154,7 +154,7 @@ fn run_test(file_name: &String, mode: &Mode) -> TestResult {
                 TestResult::Success
             }
         }
-        (Mode::Update, _) => {
+        (Mode::UpdateOnce, _) | (Mode::Update, _) => {
             std::fs::write(path_to_snapshot, serialized).expect("failed to save snapshot");
             println!("✅ {}: Saved snapshot!", path_to_file.to_str().unwrap());
             TestResult::Updated
