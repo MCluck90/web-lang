@@ -1,4 +1,4 @@
-use crate::{phases::frontend::ir::PreUnaryOperator, types::environment::EnvironmentType};
+use crate::{phases::frontend::ir::PrefixUnaryOperator, types::environment::EnvironmentType};
 
 use super::ir::{Expression, ExpressionKind, Statement};
 
@@ -140,8 +140,8 @@ fn visit_expression(expression: &Expression) -> String {
         .to_string(),
 
         ExpressionKind::PreUnaryExpression(op, expr) => match op {
-            PreUnaryOperator::Not => format!("{}({})", op, visit_expression(expr)),
-            PreUnaryOperator::Increment | PreUnaryOperator::Decrement => {
+            PrefixUnaryOperator::Not => format!("{}({})", op, visit_expression(expr)),
+            PrefixUnaryOperator::Increment | PrefixUnaryOperator::Decrement => {
                 format!("({}{})", op, visit_expression(expr))
             }
         },

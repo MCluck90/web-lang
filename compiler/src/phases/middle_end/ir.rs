@@ -6,7 +6,7 @@ use crate::{
         frontend::Span,
         frontend::{
             self,
-            ir::{BinaryOperator, EnvironmentType, PreUnaryOperator},
+            ir::{BinaryOperator, EnvironmentType, PrefixUnaryOperator},
         },
         shared::Type,
     },
@@ -176,7 +176,7 @@ pub enum ExpressionKind {
     Parenthesized(Box<Expression>),
 
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
-    PreUnaryExpression(PreUnaryOperator, Box<Expression>),
+    PreUnaryExpression(PrefixUnaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
     ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {

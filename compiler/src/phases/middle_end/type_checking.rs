@@ -5,7 +5,7 @@ use crate::{
     phases::{
         frontend::{
             self,
-            ir::{BinaryOperator, PreUnaryOperator},
+            ir::{BinaryOperator, PrefixUnaryOperator},
             Span,
         },
         shared::{ObjectType, Type},
@@ -59,7 +59,7 @@ pub fn check_types(modules: &mut Vec<Module>, symbol_table: &mut SymbolTable) {
     let mut type_context = &mut TypeContext {
         type_to_properties: build_built_in_types(),
         found_return_types: Vec::new(),
-        environment_stack: vec![EnvironmentType::Isomorphic]
+        environment_stack: vec![EnvironmentType::Isomorphic],
     };
     for module in modules {
         visit_module(module, symbol_table, &mut type_context);
@@ -578,7 +578,7 @@ fn visit_expression(
         ExpressionKind::PreUnaryExpression(op, expr) => {
             let expr_type = visit_expression(expr, symbol_table, type_context)?;
             match op {
-                PreUnaryOperator::Not => {
+                PrefixUnaryOperator::Not => {
                     if expr_type.type_ != Type::Bool {
                         Err(vec![
                             CompilerError::unary_not_operator_not_supported_on_type(
@@ -589,7 +589,8 @@ fn visit_expression(
                         Ok(expr_type)
                     }
                 }
-                PreUnaryOperator::Increment | PreUnaryOperator::Decrement => match &expr.kind {
+                PrefixUnaryOperator::Increment | PrefixUnaryOperator::Decrement => match &expr.kind
+                {
                     ExpressionKind::Boolean(_)
                     | ExpressionKind::Integer(_)
                     | ExpressionKind::Block(_)

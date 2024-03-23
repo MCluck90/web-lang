@@ -665,7 +665,7 @@ fn resolve_expression(
             let (block, errs) = resolve_block(ctx, block);
             to_expression(middle_end::ir::ExpressionKind::Block(Box::new(block)), errs)
         }
-        frontend::ir::ExpressionKind::BinaryExpression(left, op, right) => {
+        frontend::ir::ExpressionKind::BinaryOp(left, op, right) => {
             let (left, mut left_errors) = resolve_expression(ctx, left);
             let (right, right_errors) = resolve_expression(ctx, right);
             left_errors.extend(right_errors);
@@ -678,7 +678,7 @@ fn resolve_expression(
                 left_errors,
             )
         }
-        frontend::ir::ExpressionKind::PreUnaryExpression(op, expr) => {
+        frontend::ir::ExpressionKind::PrefixUnaryOp(op, expr) => {
             let (expr, errors) = resolve_expression(ctx, expr);
             to_expression(
                 middle_end::ir::ExpressionKind::PreUnaryExpression(op.clone(), Box::new(expr)),

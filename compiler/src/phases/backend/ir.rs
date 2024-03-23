@@ -2,7 +2,7 @@ use crate::{
     phases::{
         frontend::{
             self,
-            ir::{BinaryOperator, PreUnaryOperator},
+            ir::{BinaryOperator, PrefixUnaryOperator},
         },
         middle_end,
     },
@@ -771,7 +771,7 @@ impl Expression {
     }
     fn new_pre_unary_expression(
         ctx: &Context,
-        operator: PreUnaryOperator,
+        operator: PrefixUnaryOperator,
         expr: Box<Expression>,
     ) -> Self {
         Self {
@@ -813,7 +813,7 @@ pub enum ExpressionKind {
     List(Vec<Expression>),
     JsBlock(Vec<Expression>),
     BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
-    PreUnaryExpression(PreUnaryOperator, Box<Expression>),
+    PreUnaryExpression(PrefixUnaryOperator, Box<Expression>),
     PropertyAccess(Box<Expression>, String),
     ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {

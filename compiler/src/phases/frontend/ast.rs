@@ -146,21 +146,22 @@ pub enum ExpressionKind {
     Block(Box<Block>),
     List(Vec<Expression>),
 
-    Parenthesized(Box<Expression>),
-
-    BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
-    PreUnaryExpression(PreUnaryOperator, Box<Expression>),
-    PropertyAccess(Box<Expression>, Identifier),
-    ArrayAccess(Box<Expression>, Box<Expression>),
-    FunctionCall {
-        callee: Box<Expression>,
-        arguments: Vec<Expression>,
-    },
+    // Block-like expressions
     JsBlock(Type, Vec<Expression>),
     If {
         condition: Box<Expression>,
         body: Box<Expression>,
         else_: Option<Box<Expression>>,
+    },
+
+    Parenthesized(Box<Expression>),
+    BinaryOp(Box<Expression>, BinaryOperator, Box<Expression>),
+    PrefixUnaryOp(PrefixUnaryOperator, Box<Expression>),
+    PropertyAccess(Box<Expression>, Identifier),
+    ArrayAccess(Box<Expression>, Box<Expression>),
+    FunctionCall {
+        callee: Box<Expression>,
+        arguments: Vec<Expression>,
     },
 }
 
@@ -264,18 +265,18 @@ impl fmt::Display for BinaryOperator {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum PreUnaryOperator {
+pub enum PrefixUnaryOperator {
     Not,
     Increment,
     Decrement,
 }
 
-impl fmt::Display for PreUnaryOperator {
+impl fmt::Display for PrefixUnaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PreUnaryOperator::Not => write!(f, "!"),
-            PreUnaryOperator::Increment => write!(f, "++"),
-            PreUnaryOperator::Decrement => write!(f, "--"),
+            PrefixUnaryOperator::Not => write!(f, "!"),
+            PrefixUnaryOperator::Increment => write!(f, "++"),
+            PrefixUnaryOperator::Decrement => write!(f, "--"),
         }
     }
 }
