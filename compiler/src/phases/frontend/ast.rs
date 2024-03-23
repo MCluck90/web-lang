@@ -1,9 +1,8 @@
 use core::fmt;
 
-use crate::{
-    errors::CompilerError,
-    phases::{frontend::lexer::Span, shared::Type},
-};
+use crate::{errors::CompilerError, phases::shared::Type};
+
+pub type Span = std::ops::Range<usize>;
 
 pub struct Module {
     pub path: String,
@@ -170,16 +169,6 @@ pub struct Parameter {
     pub span: Span,
     pub identifier: Identifier,
     pub type_: Type,
-}
-
-impl Parameter {
-    pub fn new(span: Span, identifier: Identifier, type_: Type) -> Parameter {
-        Parameter {
-            span,
-            identifier,
-            type_,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

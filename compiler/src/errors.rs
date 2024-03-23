@@ -1,7 +1,7 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
 use crate::{
-    phases::frontend::{ir::BinaryOperator, lexer, Span, Token},
+    phases::frontend::{ir::BinaryOperator, Span},
     types::symbol_table::TypeSymbol,
 };
 
@@ -10,87 +10,8 @@ pub struct CompilerError {
     span: Span,
     reason: CompilerErrorReason,
 }
-impl chumsky::Error<char> for CompilerError {
-    type Span = lexer::Span;
-
-    type Label = String;
-
-    fn expected_input_found<Iter: IntoIterator<Item = Option<char>>>(
-        span: Self::Span,
-        expected: Iter,
-        found: Option<char>,
-    ) -> Self {
-        Self::unexpected_character(&span, expected.into_iter().collect(), found)
-    }
-
-    fn with_label(self, label: Self::Label) -> Self {
-        eprintln!(
-            "Attempted to add label `{}` but was ignored. Here's where you need to change:\n{}:{}",
-            label,
-            file!(),
-            line!()
-        );
-        self
-    }
-
-    fn merge(self, other: Self) -> Self {
-        merge_errors(self, other)
-    }
-}
-impl chumsky::Error<Token> for CompilerError {
-    type Span = lexer::Span;
-
-    type Label = String;
-
-    fn expected_input_found<Iter: IntoIterator<Item = Option<Token>>>(
-        span: Self::Span,
-        expected: Iter,
-        found: Option<Token>,
-    ) -> Self {
-        Self::unexpected_token(&span, expected.into_iter().collect(), found)
-    }
-
-    fn with_label(self, label: Self::Label) -> Self {
-        eprintln!(
-            "Attempted to add label `{}` but was ignored. Here's where you need to change:\n{}:{}",
-            label,
-            file!(),
-            line!()
-        );
-        self
-    }
-
-    fn merge(self, other: Self) -> Self {
-        merge_errors(self, other)
-    }
-}
 
 impl CompilerError {
-    pub fn unexpected_character(
-        span: &Span,
-        expected: Vec<Option<char>>,
-        found: Option<char>,
-    ) -> CompilerError {
-        CompilerError {
-            span: span.clone(),
-            reason: CompilerErrorReason::UnexpectedCharacter { expected, found },
-        }
-    }
-
-    pub fn unexpected_token(
-        span: &Span,
-        expected: Vec<Option<Token>>,
-        found: Option<Token>,
-    ) -> CompilerError {
-        CompilerError {
-            span: span.clone(),
-            reason: CompilerErrorReason::UnexpectedToken {
-                found: found,
-                expected: expected.clone(),
-            },
-        }
-    }
-
     pub fn reference_error(span: &Span, identifier: &String) -> CompilerError {
         CompilerError {
             span: span.clone(),
@@ -262,18 +183,6 @@ impl CompilerError {
 
 #[derive(Clone, Debug, Hash)]
 pub enum CompilerErrorReason {
-    // Ex: Unexpected character: `(char)`
-    UnexpectedCharacter {
-        expected: Vec<Option<char>>,
-        found: Option<char>,
-    },
-
-    // Ex: Unexpected (found), expected (list of possible tokens)
-    UnexpectedToken {
-        found: Option<Token>,
-        expected: Vec<Option<Token>>,
-    },
-
     // Ex: Unknown identifier `(identifier)`
     ReferenceError {
         identifier: String,
@@ -352,12 +261,10 @@ pub enum CompilerErrorReason {
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
         match self {
-            CompilerErrorReason::UnexpectedToken { .. } => 0,
             CompilerErrorReason::ReferenceError { .. } => 1,
             CompilerErrorReason::InvalidReturnValue { .. } => 2,
             CompilerErrorReason::BinaryOperatorNotSupportedOnTypeSymbol { .. } => 3,
             CompilerErrorReason::MismatchedTypeSymbols { .. } => 4,
-            CompilerErrorReason::UnexpectedCharacter { .. } => 5,
             CompilerErrorReason::AssignmentToImmutableVariable { .. } => 6,
             CompilerErrorReason::TypeCannotBeCalledAsAFunction(_) => 7,
             CompilerErrorReason::InvalidArguments { .. } => 8,
@@ -374,53 +281,6 @@ impl CompilerErrorReason {
 
     pub fn to_message(&self) -> String {
         match self {
-            CompilerErrorReason::UnexpectedCharacter { expected, found } => {
-                format!(
-                    "Unexpected {}, expected {}",
-                    match found {
-                        Some(found) => format!("{}", found),
-                        None => "end of input".into(),
-                    },
-                    if expected.is_empty() {
-                        "end of input".into()
-                    } else {
-                        expected
-                            .iter()
-                            .map(|c| {
-                                c.map(|c| c.to_string())
-                                    .unwrap_or("end of input".to_string())
-                            })
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    }
-                )
-            }
-            CompilerErrorReason::UnexpectedToken { found, expected } => {
-                let expected = expected
-                    .iter()
-                    .filter_map(|e| e.as_ref())
-                    .collect::<Vec<_>>();
-                if found.is_none() && expected.is_empty() {
-                    "Unexpected end of input".to_string()
-                } else {
-                    format!(
-                        "Unexpected {}, expected {}",
-                        match found {
-                            Some(found) => found.to_unexpected_error_message(),
-                            None => "end of input".into(),
-                        },
-                        if expected.is_empty() {
-                            "something else".into()
-                        } else {
-                            expected
-                                .iter()
-                                .map(|token| token.to_string())
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        }
-                    )
-                }
-            }
             CompilerErrorReason::ReferenceError { identifier } => {
                 format!("Cannot find value `{}` in this scope", identifier)
             }
@@ -515,32 +375,6 @@ impl CompilerErrorReason {
     pub fn to_label(&self, path: &str, span: &Span) -> Label<(String, Span)> {
         let label = Label::new((path.to_string(), span.clone()));
         match self {
-            CompilerErrorReason::UnexpectedCharacter { expected, .. } => {
-                let expected = expected
-                    .iter()
-                    .filter_map(|c| c.map(|c| c.to_string()))
-                    .collect::<Vec<_>>();
-                label
-                    .with_message(if expected.is_empty() {
-                        "Unexpected character".to_string()
-                    } else {
-                        expected.join(", ")
-                    })
-                    .with_color(Color::Red)
-            }
-            CompilerErrorReason::UnexpectedToken { expected, .. } => {
-                let expected = expected
-                    .iter()
-                    .filter_map(|c| c.as_ref().map(|c| c.to_string()))
-                    .collect::<Vec<_>>();
-                label
-                    .with_message(if expected.is_empty() {
-                        "expected something else".to_string()
-                    } else {
-                        expected.join(", ")
-                    })
-                    .with_color(Color::Red)
-            }
             CompilerErrorReason::ReferenceError { .. } => label
                 .with_message("not found in this scope")
                 .with_color(Color::Red),
@@ -596,76 +430,5 @@ pub fn print_error_report<'a>(module_path: &String, errors: &Vec<CompilerError>)
             .finish()
             .eprint((module_path.clone(), Source::from(&src)))
             .unwrap();
-    }
-}
-
-fn merge_errors(left: CompilerError, right: CompilerError) -> CompilerError {
-    use CompilerErrorReason::*;
-    match (left.reason.clone(), right.reason.clone()) {
-        (
-            UnexpectedCharacter {
-                expected: expected_left,
-                found: found_left,
-            },
-            UnexpectedCharacter {
-                expected: expected_right,
-                ..
-            },
-        ) => {
-            let mut expected = if expected_left.is_empty() {
-                vec![None]
-            } else {
-                expected_left
-            };
-
-            for expected_char in expected_right {
-                if !expected.contains(&expected_char) {
-                    expected.push(expected_char);
-                }
-            }
-
-            CompilerError {
-                span: left.span,
-                reason: UnexpectedCharacter {
-                    expected,
-                    found: found_left,
-                },
-            }
-        }
-        (
-            UnexpectedToken {
-                expected: expected_left,
-                found: found_left,
-            },
-            UnexpectedToken {
-                expected: expected_right,
-                ..
-            },
-        ) => {
-            let mut expected = if expected_left.is_empty() {
-                vec![None]
-            } else {
-                expected_left
-            };
-
-            for expected_char in expected_right {
-                if !expected.contains(&expected_char) {
-                    expected.push(expected_char);
-                }
-            }
-
-            CompilerError {
-                span: left.span,
-                reason: UnexpectedToken {
-                    expected,
-                    found: found_left,
-                },
-            }
-        }
-        _ => unimplemented!(
-            "Unhandled compiler merge scenario: {:?} vs {:?}",
-            left,
-            right
-        ),
     }
 }

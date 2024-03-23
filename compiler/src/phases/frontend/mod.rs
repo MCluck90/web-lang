@@ -1,19 +1,19 @@
 mod ast;
 pub mod ir;
-pub mod lexer;
-mod parser;
-mod parser_tests;
+
+use lalrpop_util::lalrpop_mod;
+lalrpop_mod!(pub parser);
 
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
 };
 
-pub use lexer::{BuiltInTypeToken, Span, Token};
-
 use crate::errors::{print_error_report, CompilerError};
 
-use self::parser::module_parser;
+pub use self::ast::Span;
+
+use self::parser::ModuleParser;
 
 pub fn run_frontend(file_path: &str) -> Result<(Program, bool), String> {
     Program::from_entry_point(file_path.to_string())
@@ -117,13 +117,12 @@ impl Program {
 
         let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
         let src = std::fs::read_to_string(&file_path).unwrap();
-        let lexer = lexer::create_lexer(src.as_str());
-        let (ast, errors) = module_parser(file_name, lexer);
+        let ast = ModuleParser::new().parse(&file_name, &src).unwrap();
 
         Ok(ast::Module {
             path: file_path.to_str().unwrap().to_string(),
             ast: Some(ast), // TODO: Change type to not be an Option
-            errors,
+            errors: Vec::new(),
         })
     }
 }
