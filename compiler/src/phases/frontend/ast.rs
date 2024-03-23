@@ -19,7 +19,7 @@ pub struct ModuleAST {
     pub statements: Vec<TopLevelStatement>,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Import {
     pub span: Span,
     pub kind: ImportKind,
@@ -49,7 +49,7 @@ impl Import {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImportKind {
     Package {
         scope: Identifier,
@@ -59,13 +59,13 @@ pub enum ImportKind {
     },
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportSelector {
     pub span: Span,
     pub kind: ImportSelectorKind,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImportSelectorKind {
     Name(String),
 }
@@ -109,7 +109,7 @@ pub enum EnvironmentType {
     Backend,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
     pub span: Span,
     pub statements: Vec<Statement>,
@@ -124,7 +124,7 @@ impl From<Block> for Expression {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Expression {
     pub span: Span,
     pub kind: ExpressionKind,
@@ -136,7 +136,7 @@ impl Expression {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExpressionKind {
     // Primitives
     Boolean(bool),
@@ -165,14 +165,14 @@ pub enum ExpressionKind {
     },
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Parameter {
     pub span: Span,
     pub identifier: Identifier,
     pub type_: Type,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Identifier {
     pub name: String,
     pub span: Span,
@@ -183,13 +183,13 @@ impl fmt::Display for Identifier {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Statement {
     pub span: Span,
     pub kind: StatementKind,
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StatementKind {
     VariableDeclaration {
         is_mutable: bool,
@@ -225,7 +225,7 @@ impl From<Expression> for Statement {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BinaryOperator {
     Add,
     Sub,
@@ -264,7 +264,7 @@ impl fmt::Display for BinaryOperator {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PrefixUnaryOperator {
     Not,
     Increment,
