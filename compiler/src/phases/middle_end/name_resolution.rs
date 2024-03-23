@@ -366,7 +366,7 @@ fn resolve_top_level_statement(
             let (initializer, mut errors) = initializer
                 .clone()
                 .map(|i| {
-                    let (i, errors) = resolve_statement(ctx, &*i);
+                    let (i, errors) = resolve_statement(ctx, &i);
                     (Some(i), errors)
                 })
                 .unwrap_or((None, Vec::new()));

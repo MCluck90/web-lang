@@ -81,7 +81,7 @@ TopLevelVariableDeclaration: TopLevelStatementKind = {
       is_mutable,
       type_,
       identifier,
-      initializer: Box::new(initializer),
+      initializer,
     },
 };
 
@@ -106,7 +106,7 @@ TopLevelFunctionDefinition: TopLevelStatementKind = {
 TopLevelForLoop: TopLevelStatementKind = {
   "for" "(" <initializer:Statement> <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
     TopLevelStatementKind::ForLoop {
-      initializer: Some(Box::new(initializer)),
+      initializer: Some(initializer),
       condition: condition,
       post_loop: post_loop,
       body,
@@ -210,7 +210,7 @@ VariableDeclaration: StatementKind = {
       is_mutable,
       type_,
       identifier,
-      initializer: Box::new(initializer),
+      initializer,
     },
 };
 

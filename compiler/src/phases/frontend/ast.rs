@@ -83,7 +83,7 @@ pub enum TopLevelStatementKind {
         is_mutable: bool,
         type_: Option<Type>,
         identifier: Identifier,
-        initializer: Box<Expression>,
+        initializer: Expression,
     },
     FunctionDefinition {
         is_public: bool,
@@ -95,7 +95,7 @@ pub enum TopLevelStatementKind {
     Expression(Expression),
     Loop(Block),
     ForLoop {
-        initializer: Option<Box<Statement>>,
+        initializer: Option<Statement>,
         condition: Option<Expression>,
         post_loop: Option<Expression>,
         body: Vec<Statement>,
@@ -194,7 +194,7 @@ pub enum StatementKind {
         is_mutable: bool,
         type_: Option<Type>,
         identifier: Identifier,
-        initializer: Box<Expression>,
+        initializer: Expression,
     },
     FunctionDefinition {
         name: Identifier,
