@@ -1,4 +1,4 @@
-use crate::{phases::frontend::ir::PrefixUnaryOperator, types::environment::EnvironmentType};
+use crate::{phases::shared::PrefixUnaryOperator, types::environment::EnvironmentType};
 
 use super::ir::{Expression, ExpressionKind, Statement};
 

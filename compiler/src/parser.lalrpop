@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use crate::phases::frontend::ast::*;
-use crate::phases::shared::Type;
+use crate::phases::shared::{BinaryOperator, PrefixUnaryOperator, Type};
 
 grammar(module_path: &str);
 

@@ -3,12 +3,8 @@ use core::fmt;
 use crate::{
     errors::CompilerError,
     phases::{
-        frontend::Span,
-        frontend::{
-            self,
-            ir::{BinaryOperator, EnvironmentType, PrefixUnaryOperator},
-        },
-        shared::Type,
+        frontend::{self, ir::EnvironmentType, Span},
+        shared::{BinaryOperator, PrefixUnaryOperator, Type},
     },
 };
 

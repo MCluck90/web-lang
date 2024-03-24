@@ -1,10 +1,7 @@
 use crate::{
     phases::{
-        frontend::{
-            self,
-            ir::{BinaryOperator, PrefixUnaryOperator},
-        },
-        middle_end,
+        frontend, middle_end,
+        shared::{BinaryOperator, PrefixUnaryOperator},
     },
     types::environment::EnvironmentType,
 };

@@ -1,6 +1,9 @@
 use core::fmt;
 
-use crate::{errors::CompilerError, phases::shared::Type};
+use crate::{
+    errors::CompilerError,
+    phases::shared::{BinaryOperator, PrefixUnaryOperator, Type},
+};
 
 pub type Span = std::ops::Range<usize>;
 
@@ -221,62 +224,6 @@ impl From<Expression> for Statement {
         Statement {
             span: expression.span,
             kind: StatementKind::Expression(clone),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BinaryOperator {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Modulus,
-    NotEqual,
-    Equal,
-    LessThan,
-    LessThanOrEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
-    And,
-    Or,
-    Assignment,
-}
-
-impl fmt::Display for BinaryOperator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            BinaryOperator::Add => write!(f, "+"),
-            BinaryOperator::Sub => write!(f, "-"),
-            BinaryOperator::Mul => write!(f, "*"),
-            BinaryOperator::Div => write!(f, "/"),
-            BinaryOperator::Modulus => write!(f, "%"),
-            BinaryOperator::NotEqual => write!(f, "!="),
-            BinaryOperator::Equal => write!(f, "=="),
-            BinaryOperator::LessThan => write!(f, "<"),
-            BinaryOperator::LessThanOrEqual => write!(f, "<="),
-            BinaryOperator::GreaterThan => write!(f, ">"),
-            BinaryOperator::GreaterThanOrEqual => write!(f, ">="),
-            BinaryOperator::And => write!(f, "&&"),
-            BinaryOperator::Or => write!(f, "||"),
-            BinaryOperator::Assignment => write!(f, "="),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PrefixUnaryOperator {
-    Not,
-    Increment,
-    Decrement,
-}
-
-impl fmt::Display for PrefixUnaryOperator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            PrefixUnaryOperator::Not => write!(f, "!"),
-            PrefixUnaryOperator::Increment => write!(f, "++"),
-            PrefixUnaryOperator::Decrement => write!(f, "--"),
         }
     }
 }

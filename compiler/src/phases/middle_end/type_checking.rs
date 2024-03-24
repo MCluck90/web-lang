@@ -3,12 +3,8 @@ use std::collections::HashMap;
 use crate::{
     errors::CompilerError,
     phases::{
-        frontend::{
-            self,
-            ir::{BinaryOperator, PrefixUnaryOperator},
-            Span,
-        },
-        shared::{ObjectType, Type},
+        frontend::{self, Span},
+        shared::{BinaryOperator, ObjectType, PrefixUnaryOperator, Type},
     },
     types::{
         built_ins::{build_built_in_types, build_future_type, build_list_type},
