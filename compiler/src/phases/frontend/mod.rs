@@ -59,11 +59,7 @@ impl Program {
             let module_path = context.module_to_parse;
             let requester_path = context.module_who_imported;
             let import_span = context.span_of_import;
-            match program.parse_module(
-                std::path::Path::new(&module_path),
-                &requester_path,
-                &import_span,
-            ) {
+            match program.parse_module(&module_path, &requester_path, &import_span) {
                 Ok(mut module) => {
                     visited_modules.insert(module_path.clone());
                     program.modules_in_order.push(module_path.clone());
@@ -93,6 +89,7 @@ impl Program {
                 }
                 Err((path, err)) => {
                     print_error_report(&path, &vec![err]);
+                    has_errors = true;
                 }
             }
         }
@@ -104,25 +101,66 @@ impl Program {
 
     fn parse_module(
         &self,
-        file_path: &Path,
-        requester_path: &String,
+        file_path: &str,
+        requester_path: &str,
         import_span: &Span,
     ) -> Result<ast::Module, (String, CompilerError)> {
-        if !file_path.exists() {
+        let true_file_path = std::path::Path::new(file_path);
+        if !true_file_path.exists() {
             return Err((
-                requester_path.clone(),
-                CompilerError::could_not_find_module(import_span, &file_path.display().to_string()),
+                requester_path.to_string(),
+                CompilerError::could_not_find_module(import_span, &file_path.to_string()),
             ));
         }
 
-        let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
+        let file_name = true_file_path
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
         let src = std::fs::read_to_string(&file_path).unwrap();
-        let ast = ModuleParser::new().parse(&file_name, &src).unwrap();
-
-        Ok(ast::Module {
-            path: file_path.to_str().unwrap().to_string(),
-            ast: Some(ast), // TODO: Change type to not be an Option
-            errors: Vec::new(),
-        })
+        ModuleParser::new()
+            .parse(&file_name, &src)
+            .map(|ast| ast::Module {
+                path: file_path.to_string(),
+                ast: Some(ast), // TODO: Change type to not be an Option
+                errors: Vec::new(),
+            })
+            .map_err(|error| match error {
+                lalrpop_util::ParseError::InvalidToken { location } => (
+                    file_path.to_string(),
+                    CompilerError::invalid_token(
+                        &Span {
+                            start: location,
+                            end: location + 1,
+                        },
+                        &src[location..location + 1],
+                    ),
+                ),
+                lalrpop_util::ParseError::UnrecognizedEof { location, expected } => (
+                    file_path.to_string(),
+                    CompilerError::unexpected_eof(
+                        &Span {
+                            start: location,
+                            end: location + 1,
+                        },
+                        expected,
+                    ),
+                ),
+                lalrpop_util::ParseError::UnrecognizedToken { token, expected } => (
+                    file_path.to_string(),
+                    CompilerError::unexpected_token(
+                        &Span {
+                            start: token.0,
+                            end: token.2,
+                        },
+                        &token.1 .1[token.0..token.2],
+                        expected,
+                    ),
+                ),
+                lalrpop_util::ParseError::ExtraToken { .. } => todo!(),
+                lalrpop_util::ParseError::User { .. } => todo!(),
+            })
     }
 }

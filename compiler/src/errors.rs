@@ -12,6 +12,27 @@ pub struct CompilerError {
 }
 
 impl CompilerError {
+    pub fn invalid_token(span: &Span, token: &str) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::InvalidToken(token.to_string()),
+        }
+    }
+
+    pub fn unexpected_eof(span: &Span, expected: Vec<String>) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::UnexpectedEOF(expected),
+        }
+    }
+
+    pub fn unexpected_token(span: &Span, token: &str, expected: Vec<String>) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::UnexpectedToken(token.to_string(), expected),
+        }
+    }
+
     pub fn reference_error(span: &Span, identifier: &String) -> CompilerError {
         CompilerError {
             span: span.clone(),
@@ -257,6 +278,10 @@ pub enum CompilerErrorReason {
 
     // Ex: Invalid right-hand side expression in prefix operation
     InvalidRhsExpressionInPrefixOperation,
+
+    InvalidToken(String),
+    UnexpectedEOF(Vec<String>),
+    UnexpectedToken(String, Vec<String>),
 }
 impl CompilerErrorReason {
     pub fn to_error_code(&self) -> i32 {
@@ -276,6 +301,9 @@ impl CompilerErrorReason {
             CompilerErrorReason::MixedTypesInList { .. } => 14,
             CompilerErrorReason::UnaryNotOperatorNotSupportedOnTypeSymbol { .. } => 15,
             CompilerErrorReason::InvalidRhsExpressionInPrefixOperation => 16,
+            CompilerErrorReason::InvalidToken(_) => 17,
+            CompilerErrorReason::UnexpectedEOF(_) => 18,
+            CompilerErrorReason::UnexpectedToken(_, _) => 18,
         }
     }
 
@@ -369,6 +397,11 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidRhsExpressionInPrefixOperation => {
                 "Invalid right-hand side expression in prefix operation".to_owned()
             }
+            CompilerErrorReason::InvalidToken(token) => format!("Invalid token `{}`", token),
+            CompilerErrorReason::UnexpectedEOF(_) => "Unexpected end of file".to_string(),
+            CompilerErrorReason::UnexpectedToken(token, _) => {
+                format!("Unexpected token `{}`", token)
+            }
         }
     }
 
@@ -414,6 +447,15 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidRhsExpressionInPrefixOperation => {
                 label.with_color(Color::Red)
             }
+            CompilerErrorReason::InvalidToken(_) => {
+                label.with_message("invalid token").with_color(Color::Red)
+            }
+            CompilerErrorReason::UnexpectedEOF(expected) => label
+                .with_message(format!("expected: {:?}", expected))
+                .with_color(Color::Red),
+            CompilerErrorReason::UnexpectedToken(_, expected) => label
+                .with_message(format!("expected: {:?}", expected))
+                .with_color(Color::Red),
         }
     }
 }
