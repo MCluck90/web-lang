@@ -70,21 +70,16 @@ impl Program {
                         module.errors.clear();
                     }
 
-                    match &module.ast {
-                        Some(ast) => {
-                            for import in ast.imports.iter().rev() {
-                                let next_module_path = import.to_path();
-                                if !visited_modules.contains(&next_module_path) {
-                                    module_paths.push(ModuleContext {
-                                        module_to_parse: next_module_path,
-                                        module_who_imported: module_path.clone(),
-                                        span_of_import: import.span.clone(),
-                                    });
-                                }
-                            }
+                    for import in module.ast.imports.iter().rev() {
+                        let next_module_path = import.to_path();
+                        if !visited_modules.contains(&next_module_path) {
+                            module_paths.push(ModuleContext {
+                                module_to_parse: next_module_path,
+                                module_who_imported: module_path.clone(),
+                                span_of_import: import.span.clone(),
+                            });
                         }
-                        None => {}
-                    };
+                    }
                     program.module_by_path.insert(module_path, module.into());
                 }
                 Err((path, err)) => {
@@ -124,7 +119,7 @@ impl Program {
             .parse(&file_name, &src)
             .map(|ast| ast::Module {
                 path: file_path.to_string(),
-                ast: Some(ast), // TODO: Change type to not be an Option
+                ast,
                 errors: Vec::new(),
             })
             .map_err(|error| match error {

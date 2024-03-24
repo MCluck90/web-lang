@@ -10,7 +10,7 @@ use super::ast;
 
 pub struct Module {
     pub path: String,
-    pub ast: Option<ModuleAST>,
+    pub ast: ModuleAST,
     pub errors: Vec<CompilerError>,
 }
 impl From<ast::Module> for Module {
@@ -18,7 +18,7 @@ impl From<ast::Module> for Module {
         Module {
             path: module.path,
             errors: module.errors,
-            ast: module.ast.map(ModuleAST::from),
+            ast: ModuleAST::from(module.ast),
         }
     }
 }

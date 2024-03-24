@@ -9,7 +9,7 @@ pub type Span = std::ops::Range<usize>;
 
 pub struct Module {
     pub path: String,
-    pub ast: Option<ModuleAST>,
+    pub ast: ModuleAST,
     pub errors: Vec<CompilerError>,
 }
 

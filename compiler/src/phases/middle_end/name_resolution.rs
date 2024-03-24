@@ -176,30 +176,15 @@ fn resolve_module(
     let mut imports: Vec<middle_end::ir::Import> = Vec::new();
     let mut items: Vec<middle_end::ir::ModuleItem> = Vec::new();
     let mut errors: Vec<CompilerError> = module.errors.clone();
-    if module.ast.is_none() {
-        return (
-            middle_end::ir::Module {
-                path: module.path.clone(),
-                ast: middle_end::ir::ModuleAST {
-                    path: module.path.clone(),
-                    imports,
-                    items,
-                },
-                errors,
-            },
-            exports,
-        );
-    }
-    let ast = module.ast.as_ref().unwrap();
 
     ctx.start_scope();
-    for import in &ast.imports {
+    for import in &module.ast.imports {
         let (import, mut errs) = resolve_import(ctx, import);
         imports.push(import);
         errors.append(&mut errs);
     }
 
-    for item in &ast.items {
+    for item in &module.ast.items {
         let (item, mut errs) = resolve_module_item(ctx, item);
         errors.append(&mut errs);
 
