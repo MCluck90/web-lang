@@ -33,162 +33,30 @@ fn block_to_statements(block: BasicBlock) -> Vec<Statement> {
 
 fn module_to_basic_block(ctx: &mut Context, module: middle_end::ir::Module) -> BasicBlock {
     let mut basic_block = BasicBlock::new();
-    for statement in module.ast.statements {
+    for statement in module.ast.items {
         basic_block
             .block_or_statements
-            .push(top_level_statement_to_block_or_statement(ctx, statement));
+            .push(module_item_to_block_or_statement(ctx, statement));
     }
     basic_block
 }
 
-fn top_level_statement_to_block_or_statement(
+fn module_item_to_block_or_statement(
     ctx: &mut Context,
-    statement: middle_end::ir::TopLevelStatement,
+    item: middle_end::ir::ModuleItem,
 ) -> BlockOrStatement {
-    match statement.kind {
-        middle_end::ir::TopLevelStatementKind::VariableDeclaration {
-            is_public: _,
-            is_mutable,
-            type_: _,
-            identifier,
-            initializer,
-        } => match expression_to_block(ctx, *initializer) {
-            (expr, None) => BlockOrStatement::Statement(Statement::VariableDeclaration {
-                environment: ctx.environment(),
-                is_mutable,
-                identifier: identifier.name,
-                initializer: Some(Box::new(expr)),
-            }),
-            (expr, Some(block)) => BlockOrStatement::Block(BasicBlock {
-                block_or_statements: vec![
-                    BlockOrStatement::Block(block),
-                    BlockOrStatement::Statement(Statement::VariableDeclaration {
-                        environment: ctx.environment(),
-                        is_mutable,
-                        identifier: identifier.name,
-                        initializer: Some(Box::new(expr)),
-                    }),
-                ],
-            }),
-        },
-        middle_end::ir::TopLevelStatementKind::FunctionDefinition {
-            is_public: _,
-            name,
-            parameters,
-            return_type: _,
-            body,
-        } => BlockOrStatement::Statement(Statement::FunctionDefinition {
-            environment: ctx.environment(),
-            name: name.name,
-            parameters: parameters.into_iter().map(|p| p.identifier.name).collect(),
-            body: body
-                .into_iter()
-                .map(|stmt| {
-                    middle_statement_to_block_or_statement(ctx, stmt)
-                        .into_iter()
-                        .map(|b| b.to_statements())
-                        .flatten()
-                })
-                .flatten()
-                .collect(),
-        }),
-        middle_end::ir::TopLevelStatementKind::Expression(expression) => {
-            let (expr, maybe_block) = expression_to_block(ctx, expression);
-            if let Some(block) = maybe_block {
-                let mut basic_block = BasicBlock::new();
-                basic_block
-                    .block_or_statements
-                    .push(BlockOrStatement::Block(block));
-                basic_block
-                    .block_or_statements
-                    .push(BlockOrStatement::Statement(Statement::Expression(expr)));
-                BlockOrStatement::Block(basic_block)
+    match item.kind {
+        middle_end::ir::ModuleItemKind::Statement(statement) => {
+            let mut res = middle_statement_to_block_or_statement(ctx, statement);
+            if res.len() == 1 {
+                res.swap_remove(0)
             } else {
-                BlockOrStatement::Statement(Statement::Expression(expr))
+                BlockOrStatement::Block(BasicBlock {
+                    block_or_statements: res,
+                })
             }
         }
-        middle_end::ir::TopLevelStatementKind::Loop(statements) => {
-            BlockOrStatement::Statement(Statement::WhileLoop(
-                ctx.environment(),
-                statements
-                    .into_iter()
-                    .map(|stmt| {
-                        middle_statement_to_block_or_statement(ctx, stmt)
-                            .into_iter()
-                            .map(|b| b.to_statements())
-                            .flatten()
-                    })
-                    .flatten()
-                    .collect(),
-            ))
-        }
-        middle_end::ir::TopLevelStatementKind::ForLoop {
-            initializer,
-            condition,
-            post_loop,
-            body,
-        } => {
-            let mut block = BasicBlock::new();
-            if let Some(initializer) = initializer {
-                block
-                    .block_or_statements
-                    .append(&mut middle_statement_to_block_or_statement(
-                        ctx,
-                        initializer,
-                    ));
-            }
-
-            let mut loop_statements: Vec<Statement> = Vec::new();
-            // Generate the break condition
-            if let Some(condition) = condition {
-                let (condition, maybe_block) = expression_to_block(ctx, condition);
-                if let Some(block) = maybe_block {
-                    loop_statements.append(&mut block_to_statements(block));
-                }
-                loop_statements.push(Statement::If {
-                    environment: ctx.environment(),
-                    condition: Expression::new_binary_expression(
-                        ctx,
-                        Box::new(condition),
-                        BinOp::Eq,
-                        Box::new(Expression::new_boolean(ctx, false)),
-                    ),
-                    body: vec![Statement::Break(ctx.environment())],
-                    else_: Vec::new(),
-                });
-            }
-
-            // Add in the body of the loop
-            loop_statements.append(
-                &mut body
-                    .into_iter()
-                    .map(|stmt| {
-                        middle_statement_to_block_or_statement(ctx, stmt)
-                            .into_iter()
-                            .map(|b| b.to_statements())
-                            .flatten()
-                    })
-                    .flatten()
-                    .collect(),
-            );
-
-            // Add in the post-loop
-            if let Some(post_loop) = post_loop {
-                let (post_loop, maybe_block) = expression_to_block(ctx, post_loop);
-                if let Some(block) = maybe_block {
-                    loop_statements.append(&mut block_to_statements(block));
-                }
-                loop_statements.push(Statement::Expression(post_loop));
-            }
-
-            let loop_ = Statement::WhileLoop(ctx.environment(), loop_statements);
-            block
-                .block_or_statements
-                .push(BlockOrStatement::Statement(loop_));
-
-            BlockOrStatement::Block(block)
-        }
-        middle_end::ir::TopLevelStatementKind::EnvironmentBlock(environment, statements) => {
+        middle_end::ir::ModuleItemKind::EnvironmentBlock(environment, statements) => {
             ctx.start_environment(match environment {
                 frontend::ir::EnvironmentType::Frontend => EnvironmentType::Frontend,
                 frontend::ir::EnvironmentType::Backend => EnvironmentType::Backend,

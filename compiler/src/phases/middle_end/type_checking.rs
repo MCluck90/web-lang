@@ -14,8 +14,8 @@ use crate::{
 };
 
 use super::ir::{
-    Expression, ExpressionKind, Module, Parameter, Statement, StatementKind, TopLevelStatement,
-    TopLevelStatementKind,
+    Expression, ExpressionKind, Module, ModuleItem, ModuleItemKind, Parameter, Statement,
+    StatementKind,
 };
 
 struct TypeContext {
@@ -67,8 +67,8 @@ fn visit_module(
     symbol_table: &mut SymbolTable,
     type_context: &mut TypeContext,
 ) {
-    for statement in module.ast.statements.iter() {
-        match visit_top_level_statement(&statement, symbol_table, type_context) {
+    for statement in module.ast.items.iter() {
+        match visit_module_item(&statement, symbol_table, type_context) {
             Err(mut errors) => {
                 module.errors.append(&mut errors);
             }
@@ -77,125 +77,16 @@ fn visit_module(
     }
 }
 
-fn visit_top_level_statement(
-    statement: &TopLevelStatement,
+fn visit_module_item(
+    item: &ModuleItem,
     symbol_table: &mut SymbolTable,
     type_context: &mut TypeContext,
 ) -> Result<(), Vec<CompilerError>> {
-    match &statement.kind {
-        TopLevelStatementKind::VariableDeclaration {
-            identifier,
-            initializer,
-            is_mutable,
-            type_,
-            is_public: _,
-        } => {
-            let initializer_type = visit_expression(initializer, symbol_table, type_context);
-            let (final_type, res) = match (type_, initializer_type) {
-                (Some(type_), Ok(initializer_type)) => {
-                    if &initializer_type.type_ != &Type::Unknown && &initializer_type.type_ != type_
-                    {
-                        (
-                            type_.clone(),
-                            Err(vec![CompilerError::mismatched_types(
-                                &statement.span,
-                                &TypeSymbol::from(type_),
-                                &initializer_type,
-                            )]),
-                        )
-                    } else {
-                        (type_.clone(), Ok(()))
-                    }
-                }
-                (None, Ok(initializer_type)) => (initializer_type.type_, Ok(())),
-                (None, Err(errors)) => (Type::Unknown, Err(errors)),
-                (Some(type_), Err(errors)) => (type_.clone(), Err(errors)),
-            };
-
-            symbol_table.set_value(
-                ValueId(identifier.name.clone()),
-                ValueSymbol::new()
-                    .with_type(final_type)
-                    .with_mutability(*is_mutable)
-                    .with_environment(&type_context.environment()),
-            );
-
-            res
+    match &item.kind {
+        ModuleItemKind::Statement(statement) => {
+            visit_statement(statement, symbol_table, type_context)
         }
-        TopLevelStatementKind::FunctionDefinition {
-            name,
-            parameters,
-            return_type,
-            body,
-            is_public: _,
-        } => {
-            type_context.found_return_types.push(Vec::new());
-            let parameter_types = parameters
-                .iter()
-                .map(|p| visit_parameter(p, symbol_table))
-                .collect::<Vec<_>>();
-            let function_type = Type::Function {
-                parameters: parameter_types,
-                return_type: Box::new(return_type.clone()),
-            };
-            symbol_table.set_value(
-                name.name.clone().into(),
-                ValueSymbol::new().with_type(function_type.clone()),
-            );
-
-            for stmt in body {
-                visit_statement(stmt, symbol_table, type_context)?;
-            }
-
-            let return_type = TypeSymbol::from(return_type);
-            let found_returns = type_context.found_return_types.pop().unwrap();
-            let mut errors: Vec<CompilerError> = Vec::new();
-            for (return_statement_type, span) in found_returns {
-                if return_statement_type.type_ != return_type.type_ {
-                    errors.push(CompilerError::invalid_return_value(
-                        &span,
-                        &return_type,
-                        &return_statement_type,
-                    ));
-                }
-            }
-
-            if !errors.is_empty() {
-                Err(errors)
-            } else {
-                Ok(())
-            }
-        }
-        TopLevelStatementKind::Expression(expression) => {
-            visit_expression(&expression, symbol_table, type_context).map(|_| ())
-        }
-        TopLevelStatementKind::Loop(body) => {
-            for stmt in body {
-                visit_statement(stmt, symbol_table, type_context)?;
-            }
-            Ok(())
-        }
-        TopLevelStatementKind::ForLoop {
-            initializer,
-            condition,
-            post_loop,
-            body,
-        } => {
-            if let Some(initializer) = initializer {
-                visit_statement(initializer, symbol_table, type_context)?;
-            }
-            if let Some(condition) = condition {
-                visit_expression(condition, symbol_table, type_context)?;
-            }
-            if let Some(post_loop) = post_loop {
-                visit_expression(post_loop, symbol_table, type_context)?;
-            }
-            for stmt in body {
-                visit_statement(stmt, symbol_table, type_context)?;
-            }
-            Ok(())
-        }
-        TopLevelStatementKind::EnvironmentBlock(env, statements) => {
+        ModuleItemKind::EnvironmentBlock(env, statements) => {
             let env = match env {
                 frontend::ir::EnvironmentType::Frontend => EnvironmentType::Frontend,
                 frontend::ir::EnvironmentType::Backend => EnvironmentType::Backend,

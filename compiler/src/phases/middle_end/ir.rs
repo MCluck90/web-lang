@@ -4,7 +4,7 @@ use crate::{
     errors::CompilerError,
     phases::{
         frontend::{self, ir::EnvironmentType, Span},
-        shared::{BinOp, PrefixUnaryOp, Type},
+        shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier},
     },
 };
 
@@ -19,7 +19,7 @@ pub struct Module {
 pub struct ModuleAST {
     pub path: String,
     pub imports: Vec<Import>,
-    pub statements: Vec<TopLevelStatement>,
+    pub items: Vec<ModuleItem>,
 }
 
 #[derive(Clone, Debug)]
@@ -81,35 +81,15 @@ pub enum ImportSelectorKind {
 }
 
 #[derive(Clone, Debug)]
-pub struct TopLevelStatement {
+pub struct ModuleItem {
     pub span: Span,
-    pub kind: TopLevelStatementKind,
+    pub visibility: VisibilityModifier,
+    pub kind: ModuleItemKind,
 }
 
 #[derive(Clone, Debug)]
-pub enum TopLevelStatementKind {
-    VariableDeclaration {
-        is_public: bool,
-        is_mutable: bool,
-        type_: Option<Type>,
-        identifier: Identifier,
-        initializer: Box<Expression>,
-    },
-    FunctionDefinition {
-        is_public: bool,
-        name: Identifier,
-        parameters: Vec<Parameter>,
-        return_type: Type,
-        body: Vec<Statement>,
-    },
-    Expression(Expression),
-    Loop(Vec<Statement>),
-    ForLoop {
-        initializer: Option<Statement>,
-        condition: Option<Expression>,
-        post_loop: Option<Expression>,
-        body: Vec<Statement>,
-    },
+pub enum ModuleItemKind {
+    Statement(Statement),
     EnvironmentBlock(EnvironmentType, Vec<Statement>),
 }
 

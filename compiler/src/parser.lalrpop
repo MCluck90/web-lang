@@ -1,14 +1,14 @@
 use std::str::FromStr;
 use crate::phases::frontend::ast::*;
-use crate::phases::shared::{BinOp, PrefixUnaryOp, Type};
+use crate::phases::shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier};
 
 grammar(module_path: &str);
 
 pub Module: ModuleAST = {
-  <imports:ImportStatement*> <statements:TopLevelStatement*> => ModuleAST {
+  <imports:ImportStatement*> <items:ModuleItem*> => ModuleAST {
     path: module_path.to_string(),
     imports,
-    statements,
+    items,
   }
 };
 
@@ -39,50 +39,17 @@ ImportSelector: ImportSelector = {
   }
 };
 
-TopLevelStatement: TopLevelStatement = {
-  #[precedence(level="0")]
-  <start: @L> <variable_declaration:TopLevelVariableDeclaration> <end: @R> =>
-    TopLevelStatement {
-      span: Span { start, end },
-      kind: variable_declaration,
-    },
-  <start: @L> <function_definition:TopLevelFunctionDefinition> <end: @R> =>
-    TopLevelStatement {
-      span: Span { start, end },
-      kind: function_definition,
-    },
-  <start: @L> <for_loop:TopLevelForLoop> <end: @R> =>
-    TopLevelStatement {
-      span: Span { start, end, },
-      kind: for_loop,
-    },
-  <start: @L> <loop_:TopLevelLoop> <end: @R> =>
-    TopLevelStatement {
-      span: Span { start, end, },
-      kind: loop_,
-    },
-  <start: @L> <block:TopLevelEnvironmentBlock> <end: @R> =>
-    TopLevelStatement {
-      span: Span { start, end, },
-      kind: block,
-    },
-
-  #[precedence(level="1")]
-  <start: @L> <expr:Expression> ";" <end: @R> => TopLevelStatement {
-    span: Span { start, end },
-    kind: TopLevelStatementKind::Expression(expr),
+ModuleItem: ModuleItem = {
+  <start: @L> <type_:Environment> "{" <stmts:Statement*> "}" <end: @R> => ModuleItem {
+    span: Span { start, end, },
+    visibility: None,
+    kind: ModuleItemKind::EnvironmentBlock(type_, stmts),
   },
-};
-
-TopLevelVariableDeclaration: TopLevelStatementKind = {
-  <is_public:"pub"?> <is_mutable:VariableBinding> <identifier:Identifier> <type_:(":" <Type>)?> "=" <initializer:Expression> ";" =>
-    TopLevelStatementKind::VariableDeclaration {
-      is_public: is_public.is_some(),
-      is_mutable,
-      type_,
-      identifier,
-      initializer,
-    },
+  <start: @L> <is_public:"pub"?> <statement:Statement> <end: @R> => ModuleItem {
+    span: Span { start, end, },
+    visibility: is_public.map(|_| VisibilityModifier::Public),
+    kind: ModuleItemKind::Statement(statement),
+  },
 };
 
 // true if mutable
@@ -92,46 +59,9 @@ VariableBinding: bool = {
   "mut" => true,
 }
 
-TopLevelFunctionDefinition: TopLevelStatementKind = {
-  <is_public:"pub"?> "fn" <name:Identifier> <parameters:Parameters> <return_type:(":" <Type>)?> <body:Block> =>
-    TopLevelStatementKind::FunctionDefinition {
-      is_public: is_public.is_some(),
-      name,
-      parameters,
-      return_type: return_type.unwrap_or(Type::Void),
-      body,
-    },
-};
-
-TopLevelForLoop: TopLevelStatementKind = {
-  "for" "(" <initializer:Statement> <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
-    TopLevelStatementKind::ForLoop {
-      initializer: Some(initializer),
-      condition: condition,
-      post_loop: post_loop,
-      body,
-    },
-  "for" "(" ";" <condition:Expression?> ";" <post_loop:Expression?> ")" "{" <body:Statement*> "}" =>
-    TopLevelStatementKind::ForLoop {
-      initializer: None,
-      condition: condition,
-      post_loop: post_loop,
-      body,
-    },
-};
-
-TopLevelLoop: TopLevelStatementKind = {
-  "loop" <Block> => TopLevelStatementKind::Loop(<>),
-};
-
 Environment: EnvironmentType = {
   "back" => EnvironmentType::Backend,
   "front" => EnvironmentType::Frontend,
-};
-
-TopLevelEnvironmentBlock: TopLevelStatementKind = {
-  <type_:Environment> "{" <stmts:Statement*> "}" =>
-    TopLevelStatementKind::EnvironmentBlock(type_, stmts),
 };
 
 Parameters: Vec<Parameter> = "(" <CommaList<Parameter>> ")";
@@ -232,7 +162,7 @@ ForLoop: StatementKind = {
 };
 
 Loop: StatementKind = {
-  "loop" <Block> => StatementKind::Loop(<>),
+  "loop" "{" <Statement*> "}" => StatementKind::Loop(<>),
 };
 
 Expression: Expression = {

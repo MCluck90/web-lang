@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::{
     errors::CompilerError,
-    phases::shared::{BinOp, PrefixUnaryOp, Type},
+    phases::shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier},
 };
 
 pub type Span = std::ops::Range<usize>;
@@ -19,7 +19,7 @@ pub struct Module {
 pub struct ModuleAST {
     pub path: String,
     pub imports: Vec<Import>,
-    pub statements: Vec<TopLevelStatement>,
+    pub items: Vec<ModuleItem>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -74,35 +74,15 @@ pub enum ImportSelectorKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TopLevelStatement {
+pub struct ModuleItem {
     pub span: Span,
-    pub kind: TopLevelStatementKind,
+    pub visibility: Option<VisibilityModifier>,
+    pub kind: ModuleItemKind,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TopLevelStatementKind {
-    VariableDeclaration {
-        is_public: bool,
-        is_mutable: bool,
-        type_: Option<Type>,
-        identifier: Identifier,
-        initializer: Expression,
-    },
-    FunctionDefinition {
-        is_public: bool,
-        name: Identifier,
-        parameters: Vec<Parameter>,
-        return_type: Type,
-        body: Block,
-    },
-    Expression(Expression),
-    Loop(Block),
-    ForLoop {
-        initializer: Option<Statement>,
-        condition: Option<Expression>,
-        post_loop: Option<Expression>,
-        body: Vec<Statement>,
-    },
+pub enum ModuleItemKind {
+    Statement(Statement),
     EnvironmentBlock(EnvironmentType, Vec<Statement>),
 }
 
@@ -208,7 +188,7 @@ pub enum StatementKind {
     },
     Expression(Expression),
     Return(Option<Expression>),
-    Loop(Block),
+    Loop(Vec<Statement>),
     ForLoop {
         initializer: Option<Box<Statement>>,
         condition: Option<Expression>,

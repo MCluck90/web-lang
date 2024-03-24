@@ -185,3 +185,9 @@ impl fmt::Display for PrefixUnaryOp {
         }
     }
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum VisibilityModifier {
+    Public,
+    Private,
+}

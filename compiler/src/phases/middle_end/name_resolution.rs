@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::{
     errors::CompilerError,
     frontend, middle_end,
+    phases::shared::VisibilityModifier,
     types::symbol_table::{SymbolTable, ValueId, ValueSymbol},
 };
 
@@ -173,7 +174,7 @@ fn resolve_module(
 ) -> (middle_end::ir::Module, Exports) {
     let mut exports = Exports::new();
     let mut imports: Vec<middle_end::ir::Import> = Vec::new();
-    let mut statements: Vec<middle_end::ir::TopLevelStatement> = Vec::new();
+    let mut items: Vec<middle_end::ir::ModuleItem> = Vec::new();
     let mut errors: Vec<CompilerError> = module.errors.clone();
     if module.ast.is_none() {
         return (
@@ -182,7 +183,7 @@ fn resolve_module(
                 ast: middle_end::ir::ModuleAST {
                     path: module.path.clone(),
                     imports,
-                    statements,
+                    items,
                 },
                 errors,
             },
@@ -198,33 +199,25 @@ fn resolve_module(
         errors.append(&mut errs);
     }
 
-    for statement in &ast.statements {
-        let (statement, mut errs) = resolve_top_level_statement(ctx, statement);
+    for item in &ast.items {
+        let (item, mut errs) = resolve_module_item(ctx, item);
         errors.append(&mut errs);
 
-        match &statement.kind {
-            middle_end::ir::TopLevelStatementKind::VariableDeclaration {
-                is_public,
-                identifier,
-                ..
-            } => {
-                if *is_public {
-                    exports.insert(identifier.original_name.clone(), identifier.name.clone());
-                }
+        if item.visibility == VisibilityModifier::Public {
+            match &item.kind {
+                middle_end::ir::ModuleItemKind::Statement(statement) => match &statement.kind {
+                    middle_end::ir::StatementKind::VariableDeclaration { identifier, .. } => {
+                        exports.insert(identifier.original_name.clone(), identifier.name.clone());
+                    }
+                    middle_end::ir::StatementKind::FunctionDefinition { name, .. } => {
+                        exports.insert(name.original_name.clone(), name.name.clone());
+                    }
+                    _ => {}
+                },
+                middle_end::ir::ModuleItemKind::EnvironmentBlock(_, _) => {}
             }
-            middle_end::ir::TopLevelStatementKind::FunctionDefinition {
-                is_public, name, ..
-            } => {
-                if *is_public {
-                    exports.insert(name.original_name.clone(), name.name.clone());
-                }
-            }
-            middle_end::ir::TopLevelStatementKind::Expression(_) => {}
-            middle_end::ir::TopLevelStatementKind::Loop(_) => {}
-            middle_end::ir::TopLevelStatementKind::ForLoop { .. } => {}
-            middle_end::ir::TopLevelStatementKind::EnvironmentBlock(_, _) => {}
         }
-        statements.push(statement);
+        items.push(item);
     }
 
     ctx.end_scope();
@@ -234,7 +227,7 @@ fn resolve_module(
             ast: middle_end::ir::ModuleAST {
                 path: module.path.clone(),
                 imports,
-                statements,
+                items,
             },
             errors,
         },
@@ -258,157 +251,23 @@ fn resolve_import(
     (new_import, Vec::new())
 }
 
-fn resolve_top_level_statement(
+fn resolve_module_item(
     ctx: &mut Context,
-    statement: &frontend::ir::TopLevelStatement,
-) -> (middle_end::ir::TopLevelStatement, Vec<CompilerError>) {
-    match &statement.kind {
-        frontend::ir::TopLevelStatementKind::VariableDeclaration {
-            is_public,
-            is_mutable,
-            type_,
-            identifier,
-            initializer,
-        } => {
-            let new_identifier = ctx.add_and_rename(identifier, is_mutable);
-            let (initializer, errs) = resolve_expression(ctx, initializer);
+    item: &frontend::ir::ModuleItem,
+) -> (middle_end::ir::ModuleItem, Vec<CompilerError>) {
+    match &item.kind {
+        frontend::ir::ModuleItemKind::Statement(statement) => {
+            let (statement, errors) = resolve_statement(ctx, &statement);
             (
-                middle_end::ir::TopLevelStatement {
-                    span: statement.span.clone(),
-                    kind: middle_end::ir::TopLevelStatementKind::VariableDeclaration {
-                        is_public: *is_public,
-                        is_mutable: *is_mutable,
-                        type_: type_.clone(),
-                        identifier: new_identifier,
-                        initializer: Box::new(initializer),
-                    },
-                },
-                errs,
-            )
-        }
-        frontend::ir::TopLevelStatementKind::FunctionDefinition {
-            is_public,
-            name,
-            parameters,
-            return_type,
-            body,
-        } => {
-            let new_name = ctx.add_and_rename(&name, &false);
-            ctx.start_scope();
-
-            let parameters = parameters
-                .iter()
-                .map(|p| middle_end::ir::Parameter {
-                    span: p.span.clone(),
-                    identifier: ctx.add_and_rename(&p.identifier, &false),
-                    type_: p.type_.clone(),
-                })
-                .collect();
-
-            let (body, errors) = resolve_block(ctx, body);
-            let mut body_statements = body.statements.clone();
-            if let Some(return_expression) = body.return_expression {
-                body_statements.push(middle_end::ir::Statement {
-                    span: return_expression.span.clone(),
-                    kind: middle_end::ir::StatementKind::Return(Some(return_expression)),
-                });
-            }
-
-            ctx.end_scope();
-            (
-                middle_end::ir::TopLevelStatement {
-                    span: statement.span.clone(),
-                    kind: middle_end::ir::TopLevelStatementKind::FunctionDefinition {
-                        is_public: *is_public,
-                        name: new_name,
-                        parameters,
-                        return_type: return_type.clone(),
-                        body: body_statements,
-                    },
+                middle_end::ir::ModuleItem {
+                    span: item.span.clone(),
+                    visibility: item.visibility.unwrap_or(VisibilityModifier::Private),
+                    kind: middle_end::ir::ModuleItemKind::Statement(statement),
                 },
                 errors,
             )
         }
-        frontend::ir::TopLevelStatementKind::Expression(expression) => {
-            let (expr, errors) = resolve_expression(ctx, expression);
-            (
-                middle_end::ir::TopLevelStatement {
-                    span: statement.span.clone(),
-                    kind: middle_end::ir::TopLevelStatementKind::Expression(expr),
-                },
-                errors,
-            )
-        }
-        frontend::ir::TopLevelStatementKind::Loop(body) => {
-            let (body, errors) = resolve_block(ctx, body);
-            let mut body_statements = body.statements.clone();
-            if let Some(expr) = body.return_expression {
-                body_statements.push(middle_end::ir::Statement {
-                    span: expr.span.clone(),
-                    kind: middle_end::ir::StatementKind::Expression(expr),
-                });
-            }
-            (
-                middle_end::ir::TopLevelStatement {
-                    span: statement.span.clone(),
-                    kind: middle_end::ir::TopLevelStatementKind::Loop(body_statements),
-                },
-                errors,
-            )
-        }
-        frontend::ir::TopLevelStatementKind::ForLoop {
-            initializer,
-            condition,
-            post_loop,
-            body,
-        } => {
-            ctx.start_scope();
-            let (initializer, mut errors) = initializer
-                .clone()
-                .map(|i| {
-                    let (i, errors) = resolve_statement(ctx, &i);
-                    (Some(i), errors)
-                })
-                .unwrap_or((None, Vec::new()));
-            let (condition, mut condition_errors) = condition
-                .clone()
-                .map(|c| {
-                    let (c, errors) = resolve_expression(ctx, &c);
-                    (Some(c), errors)
-                })
-                .unwrap_or((None, Vec::new()));
-            let (post_loop, mut post_loop_errors) = post_loop
-                .clone()
-                .map(|i| {
-                    let (i, errors) = resolve_expression(ctx, &i);
-                    (Some(i), errors)
-                })
-                .unwrap_or((None, Vec::new()));
-            let mut body_statements: Vec<middle_end::ir::Statement> = Vec::new();
-            for stmt in body {
-                let (stmt, mut errs) = resolve_statement(ctx, stmt);
-                body_statements.push(stmt);
-                errors.append(&mut errs);
-            }
-
-            errors.append(&mut condition_errors);
-            errors.append(&mut post_loop_errors);
-            ctx.end_scope();
-
-            (
-                middle_end::ir::TopLevelStatement {
-                    span: statement.span.clone(),
-                    kind: middle_end::ir::TopLevelStatementKind::ForLoop {
-                        initializer,
-                        condition,
-                        post_loop,
-                        body: body_statements,
-                    },
-                },
-                errors,
-            )
-        }
-        frontend::ir::TopLevelStatementKind::EnvironmentBlock(environment, statements) => {
+        frontend::ir::ModuleItemKind::EnvironmentBlock(environment, statements) => {
             let mut errors: Vec<CompilerError> = Vec::new();
             let mut inner_statements: Vec<middle_end::ir::Statement> = Vec::new();
             for stmt in statements {
@@ -418,9 +277,10 @@ fn resolve_top_level_statement(
             }
 
             (
-                middle_end::ir::TopLevelStatement {
-                    span: statement.span.clone(),
-                    kind: middle_end::ir::TopLevelStatementKind::EnvironmentBlock(
+                middle_end::ir::ModuleItem {
+                    span: item.span.clone(),
+                    visibility: item.visibility.unwrap_or(VisibilityModifier::Private),
+                    kind: middle_end::ir::ModuleItemKind::EnvironmentBlock(
                         *environment,
                         inner_statements,
                     ),
@@ -525,11 +385,17 @@ fn resolve_statement(
             )
         }
         frontend::ir::StatementKind::Loop(body) => {
-            let (body, errors) = resolve_block(ctx, body);
+            let mut body_statements: Vec<middle_end::ir::Statement> = Vec::new();
+            let mut errors: Vec<CompilerError> = Vec::new();
+            for stmt in body {
+                let (stmt, mut errs) = resolve_statement(ctx, stmt);
+                body_statements.push(stmt);
+                errors.append(&mut errs);
+            }
             (
                 middle_end::ir::Statement {
                     span: statement.span.clone(),
-                    kind: middle_end::ir::StatementKind::Loop(body.statements),
+                    kind: middle_end::ir::StatementKind::Loop(body_statements),
                 },
                 errors,
             )

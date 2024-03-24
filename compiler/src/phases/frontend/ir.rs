@@ -2,8 +2,8 @@ use crate::errors::CompilerError;
 
 pub use super::ast::{
     Block, EnvironmentType, Expression, ExpressionKind, Identifier, Import, ImportKind,
-    ImportSelector, ImportSelectorKind, Parameter, Statement, StatementKind, TopLevelStatement,
-    TopLevelStatementKind,
+    ImportSelector, ImportSelectorKind, ModuleItem, ModuleItemKind, Parameter, Statement,
+    StatementKind,
 };
 
 use super::ast;
@@ -27,7 +27,7 @@ impl From<ast::Module> for Module {
 pub struct ModuleAST {
     pub path: String,
     pub imports: Vec<ast::Import>,
-    pub statements: Vec<ast::TopLevelStatement>,
+    pub items: Vec<ast::ModuleItem>,
     pub exports: Vec<ast::Identifier>,
 }
 impl From<ast::ModuleAST> for ModuleAST {
@@ -35,7 +35,7 @@ impl From<ast::ModuleAST> for ModuleAST {
         ModuleAST {
             path: module_ast.path,
             imports: module_ast.imports,
-            statements: module_ast.statements,
+            items: module_ast.items,
             exports: Vec::new(),
         }
     }
