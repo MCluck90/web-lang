@@ -131,57 +131,57 @@ impl fmt::Display for Type {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BinaryOperator {
+pub enum BinOp {
     Add,
     Sub,
     Mul,
     Div,
-    Modulus,
-    NotEqual,
-    Equal,
-    LessThan,
-    LessThanOrEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
+    Mod,
+    Ne,
+    Eq,
+    Lt,
+    Le,
+    Gt,
+    Ge,
     And,
     Or,
-    Assignment,
+    Assign,
 }
 
-impl fmt::Display for BinaryOperator {
+impl fmt::Display for BinOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BinaryOperator::Add => write!(f, "+"),
-            BinaryOperator::Sub => write!(f, "-"),
-            BinaryOperator::Mul => write!(f, "*"),
-            BinaryOperator::Div => write!(f, "/"),
-            BinaryOperator::Modulus => write!(f, "%"),
-            BinaryOperator::NotEqual => write!(f, "!="),
-            BinaryOperator::Equal => write!(f, "=="),
-            BinaryOperator::LessThan => write!(f, "<"),
-            BinaryOperator::LessThanOrEqual => write!(f, "<="),
-            BinaryOperator::GreaterThan => write!(f, ">"),
-            BinaryOperator::GreaterThanOrEqual => write!(f, ">="),
-            BinaryOperator::And => write!(f, "&&"),
-            BinaryOperator::Or => write!(f, "||"),
-            BinaryOperator::Assignment => write!(f, "="),
+            BinOp::Add => write!(f, "+"),
+            BinOp::Sub => write!(f, "-"),
+            BinOp::Mul => write!(f, "*"),
+            BinOp::Div => write!(f, "/"),
+            BinOp::Mod => write!(f, "%"),
+            BinOp::Ne => write!(f, "!="),
+            BinOp::Eq => write!(f, "=="),
+            BinOp::Lt => write!(f, "<"),
+            BinOp::Le => write!(f, "<="),
+            BinOp::Gt => write!(f, ">"),
+            BinOp::Ge => write!(f, ">="),
+            BinOp::And => write!(f, "&&"),
+            BinOp::Or => write!(f, "||"),
+            BinOp::Assign => write!(f, "="),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PrefixUnaryOperator {
+pub enum PrefixUnaryOp {
     Not,
-    Increment,
-    Decrement,
+    Inc,
+    Dec,
 }
 
-impl fmt::Display for PrefixUnaryOperator {
+impl fmt::Display for PrefixUnaryOp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PrefixUnaryOperator::Not => write!(f, "!"),
-            PrefixUnaryOperator::Increment => write!(f, "++"),
-            PrefixUnaryOperator::Decrement => write!(f, "--"),
+            PrefixUnaryOp::Not => write!(f, "!"),
+            PrefixUnaryOp::Inc => write!(f, "++"),
+            PrefixUnaryOp::Dec => write!(f, "--"),
         }
     }
 }

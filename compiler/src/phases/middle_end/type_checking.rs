@@ -4,7 +4,7 @@ use crate::{
     errors::CompilerError,
     phases::{
         frontend::{self, Span},
-        shared::{BinaryOperator, ObjectType, PrefixUnaryOperator, Type},
+        shared::{BinOp, ObjectType, PrefixUnaryOp, Type},
     },
     types::{
         built_ins::{build_built_in_types, build_future_type, build_list_type},
@@ -399,11 +399,7 @@ fn visit_expression(
                 let left_type_symbol = left_type.unwrap();
                 let right_type_symbol = right_type.unwrap();
                 match op {
-                    BinaryOperator::Add
-                    | BinaryOperator::Sub
-                    | BinaryOperator::Mul
-                    | BinaryOperator::Div
-                    | BinaryOperator::Modulus => {
+                    BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => {
                         let mut errors: Vec<CompilerError> = Vec::new();
                         if left_type_symbol.type_ != Type::Int {
                             errors.push(CompilerError::binary_operator_not_supported_on_type(
@@ -426,7 +422,7 @@ fn visit_expression(
                             Err(errors)
                         }
                     }
-                    BinaryOperator::NotEqual | BinaryOperator::Equal => {
+                    BinOp::Ne | BinOp::Eq => {
                         let mut errors: Vec<CompilerError> = Vec::new();
                         if !left_type_symbol.type_.is_primitive() {
                             errors.push(CompilerError::binary_operator_not_supported_on_type(
@@ -456,10 +452,7 @@ fn visit_expression(
                             Err(errors)
                         }
                     }
-                    BinaryOperator::LessThan
-                    | BinaryOperator::LessThanOrEqual
-                    | BinaryOperator::GreaterThan
-                    | BinaryOperator::GreaterThanOrEqual => {
+                    BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge => {
                         let mut errors: Vec<CompilerError> = Vec::new();
                         if left_type_symbol.type_ != Type::Int {
                             errors.push(CompilerError::binary_operator_not_supported_on_type(
@@ -482,7 +475,7 @@ fn visit_expression(
                             Err(errors)
                         }
                     }
-                    BinaryOperator::And | BinaryOperator::Or => {
+                    BinOp::And | BinOp::Or => {
                         let mut errors: Vec<CompilerError> = Vec::new();
                         if left_type_symbol.type_ != Type::Bool {
                             errors.push(CompilerError::binary_operator_not_supported_on_type(
@@ -505,7 +498,7 @@ fn visit_expression(
                             Err(errors)
                         }
                     }
-                    BinaryOperator::Assignment => match &left.kind {
+                    BinOp::Assign => match &left.kind {
                         ExpressionKind::PropertyAccess(_, _) => todo!(),
                         ExpressionKind::ArrayAccess(_, _) => {
                             // TODO: Don't allow assigning to immutable arrays
@@ -574,7 +567,7 @@ fn visit_expression(
         ExpressionKind::PreUnaryExpression(op, expr) => {
             let expr_type = visit_expression(expr, symbol_table, type_context)?;
             match op {
-                PrefixUnaryOperator::Not => {
+                PrefixUnaryOp::Not => {
                     if expr_type.type_ != Type::Bool {
                         Err(vec![
                             CompilerError::unary_not_operator_not_supported_on_type(
@@ -585,8 +578,7 @@ fn visit_expression(
                         Ok(expr_type)
                     }
                 }
-                PrefixUnaryOperator::Increment | PrefixUnaryOperator::Decrement => match &expr.kind
-                {
+                PrefixUnaryOp::Inc | PrefixUnaryOp::Dec => match &expr.kind {
                     ExpressionKind::Boolean(_)
                     | ExpressionKind::Integer(_)
                     | ExpressionKind::Block(_)

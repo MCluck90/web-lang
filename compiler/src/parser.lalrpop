@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use crate::phases::frontend::ast::*;
-use crate::phases::shared::{BinaryOperator, PrefixUnaryOperator, Type};
+use crate::phases::shared::{BinOp, PrefixUnaryOp, Type};
 
 grammar(module_path: &str);
 
@@ -242,7 +242,7 @@ Expression: Expression = {
 AssignmentExpression: Expression = {
   LogicalOrExpression,
   <start: @L> <left:AssignmentExpression> "=" <right:LogicalOrExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Assignment, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Assign, Box::new(right)),
     Span { start, end, },
   ),
 };
@@ -250,7 +250,7 @@ AssignmentExpression: Expression = {
 LogicalOrExpression: Expression = {
   LogicalAndExpression,
   <start: @L> <left:LogicalOrExpression> "||" <right:LogicalAndExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Or, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Or, Box::new(right)),
     Span { start, end, },
   ),
 };
@@ -258,7 +258,7 @@ LogicalOrExpression: Expression = {
 LogicalAndExpression: Expression = {
   EqualityExpression,
   <start: @L> <left:LogicalAndExpression> "&&" <right:EqualityExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::And, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::And, Box::new(right)),
     Span { start, end, },
   ),
 };
@@ -266,11 +266,11 @@ LogicalAndExpression: Expression = {
 EqualityExpression: Expression = {
   RelationalExpression,
   <start: @L> <left:EqualityExpression> "==" <right:RelationalExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Equal, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Eq, Box::new(right)),
     Span { start, end, },
   ),
   <start: @L> <left:EqualityExpression> "!=" <right:RelationalExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::NotEqual, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Ne, Box::new(right)),
     Span { start, end, },
   ),
 };
@@ -278,19 +278,19 @@ EqualityExpression: Expression = {
 RelationalExpression: Expression = {
   AdditiveExpression,
   <start: @L> <left:RelationalExpression> "<" <right:AdditiveExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::LessThan, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Lt, Box::new(right)),
     Span { start, end, },
   ),
   <start: @L> <left:RelationalExpression> "<=" <right:AdditiveExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::LessThanOrEqual, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Le, Box::new(right)),
     Span { start, end, },
   ),
   <start: @L> <left:RelationalExpression> ">" <right:AdditiveExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::GreaterThan, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Gt, Box::new(right)),
     Span { start, end, },
   ),
   <start: @L> <left:RelationalExpression> ">=" <right:AdditiveExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::GreaterThanOrEqual, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Ge, Box::new(right)),
     Span { start, end, },
   ),
 };
@@ -298,11 +298,11 @@ RelationalExpression: Expression = {
 AdditiveExpression: Expression = {
   FactorExpression,
   <start: @L> <left:AdditiveExpression> "+" <right:FactorExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Add, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Add, Box::new(right)),
     Span { start, end, },
   ),
   <start: @L> <left:AdditiveExpression> "-" <right:FactorExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Sub, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Sub, Box::new(right)),
     Span { start, end, },
   ),
 };
@@ -310,15 +310,15 @@ AdditiveExpression: Expression = {
 FactorExpression: Expression = {
   PrefixOperatorExpression,
   <start: @L> <left:FactorExpression> "*" <right:PrefixOperatorExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Mul, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Mul, Box::new(right)),
     Span { start, end, },
   ),
   <start: @L> <left:FactorExpression> "/" <right:PrefixOperatorExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Div, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Div, Box::new(right)),
     Span { start, end, },
   ),
   <start: @L> <left:FactorExpression> "%" <right:PrefixOperatorExpression> <end: @R> => Expression::new(
-    ExpressionKind::BinaryOp(Box::new(left), BinaryOperator::Modulus, Box::new(right)),
+    ExpressionKind::BinaryOp(Box::new(left), BinOp::Mod, Box::new(right)),
     Span { start, end, },
   ),
 };
@@ -326,15 +326,15 @@ FactorExpression: Expression = {
 PrefixOperatorExpression: Expression = {
   AccessOrCallExpression,
   <start: @L> "--" <expr:AccessOrCallExpression> <end: @R> => Expression::new(
-    ExpressionKind::PrefixUnaryOp(PrefixUnaryOperator::Decrement, Box::new(expr)),
+    ExpressionKind::PrefixUnaryOp(PrefixUnaryOp::Dec, Box::new(expr)),
     Span { start, end, }
   ),
   <start: @L> "++" <expr:AccessOrCallExpression> <end: @R> => Expression::new(
-    ExpressionKind::PrefixUnaryOp(PrefixUnaryOperator::Increment, Box::new(expr)),
+    ExpressionKind::PrefixUnaryOp(PrefixUnaryOp::Inc, Box::new(expr)),
     Span { start, end, }
   ),
   <start: @L> "!" <expr:AccessOrCallExpression> <end: @R> => Expression::new(
-    ExpressionKind::PrefixUnaryOp(PrefixUnaryOperator::Not, Box::new(expr)),
+    ExpressionKind::PrefixUnaryOp(PrefixUnaryOp::Not, Box::new(expr)),
     Span { start, end, }
   ),
 };

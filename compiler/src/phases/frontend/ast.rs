@@ -2,7 +2,7 @@ use core::fmt;
 
 use crate::{
     errors::CompilerError,
-    phases::shared::{BinaryOperator, PrefixUnaryOperator, Type},
+    phases::shared::{BinOp, PrefixUnaryOp, Type},
 };
 
 pub type Span = std::ops::Range<usize>;
@@ -158,8 +158,8 @@ pub enum ExpressionKind {
     },
 
     Parenthesized(Box<Expression>),
-    BinaryOp(Box<Expression>, BinaryOperator, Box<Expression>),
-    PrefixUnaryOp(PrefixUnaryOperator, Box<Expression>),
+    BinaryOp(Box<Expression>, BinOp, Box<Expression>),
+    PrefixUnaryOp(PrefixUnaryOp, Box<Expression>),
     PropertyAccess(Box<Expression>, Identifier),
     ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {

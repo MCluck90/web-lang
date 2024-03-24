@@ -1,7 +1,7 @@
 use crate::{
     phases::{
         frontend, middle_end,
-        shared::{BinaryOperator, PrefixUnaryOperator},
+        shared::{BinOp, PrefixUnaryOp},
     },
     types::environment::EnvironmentType,
 };
@@ -150,7 +150,7 @@ fn top_level_statement_to_block_or_statement(
                     condition: Expression::new_binary_expression(
                         ctx,
                         Box::new(condition),
-                        BinaryOperator::Equal,
+                        BinOp::Eq,
                         Box::new(Expression::new_boolean(ctx, false)),
                     ),
                     body: vec![Statement::Break(ctx.environment())],
@@ -335,7 +335,7 @@ fn middle_statement_to_block_or_statement(
                     condition: Expression::new_binary_expression(
                         ctx,
                         Box::new(condition),
-                        BinaryOperator::Equal,
+                        BinOp::Eq,
                         Box::new(Expression::new_boolean(ctx, false)),
                     ),
                     body: vec![Statement::Break(ctx.environment())],
@@ -430,7 +430,7 @@ fn expression_to_block(
                         Expression::new_binary_expression(
                             ctx,
                             Box::new(Expression::new_identifier(ctx, temp_variable.clone())),
-                            BinaryOperator::Assignment,
+                            BinOp::Assign,
                             Box::new(return_expr.0),
                         ),
                     )));
@@ -562,7 +562,7 @@ fn expression_to_block(
             body_statements.push(Statement::Expression(Expression::new_binary_expression(
                 ctx,
                 Box::new(Expression::new_identifier(ctx, temp_variable.clone())),
-                BinaryOperator::Assignment,
+                BinOp::Assign,
                 Box::new(body.0),
             )));
 
@@ -573,7 +573,7 @@ fn expression_to_block(
                     else_statements.push(Statement::Expression(Expression::new_binary_expression(
                         ctx,
                         Box::new(Expression::new_identifier(ctx, temp_variable.clone())),
-                        BinaryOperator::Assignment,
+                        BinOp::Assign,
                         Box::new(expr),
                     )));
                     else_statements
@@ -758,7 +758,7 @@ impl Expression {
     fn new_binary_expression(
         ctx: &Context,
         left: Box<Expression>,
-        operator: BinaryOperator,
+        operator: BinOp,
         right: Box<Expression>,
     ) -> Self {
         Self {
@@ -768,7 +768,7 @@ impl Expression {
     }
     fn new_pre_unary_expression(
         ctx: &Context,
-        operator: PrefixUnaryOperator,
+        operator: PrefixUnaryOp,
         expr: Box<Expression>,
     ) -> Self {
         Self {
@@ -809,8 +809,8 @@ pub enum ExpressionKind {
     Parenthesized(Box<Expression>),
     List(Vec<Expression>),
     JsBlock(Vec<Expression>),
-    BinaryExpression(Box<Expression>, BinaryOperator, Box<Expression>),
-    PreUnaryExpression(PrefixUnaryOperator, Box<Expression>),
+    BinaryExpression(Box<Expression>, BinOp, Box<Expression>),
+    PreUnaryExpression(PrefixUnaryOp, Box<Expression>),
     PropertyAccess(Box<Expression>, String),
     ArrayAccess(Box<Expression>, Box<Expression>),
     FunctionCall {

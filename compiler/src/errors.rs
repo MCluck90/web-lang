@@ -1,7 +1,7 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
 use crate::{
-    phases::{frontend::Span, shared::BinaryOperator},
+    phases::{frontend::Span, shared::BinOp},
     types::symbol_table::TypeSymbol,
 };
 
@@ -37,7 +37,7 @@ impl CompilerError {
 
     pub fn binary_operator_not_supported_on_type(
         span: &Span,
-        operator: &BinaryOperator,
+        operator: &BinOp,
         found: &TypeSymbol,
     ) -> CompilerError {
         CompilerError {
@@ -196,7 +196,7 @@ pub enum CompilerErrorReason {
 
     // Ex: (operator) is not supported on type (found)
     BinaryOperatorNotSupportedOnTypeSymbol {
-        operator: BinaryOperator,
+        operator: BinOp,
         found: TypeSymbol,
     },
 
@@ -292,20 +292,20 @@ impl CompilerErrorReason {
                 format!(
                     "{} is not supported for type `{}`",
                     match operator {
-                        BinaryOperator::Add => "addition",
-                        BinaryOperator::Sub => "subtraction",
-                        BinaryOperator::Mul => "multiplication",
-                        BinaryOperator::Div => "division",
-                        BinaryOperator::Modulus => "modulus",
-                        BinaryOperator::NotEqual => "equality checking",
-                        BinaryOperator::Equal => "equality checking",
-                        BinaryOperator::LessThan => "order comparison",
-                        BinaryOperator::LessThanOrEqual => "order comparison",
-                        BinaryOperator::GreaterThan => "order comparison",
-                        BinaryOperator::GreaterThanOrEqual => "order comparison",
-                        BinaryOperator::And => "boolean AND",
-                        BinaryOperator::Or => "boolean OR",
-                        BinaryOperator::Assignment => "assignment",
+                        BinOp::Add => "addition",
+                        BinOp::Sub => "subtraction",
+                        BinOp::Mul => "multiplication",
+                        BinOp::Div => "division",
+                        BinOp::Mod => "modulus",
+                        BinOp::Ne => "equality checking",
+                        BinOp::Eq => "equality checking",
+                        BinOp::Lt => "order comparison",
+                        BinOp::Le => "order comparison",
+                        BinOp::Gt => "order comparison",
+                        BinOp::Ge => "order comparison",
+                        BinOp::And => "boolean AND",
+                        BinOp::Or => "boolean OR",
+                        BinOp::Assign => "assignment",
                     },
                     found
                 )
