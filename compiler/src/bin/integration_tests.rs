@@ -54,7 +54,7 @@ enum TestResult {
     Failed,
     Updated,
 }
-fn run_test(file_name: &String, mode: &Mode) -> TestResult {
+fn run_test(file_name: &str, mode: &Mode) -> TestResult {
     let path_to_file = format!("examples/{}", file_name);
     let path_to_file = Path::new(path_to_file.as_str());
     let path_to_snapshot = format!("examples/snapshots/{}.snapshot", file_name);

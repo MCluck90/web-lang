@@ -69,23 +69,23 @@ impl Scope {
         }
     }
 
-    fn get(&self, identifier: &String) -> Option<&String> {
+    fn get(&self, identifier: &str) -> Option<&String> {
         self.rename_table.get(identifier).and_then(|l| l.last())
     }
 
     /// Returns the new identifier.
-    fn set(&mut self, identifier: &String, id_counter: &mut IdCounter) -> String {
+    fn set(&mut self, identifier: &str, id_counter: &mut IdCounter) -> String {
         let new_identifier = format!("${}", id_counter.next()).to_string();
         self.set_direct(identifier, &new_identifier);
         new_identifier
     }
 
-    fn set_direct(&mut self, identifier: &String, new_identifier: &String) {
+    fn set_direct(&mut self, identifier: &str, new_identifier: &str) {
         if let Some(identifiers) = self.rename_table.get_mut(identifier) {
-            identifiers.push(new_identifier.clone());
+            identifiers.push(new_identifier.to_string());
         } else {
             self.rename_table
-                .insert(identifier.clone(), vec![new_identifier.clone()]);
+                .insert(identifier.to_string(), vec![new_identifier.to_string()]);
         }
     }
 }
@@ -128,7 +128,7 @@ impl Context {
         new_identifier
     }
 
-    fn add_from_module_to_scope(&mut self, module_path: &String, identifier: &String) {
+    fn add_from_module_to_scope(&mut self, module_path: &str, identifier: &str) {
         match self.exports.get(module_path) {
             Some(exports) => {
                 if let Some(resolved_name) = exports.get(identifier) {

@@ -33,11 +33,11 @@ impl CompilerError {
         }
     }
 
-    pub fn reference_error(span: &Span, identifier: &String) -> CompilerError {
+    pub fn reference_error(span: &Span, identifier: &str) -> CompilerError {
         CompilerError {
             span: span.clone(),
             reason: CompilerErrorReason::ReferenceError {
-                identifier: identifier.clone(),
+                identifier: identifier.to_string(),
             },
         }
     }
@@ -103,11 +103,11 @@ impl CompilerError {
         }
     }
 
-    pub fn assignment_to_immutable_variable(span: &Span, identifier: &String) -> CompilerError {
+    pub fn assignment_to_immutable_variable(span: &Span, identifier: &str) -> CompilerError {
         CompilerError {
             span: span.clone(),
             reason: CompilerErrorReason::AssignmentToImmutableVariable {
-                identifier: identifier.clone(),
+                identifier: identifier.to_string(),
             },
         }
     }
@@ -144,11 +144,11 @@ impl CompilerError {
         }
     }
 
-    pub fn no_field_on_type(span: &Span, field: &String, type_: &TypeSymbol) -> CompilerError {
+    pub fn no_field_on_type(span: &Span, field: &str, type_: &TypeSymbol) -> CompilerError {
         CompilerError {
             span: span.clone(),
             reason: CompilerErrorReason::NoFieldOnType {
-                field: field.clone(),
+                field: field.to_string(),
                 type_: type_.clone(),
             },
         }
@@ -161,21 +161,21 @@ impl CompilerError {
         }
     }
 
-    pub fn could_not_find_module(span: &Span, module_path: &String) -> CompilerError {
+    pub fn could_not_find_module(span: &Span, module_path: &str) -> CompilerError {
         CompilerError {
             span: span.clone(),
             reason: CompilerErrorReason::CouldNotFindModule {
-                path: module_path.clone(),
+                path: module_path.to_string(),
             },
         }
     }
 
-    pub fn invalid_import(span: &Span, import_path: &String, identifier: &String) -> CompilerError {
+    pub fn invalid_import(span: &Span, import_path: &str, identifier: &str) -> CompilerError {
         CompilerError {
             span: span.clone(),
             reason: CompilerErrorReason::InvalidImport {
-                import_path: import_path.clone(),
-                identifier: identifier.clone(),
+                import_path: import_path.to_string(),
+                identifier: identifier.to_string(),
             },
         }
     }
@@ -460,7 +460,7 @@ impl CompilerErrorReason {
     }
 }
 
-pub fn print_error_report<'a>(module_path: &String, errors: &Vec<CompilerError>) {
+pub fn print_error_report<'a>(module_path: &str, errors: &Vec<CompilerError>) {
     let src = std::fs::read_to_string(&module_path).unwrap_or(String::new());
     for error in errors {
         let report = Report::build(ReportKind::Error, module_path, error.span.start)
@@ -470,7 +470,7 @@ pub fn print_error_report<'a>(module_path: &String, errors: &Vec<CompilerError>)
 
         report
             .finish()
-            .eprint((module_path.clone(), Source::from(&src)))
+            .eprint((module_path.to_string(), Source::from(&src)))
             .unwrap();
     }
 }
