@@ -2,10 +2,8 @@ use core::fmt;
 
 use crate::{
     errors::CompilerError,
-    phases::shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier},
+    phases::shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier, Span},
 };
-
-pub type Span = std::ops::Range<usize>;
 
 pub struct Module {
     pub path: String,

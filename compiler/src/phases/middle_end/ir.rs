@@ -3,8 +3,8 @@ use core::fmt;
 use crate::{
     errors::CompilerError,
     phases::{
-        frontend::{self, ir::EnvironmentType, Span},
-        shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier},
+        frontend::{self, ir::EnvironmentType},
+        shared::{BinOp, PrefixUnaryOp, Span, Type, VisibilityModifier},
     },
 };
 

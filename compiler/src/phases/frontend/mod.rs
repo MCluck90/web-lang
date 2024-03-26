@@ -11,9 +11,9 @@ use std::{
 
 use crate::errors::{print_error_report, CompilerError};
 
-pub use self::ast::Span;
-
 use self::parser::ModuleParser;
+
+use super::shared::Span;
 
 pub fn run_frontend(file_path: &str) -> Result<(Program, bool), String> {
     Program::from_entry_point(file_path.to_string())

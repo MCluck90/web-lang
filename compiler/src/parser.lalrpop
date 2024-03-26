@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use crate::phases::frontend::ast::*;
-use crate::phases::shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier};
+use crate::phases::shared::{BinOp, PrefixUnaryOp, Span, Type, VisibilityModifier};
 
 grammar(module_path: &str);
 

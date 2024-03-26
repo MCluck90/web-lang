@@ -1,6 +1,8 @@
 use core::fmt;
 use std::collections::HashMap;
 
+pub type Span = std::ops::Range<usize>;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObjectType {
     pub key_to_type: HashMap<String, Box<Type>>,

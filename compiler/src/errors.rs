@@ -1,7 +1,7 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
 use crate::{
-    phases::{frontend::Span, shared::BinOp},
+    phases::shared::{BinOp, Span},
     types::symbol_table::TypeSymbol,
 };
 
