@@ -155,12 +155,16 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
             }
             if let Some(expr) = body.return_expression {
                 if let Some(value) = convert_expression(ctx, expr) {
-                    ctx.nodes.push(LoweredModuleASTNode::Return(value));
+                    ctx.nodes.push(LoweredModuleASTNode::Return(Some(value)));
                 };
             }
             ctx.scopes.pop();
 
             ctx.nodes.push(LoweredModuleASTNode::EndFunction);
+        }
+        StatementKind::Return(expr) => {
+            let return_value = expr.and_then(|expr| convert_expression(ctx, expr));
+            ctx.nodes.push(LoweredModuleASTNode::Return(return_value));
         }
         _ => {}
     };
@@ -335,7 +339,7 @@ pub enum LoweredModuleASTNode {
     EndDeclaredEnvironment,
     Assign(LValue, RValue),
     Statement(RValue),
-    Return(RValue),
+    Return(Option<RValue>),
 }
 
 #[cfg(test)]
@@ -624,10 +628,10 @@ mod tests {
         ));
         assert!(matches!(
             lowered_module.nodes.get(1),
-            Some(LoweredModuleASTNode::Return(RValue {
+            Some(LoweredModuleASTNode::Return(Some(RValue {
                 span: _,
                 kind: RValueKind::NamedValue(ValueId(1))
-            }))
+            })))
         ));
         assert!(matches!(
             lowered_module.nodes.get(2),
@@ -642,5 +646,45 @@ mod tests {
             }),
             symbol.declared_type
         );
+    }
+
+    #[test]
+    fn handles_return_statements() {
+        let module = create_module("fn noop() { return; }");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::StartFunction(_, _))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::Return(None))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::EndFunction)
+        ));
+
+        let module = create_module("fn get_5() { return 5; }");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::StartFunction(_, _))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::Return(Some(RValue {
+                span: _,
+                kind: RValueKind::Integer(5)
+            })))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::EndFunction)
+        ));
     }
 }
