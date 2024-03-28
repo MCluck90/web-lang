@@ -54,8 +54,7 @@ impl Program {
             module_by_path: HashMap::new(),
         };
 
-        while !module_paths.is_empty() {
-            let context = module_paths.pop().unwrap();
+        while let Some(context) = module_paths.pop() {
             let module_path = context.module_to_parse;
             let requester_path = context.module_who_imported;
             let import_span = context.span_of_import;

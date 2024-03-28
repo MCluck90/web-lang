@@ -5,6 +5,7 @@ use self::{name_resolution::resolve_names, type_checking::check_types};
 use super::frontend;
 
 pub mod ir;
+pub mod ir_v2;
 mod name_resolution;
 mod type_checking;
 
