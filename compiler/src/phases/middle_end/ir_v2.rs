@@ -41,17 +41,19 @@ struct Scope {
     values: HashMap<String, ValueId>,
 }
 
-fn find_value<'a>(scopes: &[Scope], name: &str) -> Option<ValueId> {
+impl Scope {
+    fn insert(&mut self, k: String, v: ValueId) {
+        self.values.insert(k, v);
+    }
+}
+
+fn find_value(scopes: &[Scope], name: &str) -> Option<ValueId> {
     for scope in scopes.iter().rev() {
         if let Some(id) = scope.values.get(name) {
             return Some(*id);
         }
     }
     None
-}
-
-fn set_scoped_value(scope: &mut Scope, name: String, id: ValueId) {
-    scope.values.insert(name, id);
 }
 
 struct LoweredModuleContext {
@@ -80,11 +82,10 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
                     type_depends_on: Vec::new(),
                 },
             );
-            set_scoped_value(
-                ctx.scopes.last_mut().unwrap(),
-                identifier.name.clone(),
-                value_id,
-            );
+            ctx.scopes
+                .last_mut()
+                .unwrap()
+                .insert(identifier.name.clone(), value_id);
 
             if let Some(rhs) = convert_expression(ctx, initializer) {
                 ctx.nodes
@@ -102,6 +103,64 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
             if let Some(r_value) = convert_expression(ctx, expr) {
                 ctx.nodes.push(LoweredModuleASTNode::Statement(r_value));
             }
+        }
+        StatementKind::FunctionDefinition {
+            name,
+            parameters,
+            return_type,
+            body,
+        } => {
+            let id = ctx.value_ids.get_next();
+            ctx.scopes.last_mut().unwrap().insert(name.name, id);
+
+            let mut function_scope = Scope::default();
+
+            let mut parameter_ids: Vec<ValueId> = Vec::new();
+            let mut parameter_types: Vec<Type> = Vec::new();
+            for param in parameters {
+                let param_id = ctx.value_ids.get_next();
+                function_scope.insert(param.identifier.name, param_id);
+                ctx.name_bindings.insert(
+                    param_id,
+                    Symbol {
+                        id: param_id,
+                        span: param.span,
+                        declared_type: Some(param.type_.clone()),
+                        type_depends_on: Vec::new(),
+                    },
+                );
+                parameter_ids.push(param_id);
+                parameter_types.push(param.type_);
+            }
+
+            ctx.name_bindings.insert(
+                id,
+                Symbol {
+                    id,
+                    span: stmt.span,
+                    declared_type: Some(Type::Function {
+                        parameters: parameter_types,
+                        return_type: Box::new(return_type),
+                    }),
+                    type_depends_on: Vec::new(),
+                },
+            );
+
+            ctx.nodes
+                .push(LoweredModuleASTNode::StartFunction(id, parameter_ids));
+
+            ctx.scopes.push(function_scope);
+            for stmt in body.statements {
+                convert_statement(ctx, stmt);
+            }
+            if let Some(expr) = body.return_expression {
+                if let Some(value) = convert_expression(ctx, expr) {
+                    ctx.nodes.push(LoweredModuleASTNode::Return(value));
+                };
+            }
+            ctx.scopes.pop();
+
+            ctx.nodes.push(LoweredModuleASTNode::EndFunction);
         }
         _ => {}
     };
@@ -276,6 +335,7 @@ pub enum LoweredModuleASTNode {
     EndDeclaredEnvironment,
     Assign(LValue, RValue),
     Statement(RValue),
+    Return(RValue),
 }
 
 #[cfg(test)]
@@ -515,5 +575,72 @@ mod tests {
             lowered_module.nodes.get(1),
             Some(LoweredModuleASTNode::EndDeclaredEnvironment)
         ));
+    }
+
+    #[test]
+    fn assigns_declared_type_for_variable_declarations() {
+        let module = create_module("let i: int = 1;");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        let symbol = lowered_module.name_bindings.get(&ValueId(0)).unwrap();
+        assert_eq!(symbol.declared_type, Some(Type::Int));
+    }
+
+    #[test]
+    fn flattens_empty_functions() {
+        let module = create_module("fn noop() {}");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::StartFunction(_, _))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::EndFunction)
+        ));
+
+        let symbol = lowered_module.name_bindings.get(&ValueId(0)).unwrap();
+        assert_eq!(
+            Some(Type::Function {
+                parameters: Vec::new(),
+                return_type: Box::new(Type::Void),
+            }),
+            symbol.declared_type
+        );
+    }
+
+    #[test]
+    fn flattens_identity_function() {
+        let module = create_module("fn id(n: int): int { n }");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::StartFunction(_, _))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::Return(RValue {
+                span: _,
+                kind: RValueKind::NamedValue(ValueId(1))
+            }))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::EndFunction)
+        ));
+
+        let symbol = lowered_module.name_bindings.get(&ValueId(0)).unwrap();
+        assert_eq!(
+            Some(Type::Function {
+                parameters: vec![Type::Int],
+                return_type: Box::new(Type::Int),
+            }),
+            symbol.declared_type
+        );
     }
 }
