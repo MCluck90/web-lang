@@ -176,7 +176,34 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
         StatementKind::Break => {
             ctx.nodes.push(LoweredModuleASTNode::Break);
         }
-        _ => {}
+        StatementKind::ForLoop {
+            initializer,
+            condition,
+            post_loop,
+            body,
+        } => {
+            ctx.scopes.push(Scope::default());
+            if let Some(stmt) = initializer {
+                convert_statement(ctx, *stmt);
+            }
+
+            ctx.nodes.push(LoweredModuleASTNode::StartLoop);
+            if let Some(condition) = condition.and_then(|expr| convert_expression(ctx, expr)) {
+                ctx.nodes.push(LoweredModuleASTNode::StartIf(condition));
+                ctx.nodes.push(LoweredModuleASTNode::Break);
+                ctx.nodes.push(LoweredModuleASTNode::EndIf);
+            }
+
+            for stmt in body {
+                convert_statement(ctx, stmt);
+            }
+
+            if let Some(expr) = post_loop {
+                convert_expression(ctx, expr);
+            }
+
+            ctx.nodes.push(LoweredModuleASTNode::EndLoop);
+        }
     };
 }
 
@@ -238,6 +265,35 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                     })
                 }
                 _ => None,
+            }
+        }
+        frontend::ir::ExpressionKind::PrefixUnaryOp(op, expr) => {
+            if let Some(expr) = convert_expression(ctx, *expr) {
+                let op = match op {
+                    crate::phases::shared::PrefixUnaryOp::Not => todo!(),
+                    crate::phases::shared::PrefixUnaryOp::Inc => BinOp::Add,
+                    crate::phases::shared::PrefixUnaryOp::Dec => BinOp::Sub,
+                };
+                match expr.kind {
+                    RValueKind::NamedValue(id) => {
+                        let r_value = RValue {
+                            span: expr.span.clone(),
+                            kind: RValueKind::BinOp(
+                                expr.to_terminal().unwrap(),
+                                op,
+                                RValueTerminal::Integer(1),
+                            ),
+                        };
+                        ctx.nodes.push(LoweredModuleASTNode::Assign(
+                            LValue::NamedValue(id),
+                            r_value.clone(),
+                        ));
+                        Some(r_value)
+                    }
+                    _ => None,
+                }
+            } else {
+                None
             }
         }
         _ => None,
@@ -353,6 +409,8 @@ pub enum LoweredModuleASTNode {
     EndDeclaredEnvironment,
     StartLoop,
     EndLoop,
+    StartIf(RValue),
+    EndIf,
 }
 
 #[cfg(test)]
@@ -725,6 +783,79 @@ mod tests {
         assert!(matches!(
             lowered_module.nodes.get(3),
             Some(LoweredModuleASTNode::EndLoop)
+        ));
+    }
+
+    #[test]
+    fn handles_for_loops() {
+        let module = create_module("for (let i = 0; i < 10; ++i) {}");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::VariableDeclaration(ValueId(0)))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::Assign(
+                LValue::NamedValue(ValueId(0)),
+                RValue {
+                    span: _,
+                    kind: RValueKind::Integer(0)
+                }
+            ))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::StartLoop)
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(3),
+            Some(LoweredModuleASTNode::VariableDeclaration(_))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(4),
+            Some(LoweredModuleASTNode::Assign(
+                LValue::NamedValue(ValueId(1)),
+                RValue {
+                    span: _,
+                    kind: RValueKind::BinOp(
+                        RValueTerminal::NamedValue(ValueId(0)),
+                        BinOp::Lt,
+                        RValueTerminal::Integer(10)
+                    )
+                }
+            ))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(5),
+            Some(LoweredModuleASTNode::StartIf(RValue {
+                span: _,
+                kind: RValueKind::NamedValue(ValueId(1))
+            }))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(6),
+            Some(LoweredModuleASTNode::Break)
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(7),
+            Some(LoweredModuleASTNode::EndIf)
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(8),
+            Some(LoweredModuleASTNode::Assign(
+                LValue::NamedValue(ValueId(0)),
+                RValue {
+                    span: _,
+                    kind: RValueKind::BinOp(
+                        RValueTerminal::NamedValue(ValueId(0)),
+                        BinOp::Add,
+                        RValueTerminal::Integer(1)
+                    )
+                }
+            ))
         ));
     }
 }
