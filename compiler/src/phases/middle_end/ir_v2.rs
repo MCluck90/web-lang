@@ -68,7 +68,7 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
             is_mutable: _,
             type_,
             identifier,
-            initializer: _,
+            initializer,
         } => {
             let value_id = ctx.value_ids.get_next();
             ctx.name_bindings.insert(
@@ -87,47 +87,49 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
             );
             ctx.nodes
                 .push(LoweredModuleASTNode::VariableDeclaration(value_id));
+
+            if let Some(rhs) = convert_expression(ctx, initializer) {
+                ctx.nodes.push(LoweredModuleASTNode::Assign(
+                    LValue::NamedValue(value_id),
+                    rhs,
+                ));
+            }
         }
         StatementKind::Expression(expr) => {
-            convert_expression(ctx, expr);
+            if let Some(r_value) = convert_expression(ctx, expr) {
+                ctx.nodes.push(LoweredModuleASTNode::Statement(r_value));
+            }
         }
         _ => {}
     };
 }
 
-fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) {
+fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Option<RValue> {
     match expr.kind {
-        frontend::ir::ExpressionKind::Boolean(b) => {
-            ctx.nodes.push(LoweredModuleASTNode::Statement(RValue {
-                span: expr.span,
-                kind: RValueKind::Bool(b),
-            }));
-        }
-        frontend::ir::ExpressionKind::Integer(n) => {
-            ctx.nodes.push(LoweredModuleASTNode::Statement(RValue {
-                span: expr.span,
-                kind: RValueKind::Integer(n),
-            }));
-        }
-        frontend::ir::ExpressionKind::String(s) => {
-            ctx.nodes.push(LoweredModuleASTNode::Statement(RValue {
-                span: expr.span,
-                kind: RValueKind::String(s),
-            }));
-        }
-        frontend::ir::ExpressionKind::Identifier(id) => match find_value(&ctx.scopes, &id.name) {
-            Some(value_id) => {
-                ctx.nodes.push(LoweredModuleASTNode::Statement(RValue {
-                    span: id.span,
-                    kind: RValueKind::NamedValue(value_id),
-                }));
-            }
-            None => ctx
-                .errors
-                .push(CompilerError::reference_error(&id.span, &id.name)),
-        },
-        _ => {}
-    };
+        frontend::ir::ExpressionKind::Boolean(b) => Some(RValue {
+            span: expr.span,
+            kind: RValueKind::Bool(b),
+        }),
+        frontend::ir::ExpressionKind::Integer(n) => Some(RValue {
+            span: expr.span,
+            kind: RValueKind::Integer(n),
+        }),
+        frontend::ir::ExpressionKind::String(s) => Some(RValue {
+            span: expr.span,
+            kind: RValueKind::String(s),
+        }),
+        frontend::ir::ExpressionKind::Identifier(id) => find_value(&ctx.scopes, &id.name)
+            .map(|value_id| RValue {
+                span: id.span,
+                kind: RValueKind::NamedValue(value_id),
+            })
+            .or_else(|| {
+                ctx.errors
+                    .push(CompilerError::reference_error(&expr.span, &id.name));
+                None
+            }),
+        _ => None,
+    }
 }
 
 impl From<frontend::ir::Module> for LoweredModule {
@@ -155,7 +157,6 @@ impl From<frontend::ir::Module> for LoweredModule {
                     ctx.nodes.push(LoweredModuleASTNode::EndDeclaredEnvironment);
                 }
                 ModuleItemKind::Statement(stmt) => convert_statement(&mut ctx, stmt),
-                _ => {}
             }
         }
 
@@ -177,14 +178,14 @@ pub struct Symbol {
     type_depends_on: Vec<ValueId>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LValue {
     NamedValue(ValueId),
     Property(ValueId, String),
     ArrayAccess(ValueId, ValueId),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RValueTerminal {
     NamedValue(ValueId),
     Integer(i32),
@@ -192,7 +193,7 @@ pub enum RValueTerminal {
     Bool(bool),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RValue {
     span: Span,
     kind: RValueKind,
@@ -204,7 +205,7 @@ impl RValue {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RValueKind {
     NamedValue(ValueId),
     Integer(i32),
@@ -296,6 +297,36 @@ mod tests {
         assert_eq!(lowered_module.errors.len(), 0);
 
         assert!(lowered_module.name_bindings.contains_key(&ValueId(0)));
+    }
+
+    #[test]
+    fn turns_var_declarations_in_to_assignments() {
+        let module = create_module("let id = 32;");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        let value_id = match lowered_module.nodes.get(0).unwrap() {
+            LoweredModuleASTNode::VariableDeclaration(value_id) => value_id,
+            _ => {
+                panic!(
+                    "Expected to find a variable declaration, found {:?}",
+                    lowered_module.nodes.get(0).unwrap()
+                );
+            }
+        };
+
+        match lowered_module.nodes.get(1).unwrap() {
+            LoweredModuleASTNode::Assign(LValue::NamedValue(lhs), rhs) => {
+                assert_eq!(value_id, lhs);
+                assert_eq!(rhs.kind, RValueKind::Integer(32));
+            }
+            _ => {
+                panic!(
+                    "Expected an assignment, found {:?}",
+                    lowered_module.nodes.get(1).unwrap()
+                );
+            }
+        }
     }
 
     #[test]
