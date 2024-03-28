@@ -85,14 +85,17 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
                 identifier.name.clone(),
                 value_id,
             );
-            ctx.nodes
-                .push(LoweredModuleASTNode::VariableDeclaration(value_id));
 
             if let Some(rhs) = convert_expression(ctx, initializer) {
+                ctx.nodes
+                    .push(LoweredModuleASTNode::VariableDeclaration(value_id));
                 ctx.nodes.push(LoweredModuleASTNode::Assign(
                     LValue::NamedValue(value_id),
                     rhs,
                 ));
+            } else {
+                ctx.nodes
+                    .push(LoweredModuleASTNode::VariableDeclaration(value_id));
             }
         }
         StatementKind::Expression(expr) => {
@@ -128,6 +131,42 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                     .push(CompilerError::reference_error(&expr.span, &id.name));
                 None
             }),
+        frontend::ir::ExpressionKind::BinaryOp(lhs, op, rhs) => {
+            match (
+                convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()),
+                convert_expression(ctx, *rhs).and_then(|rhs| rhs.to_terminal()),
+            ) {
+                (Some(lhs), Some(rhs)) => {
+                    let value_id = ctx.value_ids.get_next();
+                    ctx.name_bindings.insert(
+                        value_id,
+                        Symbol {
+                            id: value_id,
+                            span: expr.span.clone(),
+                            declared_type: None,
+                            type_depends_on: Vec::new(),
+                        },
+                    );
+
+                    ctx.nodes
+                        .push(LoweredModuleASTNode::VariableDeclaration(value_id));
+
+                    ctx.nodes.push(LoweredModuleASTNode::Assign(
+                        LValue::NamedValue(value_id),
+                        RValue {
+                            span: expr.span.clone(),
+                            kind: RValueKind::BinOp(lhs, op, rhs),
+                        },
+                    ));
+
+                    Some(RValue {
+                        span: expr.span,
+                        kind: RValueKind::NamedValue(value_id),
+                    })
+                }
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -202,6 +241,18 @@ pub struct RValue {
 impl RValue {
     fn new(span: Span, kind: RValueKind) -> Self {
         Self { span, kind }
+    }
+
+    fn to_terminal(self) -> Option<RValueTerminal> {
+        match self.kind {
+            RValueKind::NamedValue(id) => Some(RValueTerminal::NamedValue(id)),
+            RValueKind::Integer(n) => Some(RValueTerminal::Integer(n)),
+            RValueKind::String(s) => Some(RValueTerminal::String(s)),
+            RValueKind::Bool(b) => Some(RValueTerminal::Bool(b)),
+            RValueKind::MethodCall(_, _) => None,
+            RValueKind::FnCall(_, _) => None,
+            RValueKind::BinOp(_, _, _) => None,
+        }
     }
 }
 
@@ -327,6 +378,113 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn turns_complex_expressions_in_to_sequences_of_assignments() {
+        let module = create_module("1 + 2 * 3;");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        // let $tmp1 = 2 * 3;
+        // let $tmp2 = 1 + $tmp1;
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::VariableDeclaration(_,))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::Assign(
+                _,
+                RValue {
+                    span: _,
+                    kind: RValueKind::BinOp(
+                        RValueTerminal::Integer(2),
+                        BinOp::Mul,
+                        RValueTerminal::Integer(3)
+                    )
+                }
+            ))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::VariableDeclaration(_,))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(3),
+            Some(LoweredModuleASTNode::Assign(
+                _,
+                RValue {
+                    span: _,
+                    kind: RValueKind::BinOp(
+                        RValueTerminal::Integer(1),
+                        BinOp::Add,
+                        RValueTerminal::NamedValue(_)
+                    )
+                }
+            ))
+        ));
+    }
+
+    #[test]
+    fn handles_variable_declarations_with_complex_expressions() {
+        let module = create_module("let n = 1 + 2 * 3;");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        // let $tmp1 = 2 * 3;
+        // let $tmp2 = 1 + $tmp1;
+        // let n = $tmp2;
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::VariableDeclaration(_,))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::Assign(
+                _,
+                RValue {
+                    span: _,
+                    kind: RValueKind::BinOp(
+                        RValueTerminal::Integer(2),
+                        BinOp::Mul,
+                        RValueTerminal::Integer(3)
+                    )
+                }
+            ))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::VariableDeclaration(_,))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(3),
+            Some(LoweredModuleASTNode::Assign(
+                _,
+                RValue {
+                    span: _,
+                    kind: RValueKind::BinOp(
+                        RValueTerminal::Integer(1),
+                        BinOp::Add,
+                        RValueTerminal::NamedValue(_)
+                    )
+                }
+            ))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(4),
+            Some(LoweredModuleASTNode::VariableDeclaration(_,))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(5),
+            Some(LoweredModuleASTNode::Assign(
+                _,
+                RValue {
+                    span: _,
+                    kind: RValueKind::NamedValue(_),
+                }
+            ))
+        ));
     }
 
     #[test]
