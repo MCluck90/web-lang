@@ -173,6 +173,9 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
             }
             ctx.nodes.push(LoweredModuleASTNode::EndLoop);
         }
+        StatementKind::Break => {
+            ctx.nodes.push(LoweredModuleASTNode::Break);
+        }
         _ => {}
     };
 }
@@ -343,6 +346,7 @@ pub enum LoweredModuleASTNode {
     Assign(LValue, RValue),
     Statement(RValue),
     Return(Option<RValue>),
+    Break,
     StartFunction(ValueId, Vec<ValueId>),
     EndFunction,
     StartDeclaredEnvironment(Span, EnvironmentType),
@@ -699,7 +703,7 @@ mod tests {
 
     #[test]
     fn handles_loops() {
-        let module = create_module("loop { 1; }");
+        let module = create_module("loop { 1; break; }");
         let lowered_module = LoweredModule::from(module);
         assert_eq!(lowered_module.errors.len(), 0);
 
@@ -716,6 +720,10 @@ mod tests {
         ));
         assert!(matches!(
             lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::Break)
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(3),
             Some(LoweredModuleASTNode::EndLoop)
         ));
     }
