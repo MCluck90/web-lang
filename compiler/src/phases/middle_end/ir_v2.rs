@@ -166,6 +166,13 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
             let return_value = expr.and_then(|expr| convert_expression(ctx, expr));
             ctx.nodes.push(LoweredModuleASTNode::Return(return_value));
         }
+        StatementKind::Loop(body) => {
+            ctx.nodes.push(LoweredModuleASTNode::StartLoop);
+            for stmt in body {
+                convert_statement(ctx, stmt);
+            }
+            ctx.nodes.push(LoweredModuleASTNode::EndLoop);
+        }
         _ => {}
     };
 }
@@ -333,13 +340,15 @@ pub enum RValueKind {
 #[derive(Debug, PartialEq, Eq)]
 pub enum LoweredModuleASTNode {
     VariableDeclaration(ValueId),
+    Assign(LValue, RValue),
+    Statement(RValue),
+    Return(Option<RValue>),
     StartFunction(ValueId, Vec<ValueId>),
     EndFunction,
     StartDeclaredEnvironment(Span, EnvironmentType),
     EndDeclaredEnvironment,
-    Assign(LValue, RValue),
-    Statement(RValue),
-    Return(Option<RValue>),
+    StartLoop,
+    EndLoop,
 }
 
 #[cfg(test)]
@@ -685,6 +694,29 @@ mod tests {
         assert!(matches!(
             lowered_module.nodes.get(2),
             Some(LoweredModuleASTNode::EndFunction)
+        ));
+    }
+
+    #[test]
+    fn handles_loops() {
+        let module = create_module("loop { 1; }");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.get(0),
+            Some(LoweredModuleASTNode::StartLoop)
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(1),
+            Some(LoweredModuleASTNode::Statement(RValue {
+                span: _,
+                kind: RValueKind::Integer(1)
+            }))
+        ));
+        assert!(matches!(
+            lowered_module.nodes.get(2),
+            Some(LoweredModuleASTNode::EndLoop)
         ));
     }
 }
