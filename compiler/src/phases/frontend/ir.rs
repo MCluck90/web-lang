@@ -2,8 +2,7 @@ use crate::errors::CompilerError;
 
 pub use super::ast::{
     Block, EnvironmentType, Expression, ExpressionKind, Identifier, Import, ImportKind,
-    ImportSelector, ImportSelectorKind, ModuleItem, ModuleItemKind, Parameter, Statement,
-    StatementKind,
+    ImportSelector, ImportSelectorKind, ModuleItem, ModuleItemKind, Statement, StatementKind,
 };
 
 use super::ast;
