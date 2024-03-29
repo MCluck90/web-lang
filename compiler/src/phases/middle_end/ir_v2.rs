@@ -236,13 +236,12 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             if op == BinOp::Assign {
                 // Handle assigning to things other than variables
                 if let frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) = lhs.kind {
-                    let (lhs, rhs) = match (
-                        convert_expression(ctx, *lhs).to_terminal(),
-                        convert_expression(ctx, *rhs),
-                    ) {
-                        (Some(RValueTerminal::NamedValue(lhs)), Some(rhs)) => (lhs, rhs),
+                    let lhs = convert_expression(ctx, *lhs).to_terminal()?;
+                    let lhs = match lhs {
+                        RValueTerminal::NamedValue(lhs) => lhs,
                         _ => return None,
                     };
+                    let rhs = convert_expression(ctx, *rhs)?;
 
                     ctx.nodes.push(LoweredModuleAstNode::Assign(
                         LValue::Property(lhs, prop.name.clone()),
@@ -250,6 +249,21 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                     ));
 
                     return Some(RValue::property_access(expr.span, lhs, prop.name));
+                } else if let frontend::ir::ExpressionKind::ArrayAccess(lhs, index) = lhs.kind {
+                    let lhs = convert_expression(ctx, *lhs).to_terminal()?;
+                    let lhs = match lhs {
+                        RValueTerminal::NamedValue(lhs) => lhs,
+                        _ => return None,
+                    };
+                    let index = convert_expression(ctx, *index).to_terminal()?;
+                    let rhs = convert_expression(ctx, *rhs)?;
+
+                    ctx.nodes.push(LoweredModuleAstNode::Assign(
+                        LValue::ListAccess(lhs, index.clone()),
+                        rhs,
+                    ));
+
+                    return Some(RValue::list_access(expr.span, lhs, index));
                 }
             }
 
@@ -398,6 +412,26 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                 Some(RValue::named_value(expr.span, value_id))
             }
         }
+        frontend::ir::ExpressionKind::ArrayAccess(lhs, index) => {
+            match (
+                convert_expression(ctx, *lhs).to_terminal(),
+                convert_expression(ctx, *index).to_terminal(),
+            ) {
+                (Some(RValueTerminal::NamedValue(lhs)), Some(index)) => {
+                    let value_id = ctx.value_ids.get_next();
+                    ctx.nodes
+                        .push(LoweredModuleAstNode::VariableDeclaration(value_id));
+
+                    ctx.nodes.push(LoweredModuleAstNode::Assign(
+                        LValue::NamedValue(value_id),
+                        RValue::list_access(expr.span.clone(), lhs, index),
+                    ));
+
+                    Some(RValue::named_value(expr.span, value_id))
+                }
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -451,7 +485,7 @@ pub struct Symbol {
 pub enum LValue {
     NamedValue(ValueId),
     Property(ValueId, String),
-    ArrayAccess(ValueId, ValueId),
+    ListAccess(ValueId, RValueTerminal),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -533,6 +567,13 @@ impl RValue {
         }
     }
 
+    fn list_access(span: Span, lhs: ValueId, index: RValueTerminal) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::ListAccess(lhs, index),
+        }
+    }
+
     fn to_terminal(self) -> Option<RValueTerminal> {
         match self.kind {
             RValueKind::NamedValue(id) => Some(RValueTerminal::NamedValue(id)),
@@ -540,7 +581,8 @@ impl RValue {
             RValueKind::String(s) => Some(RValueTerminal::String(s)),
             RValueKind::Bool(b) => Some(RValueTerminal::Bool(b)),
             RValueKind::List(items) => Some(RValueTerminal::List(items)),
-            RValueKind::PropertyAccess(_, _)
+            RValueKind::ListAccess(_, _)
+            | RValueKind::PropertyAccess(_, _)
             | RValueKind::MethodCall(_, _, _)
             | RValueKind::FnCall(_, _)
             | RValueKind::BinOp(_, _, _) => None,
@@ -567,6 +609,7 @@ pub enum RValueKind {
     Bool(bool),
     List(Vec<RValueTerminal>),
     PropertyAccess(ValueId, String),
+    ListAccess(ValueId, RValueTerminal),
     MethodCall(ValueId, String, Vec<RValueTerminal>),
     FnCall(ValueId, Vec<RValueTerminal>),
     BinOp(RValueTerminal, BinOp, RValueTerminal),
@@ -720,7 +763,7 @@ mod tests {
     }
 
     mod assert_l_value {
-        use super::{LValue, ValueId};
+        use super::{LValue, RValueTerminal, ValueId};
 
         pub fn is_named_value(l_value: LValue) -> ValueId {
             match l_value {
@@ -740,6 +783,13 @@ mod tests {
             match l_value {
                 LValue::Property(id, prop) => (id, prop),
                 _ => panic!("Expected a property access, found {:?}", l_value),
+            }
+        }
+
+        pub fn is_list_access(l_value: LValue) -> (ValueId, RValueTerminal) {
+            match l_value {
+                LValue::ListAccess(id, index) => (id, index),
+                _ => panic!("Expected a list access, found {:?}", l_value),
             }
         }
     }
@@ -800,6 +850,13 @@ mod tests {
             match r_value.kind {
                 RValueKind::PropertyAccess(lhs, rhs) => (lhs, rhs),
                 _ => panic!("Expected a property access, found {:?}", r_value.kind),
+            }
+        }
+
+        pub fn is_list_access(r_value: RValue) -> (ValueId, RValueTerminal) {
+            match r_value.kind {
+                RValueKind::ListAccess(id, index) => (id, index),
+                _ => panic!("Expected a list access, found {:?}", r_value.kind),
             }
         }
 
@@ -1249,5 +1306,59 @@ mod tests {
         assert_eq!(id, ValueId(0));
         assert_eq!(prop, "b");
         assert_r_value::is_integer_with_value(rhs, 1);
+    }
+
+    #[test]
+    fn can_access_list_items() {
+        let mut module = create_module("let a = [1, 2, 3]; a[2];");
+        assert_eq!(module.errors.len(), 0);
+
+        // let a
+        assert_node::is_variable_declaration_with_id(module.nodes.remove(0), 0);
+
+        // a = [1]
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, 0);
+        let list = assert_r_value::is_list(rhs);
+        assert_eq!(
+            list,
+            vec![
+                RValueTerminal::Integer(1),
+                RValueTerminal::Integer(2),
+                RValueTerminal::Integer(3)
+            ]
+        );
+
+        // let $tmp
+        assert_node::is_variable_declaration_with_id(module.nodes.remove(0), 1);
+
+        // $tmp = a[0]
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, 1);
+        let (lhs, index) = assert_r_value::is_list_access(rhs);
+        assert_eq!(lhs, ValueId(0));
+        assert_r_value_terminal::is_integer_with_value(index, 2);
+    }
+
+    #[test]
+    fn can_assign_to_list_indices() {
+        let mut module = create_module("let a = [1]; a[0] = 2;");
+        assert_eq!(module.errors.len(), 0);
+
+        // let a
+        assert_node::is_variable_declaration_with_id(module.nodes.remove(0), 0);
+
+        // a = [1]
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, 0);
+        let list = assert_r_value::is_list(rhs);
+        assert_eq!(list, vec![RValueTerminal::Integer(1)]);
+
+        // a[0] = 2
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        let (id, index) = assert_l_value::is_list_access(lhs);
+        assert_eq!(id, ValueId(0));
+        assert_r_value_terminal::is_integer_with_value(index, 0);
+        assert_r_value::is_integer_with_value(rhs, 2);
     }
 }
