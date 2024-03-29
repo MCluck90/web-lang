@@ -754,15 +754,6 @@ mod tests {
             }
         }
 
-        pub fn is_variable_declaration_with_id(node: MirInstruction, id: usize) {
-            match node {
-                MirInstruction::VariableDeclaration(ValueId(actual_id)) => {
-                    assert_eq!(actual_id, id)
-                }
-                _ => panic!("Expected a variable declaration, found {:?}", node),
-            }
-        }
-
         pub fn is_assignment(node: MirInstruction) -> (LValue, RValue) {
             match node {
                 MirInstruction::Assign(lhs, rhs) => (lhs, rhs),
@@ -882,9 +873,9 @@ mod tests {
             }
         }
 
-        pub fn is_named_value_with_id(l_value: LValue, id: usize) {
+        pub fn is_named_value_with_id(l_value: LValue, id: ValueId) {
             match l_value {
-                LValue::NamedValue(actual_id) => assert_eq!(actual_id, ValueId(id)),
+                LValue::NamedValue(actual_id) => assert_eq!(actual_id, id),
                 _ => panic!("Expected a named value, found {:?}", l_value),
             }
         }
@@ -942,9 +933,9 @@ mod tests {
             }
         }
 
-        pub fn is_named_value_with_id(r_value: RValue, id: usize) {
+        pub fn is_named_value_with_id(r_value: RValue, id: ValueId) {
             match r_value.kind {
-                RValueKind::NamedValue(ValueId(actual_id)) => assert_eq!(actual_id, id),
+                RValueKind::NamedValue(actual_id) => assert_eq!(actual_id, id),
                 _ => panic!("Expected a named value, found {:?}", r_value.kind),
             }
         }
@@ -1002,9 +993,9 @@ mod tests {
             }
         }
 
-        pub fn is_named_value_with_id(term: RValueTerminal, id: usize) {
+        pub fn is_named_value_with_id(term: RValueTerminal, id: ValueId) {
             match term {
-                RValueTerminal::NamedValue(ValueId(actual_id)) => assert_eq!(id, actual_id),
+                RValueTerminal::NamedValue(actual_id) => assert_eq!(id, actual_id),
                 _ => panic!("Expected a named value, found {:?}", term),
             }
         }
@@ -1268,35 +1259,35 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
 
         // initializer
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 0);
+        let i_id = assert_inst::is_variable_declaration(module.insts.remove(0));
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_l_value::is_named_value_with_id(lhs, i_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // begin loop
         assert_inst::is_start_loop(module.insts.remove(0));
 
         // condition
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 1);
+        let condition_id = assert_inst::is_variable_declaration(module.insts.remove(0));
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 1);
+        assert_l_value::is_named_value_with_id(lhs, condition_id);
 
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
-        assert_r_value_terminal::is_named_value_with_id(lhs, 0);
+        assert_r_value_terminal::is_named_value_with_id(lhs, i_id);
         assert_eq!(op, BinOp::Lt);
         assert_r_value_terminal::is_integer_with_value(rhs, 10);
 
         // check the condition
         let condition = assert_inst::is_start_if(module.insts.remove(0));
-        assert_r_value::is_named_value_with_id(condition, 1);
+        assert_r_value::is_named_value_with_id(condition, condition_id);
         assert_inst::is_break(module.insts.remove(0));
         assert_inst::is_end_if(module.insts.remove(0));
 
         // post body
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_l_value::is_named_value_with_id(lhs, i_id);
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
-        assert_r_value_terminal::is_named_value_with_id(lhs, 0);
+        assert_r_value_terminal::is_named_value_with_id(lhs, i_id);
         assert_eq!(op, BinOp::Add);
         assert_r_value_terminal::is_integer_with_value(rhs, 1);
         assert_inst::is_end_loop(module.insts.remove(0));
@@ -1336,26 +1327,26 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
 
         // let a
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 0);
+        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // a = 0
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // let $tmp0
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 1);
+        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // $tmp0 = a.b;
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 1);
+        assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, rhs) = assert_r_value::is_property_access(rhs);
         assert_eq!(lhs, ValueId(0));
         assert_eq!(rhs, "b");
 
         // $tmp0;
         let value = assert_inst::is_statement(module.insts.remove(0));
-        assert_r_value::is_named_value_with_id(value, 1);
+        assert_r_value::is_named_value_with_id(value, tmp_id);
     }
 
     #[test]
@@ -1381,9 +1372,9 @@ mod tests {
         // let $tmp;
         // $tmp = noop(10);
         // $tmp;
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 1);
+        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 1);
+        assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (id, args) = assert_r_value::is_fn_call(rhs);
         assert_eq!(id, ValueId(0));
         assert_eq!(args, vec![RValueTerminal::Integer(10)]);
@@ -1395,19 +1386,19 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
 
         // let a
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 0);
+        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // a = 0
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // let $tmp0
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 1);
+        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // $tmp0 = a.to-vector(2)
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 1);
+        assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, name, args) = assert_r_value::is_method_call(rhs);
         assert_eq!(lhs, ValueId(0));
         assert_eq!(name, "to-vector");
@@ -1415,7 +1406,7 @@ mod tests {
 
         // $tmp0;
         let stmt = assert_inst::is_statement(module.insts.remove(0));
-        assert_r_value::is_named_value_with_id(stmt, 1);
+        assert_r_value::is_named_value_with_id(stmt, tmp_id);
     }
 
     #[test]
@@ -1424,11 +1415,11 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
 
         // let a
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 0);
+        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // a = 0
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // a.b = 1
@@ -1445,11 +1436,11 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
 
         // let a
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 0);
+        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // a = [1]
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
         let list = assert_r_value::is_list(rhs);
         assert_eq!(
             list,
@@ -1461,11 +1452,11 @@ mod tests {
         );
 
         // let $tmp
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 1);
+        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // $tmp = a[0]
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 1);
+        assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, index) = assert_r_value::is_list_access(rhs);
         assert_eq!(lhs, ValueId(0));
         assert_r_value_terminal::is_integer_with_value(index, 2);
@@ -1477,11 +1468,11 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
 
         // let a
-        assert_inst::is_variable_declaration_with_id(module.insts.remove(0), 0);
+        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
 
         // a = [1]
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
         let list = assert_r_value::is_list(rhs);
         assert_eq!(list, vec![RValueTerminal::Integer(1)]);
 
@@ -1511,12 +1502,12 @@ mod tests {
 
         // a = true
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, a_id.0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
         // a
         let block_result = assert_inst::is_statement(module.insts.remove(0));
-        assert_r_value::is_named_value_with_id(block_result, a_id.0);
+        assert_r_value::is_named_value_with_id(block_result, a_id);
 
         /* Assigns simple result to variable */
         let mut module = create_module("let a = { true };");
@@ -1527,7 +1518,7 @@ mod tests {
 
         // a = true
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, a_id.0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
         /* Assigns a named value to the result of a block */
@@ -1539,7 +1530,7 @@ mod tests {
 
         // b = true
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, b_id.0);
+        assert_l_value::is_named_value_with_id(lhs, b_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
         // let a
@@ -1547,8 +1538,8 @@ mod tests {
 
         // a = b
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, a_id.0);
-        assert_r_value::is_named_value_with_id(rhs, b_id.0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
+        assert_r_value::is_named_value_with_id(rhs, b_id);
     }
 
     #[test]
@@ -1594,7 +1585,7 @@ mod tests {
 
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
-        assert_l_value::is_named_value_with_id(lhs, a_id.0);
-        assert_r_value::is_named_value_with_id(rhs, js_block_id.0);
+        assert_l_value::is_named_value_with_id(lhs, a_id);
+        assert_r_value::is_named_value_with_id(rhs, js_block_id);
     }
 }
