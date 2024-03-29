@@ -216,7 +216,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
         frontend::ir::ExpressionKind::List(items) => {
             let mut r_value_items = Vec::new();
             for item in items {
-                if let Some(item) = convert_expression(ctx, item).and_then(|i| i.to_terminal()) {
+                if let Some(item) = convert_expression(ctx, item).to_terminal() {
                     r_value_items.push(item);
                 } else {
                     return None;
@@ -237,7 +237,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                 // Handle assigning to things other than variables
                 if let frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) = lhs.kind {
                     let (lhs, rhs) = match (
-                        convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()),
+                        convert_expression(ctx, *lhs).to_terminal(),
                         convert_expression(ctx, *rhs),
                     ) {
                         (Some(RValueTerminal::NamedValue(lhs)), Some(rhs)) => (lhs, rhs),
@@ -254,8 +254,8 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             }
 
             match (
-                convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()),
-                convert_expression(ctx, *rhs).and_then(|rhs| rhs.to_terminal()),
+                convert_expression(ctx, *lhs).to_terminal(),
+                convert_expression(ctx, *rhs).to_terminal(),
             ) {
                 (Some(lhs), Some(rhs)) => {
                     let value_id = ctx.value_ids.get_next();
@@ -324,7 +324,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             }
         }
         frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) => {
-            let lhs = match convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()) {
+            let lhs = match convert_expression(ctx, *lhs).to_terminal() {
                 Some(RValueTerminal::NamedValue(lhs)) => lhs,
                 Some(_) => unreachable!(),
                 None => return None,
@@ -343,7 +343,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
         }
         frontend::ir::ExpressionKind::FunctionCall { callee, arguments } => {
             if let frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) = callee.kind {
-                let lhs = match convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()) {
+                let lhs = match convert_expression(ctx, *lhs).to_terminal() {
                     Some(RValueTerminal::NamedValue(lhs)) => lhs,
                     Some(_) => unreachable!(),
                     None => return None,
@@ -351,7 +351,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
 
                 let mut args = Vec::new();
                 for arg in arguments {
-                    let arg = match convert_expression(ctx, arg).and_then(|arg| arg.to_terminal()) {
+                    let arg = match convert_expression(ctx, arg).to_terminal() {
                         Some(arg) => arg,
                         None => return None,
                     };
@@ -370,7 +370,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
 
                 Some(RValue::named_value(expr.span, result_value_id))
             } else {
-                let lhs = match convert_expression(ctx, *callee).and_then(|lhs| lhs.to_terminal()) {
+                let lhs = match convert_expression(ctx, *callee).to_terminal() {
                     Some(RValueTerminal::NamedValue(lhs)) => lhs,
                     Some(_) => unreachable!(),
                     None => return None,
@@ -378,7 +378,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
 
                 let mut args = Vec::new();
                 for arg in arguments {
-                    let arg = match convert_expression(ctx, arg).and_then(|arg| arg.to_terminal()) {
+                    let arg = match convert_expression(ctx, arg).to_terminal() {
                         Some(arg) => arg,
                         None => return None,
                     };
@@ -545,6 +545,17 @@ impl RValue {
             | RValueKind::FnCall(_, _)
             | RValueKind::BinOp(_, _, _) => None,
         }
+    }
+}
+
+// Just a little bit of sugar to smooth over the mapping
+trait OptionRValueToTerminal {
+    fn to_terminal(self) -> Option<RValueTerminal>;
+}
+
+impl OptionRValueToTerminal for Option<RValue> {
+    fn to_terminal(self) -> Option<RValueTerminal> {
+        self.and_then(|r| r.to_terminal())
     }
 }
 
