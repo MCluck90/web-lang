@@ -308,7 +308,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             let lhs = match convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()) {
                 Some(RValueTerminal::NamedValue(lhs)) => lhs,
                 Some(_) => unreachable!(),
-                _ => return None,
+                None => return None,
             };
 
             let value_id = ctx.value_ids.get_next();
@@ -318,6 +318,34 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             ctx.nodes.push(LoweredModuleASTNode::Assign(
                 LValue::NamedValue(value_id),
                 RValue::property_access(expr.span.clone(), lhs, prop.name),
+            ));
+
+            Some(RValue::named_value(expr.span, value_id))
+        }
+        frontend::ir::ExpressionKind::FunctionCall { callee, arguments } => {
+            let lhs = match convert_expression(ctx, *callee).and_then(|lhs| lhs.to_terminal()) {
+                Some(RValueTerminal::NamedValue(lhs)) => lhs,
+                Some(_) => unreachable!(),
+                None => return None,
+            };
+
+            let mut args = Vec::new();
+            for arg in arguments {
+                let arg = match convert_expression(ctx, arg).and_then(|arg| arg.to_terminal()) {
+                    Some(arg) => arg,
+                    None => return None,
+                };
+
+                args.push(arg);
+            }
+
+            let value_id = ctx.value_ids.get_next();
+            ctx.nodes
+                .push(LoweredModuleASTNode::VariableDeclaration(value_id));
+
+            ctx.nodes.push(LoweredModuleASTNode::Assign(
+                LValue::NamedValue(value_id),
+                RValue::fn_call(expr.span.clone(), lhs, args),
             ));
 
             Some(RValue::named_value(expr.span, value_id))
@@ -429,10 +457,10 @@ impl RValue {
         }
     }
 
-    fn method_call(span: Span, lhs: LValue, args: Vec<RValueTerminal>) -> Self {
+    fn method_call(span: Span, lhs: ValueId, name: String, args: Vec<RValueTerminal>) -> Self {
         RValue {
             span,
-            kind: RValueKind::MethodCall(lhs, args),
+            kind: RValueKind::MethodCall(lhs, name, args),
         }
     }
 
@@ -465,7 +493,7 @@ impl RValue {
             RValueKind::Bool(b) => Some(RValueTerminal::Bool(b)),
             RValueKind::List(items) => Some(RValueTerminal::List(items)),
             RValueKind::PropertyAccess(_, _)
-            | RValueKind::MethodCall(_, _)
+            | RValueKind::MethodCall(_, _, _)
             | RValueKind::FnCall(_, _)
             | RValueKind::BinOp(_, _, _) => None,
         }
@@ -480,7 +508,7 @@ pub enum RValueKind {
     Bool(bool),
     List(Vec<RValueTerminal>),
     PropertyAccess(ValueId, String),
-    MethodCall(LValue, Vec<RValueTerminal>),
+    MethodCall(ValueId, String, Vec<RValueTerminal>),
     FnCall(ValueId, Vec<RValueTerminal>),
     BinOp(RValueTerminal, BinOp, RValueTerminal),
 }
@@ -505,7 +533,10 @@ pub enum LoweredModuleASTNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{errors::CompilerErrorReason, phases::frontend::ir::Module};
+    use crate::{
+        errors::CompilerErrorReason,
+        phases::{frontend::ir::Module, middle_end::name_resolution},
+    };
 
     fn create_module(source: &str) -> Module {
         Module {
@@ -1000,11 +1031,6 @@ mod tests {
 
     #[test]
     fn handles_property_access() {
-        // let a;
-        // a = 0;
-        // let $tmp0;
-        // $tmp0 = a.b;
-        // $tmp0;
         let module = create_module("let a = 0; a.b;");
         let mut lowered_module = LoweredModule::from(module);
         assert_eq!(lowered_module.errors.len(), 0);
@@ -1067,4 +1093,113 @@ mod tests {
             CompilerError::reference_error(&Span { start: 0, end: 1 }, "a")
         );
     }
+
+    #[test]
+    fn handles_function_calls() {
+        let module = create_module("fn noop() {} noop(10);");
+        let mut lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::StartFunction(ValueId(0), _)
+        ));
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::EndFunction
+        ));
+
+        // let $tmp;
+        // $tmp = noop(10);
+        // $tmp;
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::VariableDeclaration(ValueId(1))
+        ));
+
+        let node = lowered_module.nodes.remove(0);
+        if let LoweredModuleASTNode::Assign(
+            LValue::NamedValue(ValueId(1)),
+            RValue {
+                span: _,
+                kind: RValueKind::FnCall(ValueId(0), args),
+            },
+        ) = node
+        {
+            assert_eq!(args.len(), 1);
+            assert_eq!(args.get(0).unwrap(), &RValueTerminal::Integer(10));
+        } else {
+            panic!("Expected a function call, found {:?}", node)
+        };
+    }
+
+    /*
+    #[test]
+    fn handles_method_calls() {
+        let module = create_module("let a = 0; a.to-vector(2);");
+        let mut lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        // let a
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::VariableDeclaration(ValueId(0))
+        ));
+
+        // a = 0
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::Assign(
+                LValue::NamedValue(ValueId(0)),
+                RValue {
+                    span: _,
+                    kind: RValueKind::Integer(0)
+                }
+            )
+        ));
+
+        // let $tmp0
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::VariableDeclaration(ValueId(1))
+        ));
+
+        // $tmp0 = a.to-vector(2)
+        let node = lowered_module.nodes.remove(0);
+        assert!(matches!(
+            node,
+            LoweredModuleASTNode::Assign(
+                LValue::NamedValue(ValueId(1)),
+                RValue {
+                    span: _,
+                    kind: RValueKind::MethodCall(ValueId(0), _, _)
+                }
+            )
+        ));
+
+        if let LoweredModuleASTNode::Assign(
+            _,
+            RValue {
+                span: _,
+                kind: RValueKind::MethodCall(_, name, args),
+            },
+        ) = node
+        {
+            assert_eq!(name, "to-vector");
+            assert_eq!(args.len(), 1);
+            assert_eq!(args.get(0).unwrap(), &RValueTerminal::Integer(2));
+        } else {
+            unreachable!();
+        }
+
+        // $tmp0;
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::Statement(RValue {
+                span: _,
+                kind: RValueKind::NamedValue(ValueId(1))
+            })
+        ));
+    }
+    */
 }
