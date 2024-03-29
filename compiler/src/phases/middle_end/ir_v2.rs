@@ -10,7 +10,7 @@ use crate::{
                 StatementKind,
             },
         },
-        shared::{BinOp, Span, Type},
+        shared::{BinOp, PrefixUnaryOp, Span, Type},
     },
 };
 
@@ -302,6 +302,26 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
             }
         }
         frontend::ir::ExpressionKind::PrefixUnaryOp(op, expr) => {
+            if op == PrefixUnaryOp::Not {
+                let span = expr.span.clone();
+                let expr = convert_expression(ctx, *expr)?;
+                // If we've reached a terminal, apply the negation.
+                // Otherwise, create a temporary then apply the negation
+                return match expr.clone().to_terminal() {
+                    Some(term) => Some(RValue::not(span, term)),
+                    None => {
+                        let value_id = ctx.value_ids.get_next();
+                        ctx.insts
+                            .push(MirInstruction::VariableDeclaration(value_id));
+                        ctx.insts
+                            .push(MirInstruction::Assign(LValue::NamedValue(value_id), expr));
+
+                        Some(RValue::not(span, RValueTerminal::NamedValue(value_id)))
+                    }
+                };
+            }
+
+            // Only allow named values to be incremented or decremented
             match expr.kind {
                 ExpressionKind::ArrayAccess(_, _)
                 | ExpressionKind::Identifier(_)
@@ -317,7 +337,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
 
             if let Some(expr) = convert_expression(ctx, *expr) {
                 let op = match op {
-                    crate::phases::shared::PrefixUnaryOp::Not => todo!(),
+                    crate::phases::shared::PrefixUnaryOp::Not => unreachable!(),
                     crate::phases::shared::PrefixUnaryOp::Inc => BinOp::Add,
                     crate::phases::shared::PrefixUnaryOp::Dec => BinOp::Sub,
                 };
@@ -602,6 +622,13 @@ impl RValue {
         }
     }
 
+    fn not(span: Span, term: RValueTerminal) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::Not(term),
+        }
+    }
+
     fn to_terminal(self) -> Option<RValueTerminal> {
         match self.kind {
             RValueKind::NamedValue(id) => Some(RValueTerminal::NamedValue(id)),
@@ -614,7 +641,8 @@ impl RValue {
             | RValueKind::PropertyAccess(_, _)
             | RValueKind::MethodCall(_, _, _)
             | RValueKind::FnCall(_, _)
-            | RValueKind::BinOp(_, _, _) => None,
+            | RValueKind::BinOp(_, _, _)
+            | RValueKind::Not(_) => None,
         }
     }
 }
@@ -643,6 +671,7 @@ pub enum RValueKind {
     MethodCall(ValueId, String, Vec<RValueTerminal>),
     FnCall(ValueId, Vec<RValueTerminal>),
     BinOp(RValueTerminal, BinOp, RValueTerminal),
+    Not(RValueTerminal),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -903,6 +932,13 @@ mod tests {
                 _ => panic!("Expected a method call, found {:?}", r_value.kind),
             }
         }
+
+        pub fn is_not(r_value: RValue) -> RValueTerminal {
+            match r_value.kind {
+                RValueKind::Not(operand) => operand,
+                _ => panic!("Expected a not operation, found {:?}", r_value.kind),
+            }
+        }
     }
 
     mod assert_r_value_terminal {
@@ -926,6 +962,13 @@ mod tests {
             match term {
                 RValueTerminal::Integer(n) => assert_eq!(n, value),
                 _ => panic!("Expected an integer, found {:?}", term),
+            }
+        }
+
+        pub fn is_boolean_with_value(term: RValueTerminal, value: bool) {
+            match term {
+                RValueTerminal::Bool(actual_value) => assert_eq!(actual_value, value),
+                _ => panic!("Expected a boolean, found {:?}", term),
             }
         }
     }
@@ -1448,5 +1491,15 @@ mod tests {
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
         assert_l_value::is_named_value_with_id(lhs, a_id.0);
         assert_r_value::is_named_value_with_id(rhs, b_id.0);
+    }
+
+    #[test]
+    fn can_negate_bools() {
+        let mut module = create_module("!true;");
+        assert_eq!(module.errors.len(), 0);
+
+        let r_value = assert_inst::is_statement(module.insts.remove(0));
+        let term = assert_r_value::is_not(r_value);
+        assert_r_value_terminal::is_boolean_with_value(term, true);
     }
 }
