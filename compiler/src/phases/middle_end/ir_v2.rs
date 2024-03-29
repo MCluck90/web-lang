@@ -3,12 +3,9 @@ use std::collections::HashMap;
 use crate::{
     errors::CompilerError,
     phases::{
-        frontend::{
-            self,
-            ir::{
-                EnvironmentType, Expression, ExpressionKind, ModuleItemKind, Statement,
-                StatementKind,
-            },
+        frontend::ir::{
+            EnvironmentType, Expression, ExpressionKind, Module, ModuleItemKind, Statement,
+            StatementKind,
         },
         shared::{BinOp, PrefixUnaryOp, Span, Type},
     },
@@ -245,10 +242,10 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
 
 fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RValue> {
     match expr.kind {
-        frontend::ir::ExpressionKind::Boolean(b) => Some(RValue::bool(expr.span, b)),
-        frontend::ir::ExpressionKind::Integer(n) => Some(RValue::integer(expr.span, n)),
-        frontend::ir::ExpressionKind::String(s) => Some(RValue::string(expr.span, s)),
-        frontend::ir::ExpressionKind::List(items) => {
+        ExpressionKind::Boolean(b) => Some(RValue::bool(expr.span, b)),
+        ExpressionKind::Integer(n) => Some(RValue::integer(expr.span, n)),
+        ExpressionKind::String(s) => Some(RValue::string(expr.span, s)),
+        ExpressionKind::List(items) => {
             let mut r_value_items = Vec::new();
             for item in items {
                 if let Some(item) = convert_expression(ctx, item).to_terminal() {
@@ -260,17 +257,17 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
 
             Some(RValue::list(expr.span, r_value_items))
         }
-        frontend::ir::ExpressionKind::Identifier(id) => find_value(&ctx.scopes, &id.name)
+        ExpressionKind::Identifier(id) => find_value(&ctx.scopes, &id.name)
             .map(|value_id| RValue::named_value(id.span, value_id))
             .or_else(|| {
                 ctx.errors
                     .push(CompilerError::reference_error(&expr.span, &id.name));
                 None
             }),
-        frontend::ir::ExpressionKind::BinaryOp(lhs, op, rhs) => {
+        ExpressionKind::BinaryOp(lhs, op, rhs) => {
             if op == BinOp::Assign {
                 // Handle assigning to things other than variables
-                if let frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) = lhs.kind {
+                if let ExpressionKind::PropertyAccess(lhs, prop) = lhs.kind {
                     let rhs = convert_expression(ctx, *rhs)?;
                     let lhs = convert_expression(ctx, *lhs).to_terminal()?;
                     let lhs = match lhs {
@@ -284,7 +281,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                     ));
 
                     return Some(RValue::property_access(expr.span, lhs, prop.name));
-                } else if let frontend::ir::ExpressionKind::ArrayAccess(lhs, index) = lhs.kind {
+                } else if let ExpressionKind::ArrayAccess(lhs, index) = lhs.kind {
                     let rhs = convert_expression(ctx, *rhs)?;
                     let index = convert_expression(ctx, *index).to_terminal()?;
                     let lhs = convert_expression(ctx, *lhs).to_terminal()?;
@@ -299,7 +296,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                     ));
 
                     return Some(RValue::list_access(expr.span, lhs, index));
-                } else if let frontend::ir::ExpressionKind::Identifier(lhs) = lhs.kind {
+                } else if let ExpressionKind::Identifier(lhs) = lhs.kind {
                     let rhs = convert_expression(ctx, *rhs)?;
                     let lhs = find_value(&ctx.scopes, &lhs.name)?;
 
@@ -330,7 +327,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 _ => None,
             }
         }
-        frontend::ir::ExpressionKind::PrefixUnaryOp(op, expr) => {
+        ExpressionKind::PrefixUnaryOp(op, expr) => {
             if op == PrefixUnaryOp::Not {
                 let span = expr.span.clone();
                 let expr = convert_expression(ctx, *expr)?;
@@ -392,7 +389,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 None
             }
         }
-        frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) => {
+        ExpressionKind::PropertyAccess(lhs, prop) => {
             let lhs = match convert_expression(ctx, *lhs).to_terminal() {
                 Some(RValueTerminal::NamedValue(lhs)) => lhs,
                 Some(_) => unreachable!(),
@@ -410,8 +407,8 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
 
             Some(RValue::named_value(expr.span, value_id))
         }
-        frontend::ir::ExpressionKind::FunctionCall { callee, arguments } => {
-            if let frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) = callee.kind {
+        ExpressionKind::FunctionCall { callee, arguments } => {
+            if let ExpressionKind::PropertyAccess(lhs, prop) = callee.kind {
                 let lhs = match convert_expression(ctx, *lhs).to_terminal() {
                     Some(RValueTerminal::NamedValue(lhs)) => lhs,
                     Some(_) => unreachable!(),
@@ -467,7 +464,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 Some(RValue::named_value(expr.span, value_id))
             }
         }
-        frontend::ir::ExpressionKind::ArrayAccess(lhs, index) => {
+        ExpressionKind::ArrayAccess(lhs, index) => {
             match (
                 convert_expression(ctx, *index).to_terminal(),
                 convert_expression(ctx, *lhs).to_terminal(),
@@ -488,7 +485,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 _ => None,
             }
         }
-        frontend::ir::ExpressionKind::Block(block) => {
+        ExpressionKind::Block(block) => {
             ctx.scopes.push(Scope::default());
             for stmt in block.statements {
                 convert_statement(ctx, stmt);
@@ -503,8 +500,8 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
 
             result
         }
-        frontend::ir::ExpressionKind::Parenthesized(expr) => convert_expression(ctx, *expr),
-        frontend::ir::ExpressionKind::JsBlock(type_, expressions_) => {
+        ExpressionKind::Parenthesized(expr) => convert_expression(ctx, *expr),
+        ExpressionKind::JsBlock(type_, expressions_) => {
             let value_id = ctx.create_value(expr.span.clone(), Some(type_));
 
             ctx.insts.push(MirInstruction::StartJsBlock(value_id));
@@ -520,7 +517,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
 
             Some(RValue::named_value(expr.span, value_id))
         }
-        frontend::ir::ExpressionKind::If {
+        ExpressionKind::If {
             condition,
             body,
             else_,
@@ -549,8 +546,8 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
     }
 }
 
-impl From<frontend::ir::Module> for MirModule {
-    fn from(module: frontend::ir::Module) -> Self {
+impl From<Module> for MirModule {
+    fn from(module: Module) -> Self {
         let mut ctx = MirModuleContext {
             errors: module.errors,
             insts: Vec::new(),
@@ -784,9 +781,7 @@ mod tests {
     }
 
     mod assert_inst {
-        use super::{
-            frontend::ir::EnvironmentType, LValue, MirInstruction, RValue, RValueTerminal, ValueId,
-        };
+        use super::{EnvironmentType, LValue, MirInstruction, RValue, RValueTerminal, ValueId};
 
         pub fn is_statement(node: MirInstruction) -> RValue {
             match node {
