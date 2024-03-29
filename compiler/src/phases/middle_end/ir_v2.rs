@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use prettydiff::text::LineChangeset;
+
 use crate::{
     errors::CompilerError,
     phases::{
@@ -302,6 +304,24 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                 None
             }
         }
+        frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) => {
+            let lhs = match convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()) {
+                Some(RValueTerminal::NamedValue(lhs)) => lhs,
+                Some(_) => unreachable!(),
+                _ => return None,
+            };
+
+            let value_id = ctx.value_ids.get_next();
+            ctx.nodes
+                .push(LoweredModuleASTNode::VariableDeclaration(value_id));
+
+            ctx.nodes.push(LoweredModuleASTNode::Assign(
+                LValue::NamedValue(value_id),
+                RValue::property_access(expr.span.clone(), lhs, prop.name),
+            ));
+
+            Some(RValue::named_value(expr.span, value_id))
+        }
         _ => None,
     }
 }
@@ -430,6 +450,13 @@ impl RValue {
         }
     }
 
+    fn property_access(span: Span, lhs: ValueId, prop: String) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::PropertyAccess(lhs, prop),
+        }
+    }
+
     fn to_terminal(self) -> Option<RValueTerminal> {
         match self.kind {
             RValueKind::NamedValue(id) => Some(RValueTerminal::NamedValue(id)),
@@ -437,9 +464,10 @@ impl RValue {
             RValueKind::String(s) => Some(RValueTerminal::String(s)),
             RValueKind::Bool(b) => Some(RValueTerminal::Bool(b)),
             RValueKind::List(items) => Some(RValueTerminal::List(items)),
-            RValueKind::MethodCall(_, _) => None,
-            RValueKind::FnCall(_, _) => None,
-            RValueKind::BinOp(_, _, _) => None,
+            RValueKind::PropertyAccess(_, _)
+            | RValueKind::MethodCall(_, _)
+            | RValueKind::FnCall(_, _)
+            | RValueKind::BinOp(_, _, _) => None,
         }
     }
 }
@@ -451,6 +479,7 @@ pub enum RValueKind {
     String(String),
     Bool(bool),
     List(Vec<RValueTerminal>),
+    PropertyAccess(ValueId, String),
     MethodCall(LValue, Vec<RValueTerminal>),
     FnCall(ValueId, Vec<RValueTerminal>),
     BinOp(RValueTerminal, BinOp, RValueTerminal),
@@ -967,5 +996,75 @@ mod tests {
         } else {
             unreachable!()
         }
+    }
+
+    #[test]
+    fn handles_property_access() {
+        // let a;
+        // a = 0;
+        // let $tmp0;
+        // $tmp0 = a.b;
+        // $tmp0;
+        let module = create_module("let a = 0; a.b;");
+        let mut lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        // let a
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::VariableDeclaration(ValueId(0))
+        ));
+
+        // a = 0
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::Assign(
+                LValue::NamedValue(ValueId(0)),
+                RValue {
+                    span: _,
+                    kind: RValueKind::Integer(0)
+                }
+            )
+        ));
+
+        // let $tmp0
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::VariableDeclaration(ValueId(1))
+        ));
+
+        // $tmp0 = a.b;
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::Assign(
+                LValue::NamedValue(ValueId(1)),
+                RValue {
+                    span: _,
+                    kind: RValueKind::PropertyAccess(ValueId(0), _)
+                }
+            )
+        ));
+
+        // $tmp0;
+        assert!(matches!(
+            lowered_module.nodes.remove(0),
+            LoweredModuleASTNode::Statement(RValue {
+                span: _,
+                kind: RValueKind::NamedValue(ValueId(1))
+            })
+        ));
+    }
+
+    #[test]
+    fn elides_property_access_when_lhs_does_not_exist() {
+        let module = create_module("a.b;");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 1);
+        assert_eq!(lowered_module.nodes.len(), 0);
+
+        assert_eq!(
+            *lowered_module.errors.get(0).unwrap(),
+            CompilerError::reference_error(&Span { start: 0, end: 1 }, "a")
+        );
     }
 }

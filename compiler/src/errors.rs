@@ -5,7 +5,7 @@ use crate::{
     types::symbol_table::TypeSymbol,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CompilerError {
     pub span: Span,
     pub reason: CompilerErrorReason,
@@ -202,7 +202,7 @@ impl CompilerError {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CompilerErrorReason {
     // Ex: Unknown identifier `(identifier)`
     ReferenceError {

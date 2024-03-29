@@ -92,7 +92,7 @@ impl ValueSymbol {
     }
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub struct TypeSymbol {
     pub type_: Type,
     pub name: Option<String>,
