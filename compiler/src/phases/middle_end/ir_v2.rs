@@ -473,6 +473,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
 
             result
         }
+        frontend::ir::ExpressionKind::Parenthesized(expr) => convert_expression(ctx, *expr),
         _ => None,
     }
 }
@@ -1501,5 +1502,14 @@ mod tests {
         let r_value = assert_inst::is_statement(module.insts.remove(0));
         let term = assert_r_value::is_not(r_value);
         assert_r_value_terminal::is_boolean_with_value(term, true);
+    }
+
+    #[test]
+    fn handles_parenthesized_expressions() {
+        let mut module = create_module("(true);");
+        assert_eq!(module.errors.len(), 0);
+
+        let r_value = assert_inst::is_statement(module.insts.remove(0));
+        assert_r_value::is_bool_with_value(r_value, true);
     }
 }
