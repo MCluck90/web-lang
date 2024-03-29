@@ -212,18 +212,9 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
 
 fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Option<RValue> {
     match expr.kind {
-        frontend::ir::ExpressionKind::Boolean(b) => Some(RValue {
-            span: expr.span,
-            kind: RValueKind::Bool(b),
-        }),
-        frontend::ir::ExpressionKind::Integer(n) => Some(RValue {
-            span: expr.span,
-            kind: RValueKind::Integer(n),
-        }),
-        frontend::ir::ExpressionKind::String(s) => Some(RValue {
-            span: expr.span,
-            kind: RValueKind::String(s),
-        }),
+        frontend::ir::ExpressionKind::Boolean(b) => Some(RValue::bool(expr.span, b)),
+        frontend::ir::ExpressionKind::Integer(n) => Some(RValue::integer(expr.span, n)),
+        frontend::ir::ExpressionKind::String(s) => Some(RValue::string(expr.span, s)),
         frontend::ir::ExpressionKind::List(items) => {
             let mut r_value_items = Vec::new();
             for item in items {
@@ -234,16 +225,10 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                 }
             }
 
-            Some(RValue {
-                span: expr.span,
-                kind: RValueKind::List(r_value_items),
-            })
+            Some(RValue::list(expr.span, r_value_items))
         }
         frontend::ir::ExpressionKind::Identifier(id) => find_value(&ctx.scopes, &id.name)
-            .map(|value_id| RValue {
-                span: id.span,
-                kind: RValueKind::NamedValue(value_id),
-            })
+            .map(|value_id| RValue::named_value(id.span, value_id))
             .or_else(|| {
                 ctx.errors
                     .push(CompilerError::reference_error(&expr.span, &id.name));
@@ -271,16 +256,10 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
 
                     ctx.nodes.push(LoweredModuleASTNode::Assign(
                         LValue::NamedValue(value_id),
-                        RValue {
-                            span: expr.span.clone(),
-                            kind: RValueKind::BinOp(lhs, op, rhs),
-                        },
+                        RValue::bin_op(expr.span.clone(), lhs, op, rhs),
                     ));
 
-                    Some(RValue {
-                        span: expr.span,
-                        kind: RValueKind::NamedValue(value_id),
-                    })
+                    Some(RValue::named_value(expr.span, value_id))
                 }
                 _ => None,
             }
@@ -400,8 +379,60 @@ pub struct RValue {
 }
 
 impl RValue {
-    fn new(span: Span, kind: RValueKind) -> Self {
-        Self { span, kind }
+    fn named_value(span: Span, id: ValueId) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::NamedValue(id),
+        }
+    }
+
+    fn integer(span: Span, value: i32) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::Integer(value),
+        }
+    }
+
+    fn string(span: Span, value: String) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::String(value),
+        }
+    }
+
+    fn bool(span: Span, value: bool) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::Bool(value),
+        }
+    }
+
+    fn list(span: Span, items: Vec<RValueTerminal>) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::List(items),
+        }
+    }
+
+    fn method_call(span: Span, lhs: LValue, args: Vec<RValueTerminal>) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::MethodCall(lhs, args),
+        }
+    }
+
+    fn fn_call(span: Span, lhs: ValueId, args: Vec<RValueTerminal>) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::FnCall(lhs, args),
+        }
+    }
+
+    fn bin_op(span: Span, lhs: RValueTerminal, op: BinOp, rhs: RValueTerminal) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::BinOp(lhs, op, rhs),
+        }
     }
 
     fn to_terminal(self) -> Option<RValueTerminal> {
@@ -425,8 +456,8 @@ pub enum RValueKind {
     String(String),
     Bool(bool),
     List(Vec<RValueTerminal>),
-    MethodCall(LValue, Vec<RValue>),
-    FnCall(ValueId, Vec<RValue>),
+    MethodCall(LValue, Vec<RValueTerminal>),
+    FnCall(ValueId, Vec<RValueTerminal>),
     BinOp(RValueTerminal, BinOp, RValueTerminal),
 }
 
