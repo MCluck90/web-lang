@@ -233,6 +233,26 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                 None
             }),
         frontend::ir::ExpressionKind::BinaryOp(lhs, op, rhs) => {
+            if op == BinOp::Assign {
+                // Handle assigning to things other than variables
+                if let frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) = lhs.kind {
+                    let (lhs, rhs) = match (
+                        convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()),
+                        convert_expression(ctx, *rhs),
+                    ) {
+                        (Some(RValueTerminal::NamedValue(lhs)), Some(rhs)) => (lhs, rhs),
+                        _ => return None,
+                    };
+
+                    ctx.nodes.push(LoweredModuleAstNode::Assign(
+                        LValue::Property(lhs, prop.name.clone()),
+                        rhs,
+                    ));
+
+                    return Some(RValue::property_access(expr.span, lhs, prop.name));
+                }
+            }
+
             match (
                 convert_expression(ctx, *lhs).and_then(|lhs| lhs.to_terminal()),
                 convert_expression(ctx, *rhs).and_then(|rhs| rhs.to_terminal()),
@@ -702,6 +722,13 @@ mod tests {
             match l_value {
                 LValue::NamedValue(actual_id) => assert_eq!(actual_id, ValueId(id)),
                 _ => panic!("Expected a named value, found {:?}", l_value),
+            }
+        }
+
+        pub fn is_property_access(l_value: LValue) -> (ValueId, String) {
+            match l_value {
+                LValue::Property(id, prop) => (id, prop),
+                _ => panic!("Expected a property access, found {:?}", l_value),
             }
         }
     }
@@ -1190,5 +1217,26 @@ mod tests {
         // $tmp0;
         let stmt = assert_node::is_statement(module.nodes.remove(0));
         assert_r_value::is_named_value_with_id(stmt, 1);
+    }
+
+    #[test]
+    fn allows_assigning_to_properties() {
+        let mut module = create_module("let a = 0; a.b = 1;");
+        assert_eq!(module.errors.len(), 0);
+
+        // let a
+        assert_node::is_variable_declaration_with_id(module.nodes.remove(0), 0);
+
+        // a = 0
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, 0);
+        assert_r_value::is_integer_with_value(rhs, 0);
+
+        // a.b = 1
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        let (id, prop) = assert_l_value::is_property_access(lhs);
+        assert_eq!(id, ValueId(0));
+        assert_eq!(prop, "b");
+        assert_r_value::is_integer_with_value(rhs, 1);
     }
 }
