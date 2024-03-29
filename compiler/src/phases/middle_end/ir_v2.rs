@@ -1167,8 +1167,9 @@ mod tests {
 
         // let $tmp1 = 2 * 3;
         // let $tmp2 = 1 + $tmp1;
-        assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let tmp1_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        assert_l_value::is_named_value_with_id(lhs, tmp1_id);
         let rhs = assert_r_value::is_bin_op(rhs);
         assert_eq!(
             rhs,
@@ -1179,8 +1180,9 @@ mod tests {
             )
         );
 
-        assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let tmp2_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        assert_l_value::is_named_value_with_id(lhs, tmp2_id);
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_eq!(lhs, RValueTerminal::Integer(1));
         assert_eq!(op, BinOp::Add);
@@ -1197,9 +1199,10 @@ mod tests {
         // let $tmp2 = 1 + $tmp1;
         // let n = $tmp2;
 
-        assert_inst::is_variable_declaration(module.dequeue_instr());
+        let tmp1_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
-        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        assert_l_value::is_named_value_with_id(lhs, tmp1_id);
         let rhs = assert_r_value::is_bin_op(rhs);
         assert_eq!(
             rhs,
@@ -1210,17 +1213,19 @@ mod tests {
             )
         );
 
-        assert_inst::is_variable_declaration(module.dequeue_instr());
+        let tmp2_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
-        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        assert_l_value::is_named_value_with_id(lhs, tmp2_id);
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_eq!(lhs, RValueTerminal::Integer(1));
         assert_eq!(op, BinOp::Add);
         assert_r_value_terminal::is_named_value(rhs);
 
-        assert_inst::is_variable_declaration(module.dequeue_instr());
+        let n_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
-        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        assert_l_value::is_named_value_with_id(lhs, n_id);
         assert_r_value::is_named_value(rhs);
     }
 
