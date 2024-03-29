@@ -769,6 +769,17 @@ mod tests {
     use super::*;
     use crate::phases::frontend::ir::Module;
 
+    // Conveniently pull out the instructions from a module
+    trait InstructionStream {
+        fn dequeue_instr(&mut self) -> MirInstruction;
+    }
+
+    impl InstructionStream for MirModule {
+        fn dequeue_instr(&mut self) -> MirInstruction {
+            self.insts.remove(0)
+        }
+    }
+
     fn create_module(source: &str) -> MirModule {
         MirModule::from(Module {
             path: String::new(),
@@ -1105,15 +1116,15 @@ mod tests {
     #[test]
     fn lowers_single_statements() {
         let mut module = create_module("1;");
-        let statement_value = assert_inst::is_statement(module.insts.remove(0));
+        let statement_value = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_integer_with_value(statement_value, 1);
 
         let mut module = create_module("'a';");
-        let statement_value = assert_inst::is_statement(module.insts.remove(0));
+        let statement_value = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_string_with_value(statement_value, "a");
 
         let mut module = create_module("true;");
-        let statement_value = assert_inst::is_statement(module.insts.remove(0));
+        let statement_value = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_bool_with_value(statement_value, true);
     }
 
@@ -1141,8 +1152,8 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        let value_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let value_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         let lhs = assert_l_value::is_named_value(lhs);
         assert_eq!(value_id, lhs);
         assert_eq!(rhs.kind, RValueKind::Integer(32));
@@ -1156,8 +1167,8 @@ mod tests {
 
         // let $tmp1 = 2 * 3;
         // let $tmp2 = 1 + $tmp1;
-        assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (_, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         let rhs = assert_r_value::is_bin_op(rhs);
         assert_eq!(
             rhs,
@@ -1168,8 +1179,8 @@ mod tests {
             )
         );
 
-        assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (_, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_eq!(lhs, RValueTerminal::Integer(1));
         assert_eq!(op, BinOp::Add);
@@ -1186,9 +1197,9 @@ mod tests {
         // let $tmp2 = 1 + $tmp1;
         // let n = $tmp2;
 
-        assert_inst::is_variable_declaration(module.insts.remove(0));
+        assert_inst::is_variable_declaration(module.dequeue_instr());
 
-        let (_, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         let rhs = assert_r_value::is_bin_op(rhs);
         assert_eq!(
             rhs,
@@ -1199,17 +1210,17 @@ mod tests {
             )
         );
 
-        assert_inst::is_variable_declaration(module.insts.remove(0));
+        assert_inst::is_variable_declaration(module.dequeue_instr());
 
-        let (_, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_eq!(lhs, RValueTerminal::Integer(1));
         assert_eq!(op, BinOp::Add);
         assert_r_value_terminal::is_named_value(rhs);
 
-        assert_inst::is_variable_declaration(module.insts.remove(0));
+        assert_inst::is_variable_declaration(module.dequeue_instr());
 
-        let (_, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (_, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_r_value::is_named_value(rhs);
     }
 
@@ -1218,15 +1229,15 @@ mod tests {
         let mut module = create_module("back {} front {}");
         assert_eq!(module.errors.len(), 0);
 
-        let env = assert_inst::is_start_declared_environment(module.insts.remove(0));
+        let env = assert_inst::is_start_declared_environment(module.dequeue_instr());
         assert_eq!(env, EnvironmentType::Backend);
 
-        assert_inst::is_end_declared_environment(module.insts.remove(0));
+        assert_inst::is_end_declared_environment(module.dequeue_instr());
 
-        let env = assert_inst::is_start_declared_environment(module.insts.remove(0));
+        let env = assert_inst::is_start_declared_environment(module.dequeue_instr());
         assert_eq!(env, EnvironmentType::Frontend);
 
-        assert_inst::is_end_declared_environment(module.insts.remove(0));
+        assert_inst::is_end_declared_environment(module.dequeue_instr());
     }
 
     #[test]
@@ -1244,8 +1255,8 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        assert_inst::is_start_function(module.insts.remove(0));
-        assert_inst::is_end_function(module.insts.remove(0));
+        assert_inst::is_start_function(module.dequeue_instr());
+        assert_inst::is_end_function(module.dequeue_instr());
 
         let symbol = module.values.get(&ValueId(0)).unwrap();
         assert_eq!(
@@ -1263,10 +1274,10 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let (fn_id, _) = assert_inst::is_start_function(module.insts.remove(0));
-        let return_value = assert_inst::is_return_with_value(module.insts.remove(0));
+        let (fn_id, _) = assert_inst::is_start_function(module.dequeue_instr());
+        let return_value = assert_inst::is_return_with_value(module.dequeue_instr());
         assert_r_value::is_named_value(return_value);
-        assert_inst::is_end_function(module.insts.remove(0));
+        assert_inst::is_end_function(module.dequeue_instr());
 
         let symbol = module.values.get(&fn_id).unwrap();
         assert_eq!(
@@ -1284,17 +1295,17 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        assert_inst::is_start_function(module.insts.remove(0));
-        assert_inst::is_empty_return(module.insts.remove(0));
-        assert_inst::is_end_function(module.insts.remove(0));
+        assert_inst::is_start_function(module.dequeue_instr());
+        assert_inst::is_empty_return(module.dequeue_instr());
+        assert_inst::is_end_function(module.dequeue_instr());
 
         let mut module = create_module("fn get_5() { return 5; }");
         assert_eq!(module.errors.len(), 0);
 
-        assert_inst::is_start_function(module.insts.remove(0));
-        let return_value = assert_inst::is_return_with_value(module.insts.remove(0));
+        assert_inst::is_start_function(module.dequeue_instr());
+        let return_value = assert_inst::is_return_with_value(module.dequeue_instr());
         assert_r_value::is_integer_with_value(return_value, 5);
-        assert_inst::is_end_function(module.insts.remove(0));
+        assert_inst::is_end_function(module.dequeue_instr());
     }
 
     #[test]
@@ -1302,11 +1313,11 @@ mod tests {
         let mut module = create_module("loop { 1; break; }");
         assert_eq!(module.errors.len(), 0);
 
-        assert_inst::is_start_loop(module.insts.remove(0));
-        let value = assert_inst::is_statement(module.insts.remove(0));
+        assert_inst::is_start_loop(module.dequeue_instr());
+        let value = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_integer_with_value(value, 1);
-        assert_inst::is_break(module.insts.remove(0));
-        assert_inst::is_end_loop(module.insts.remove(0));
+        assert_inst::is_break(module.dequeue_instr());
+        assert_inst::is_end_loop(module.dequeue_instr());
     }
 
     #[test]
@@ -1316,17 +1327,17 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // initializer
-        let i_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let i_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, i_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // begin loop
-        assert_inst::is_start_loop(module.insts.remove(0));
+        assert_inst::is_start_loop(module.dequeue_instr());
 
         // condition
-        let condition_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let condition_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, condition_id);
 
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
@@ -1335,19 +1346,19 @@ mod tests {
         assert_r_value_terminal::is_integer_with_value(rhs, 10);
 
         // check the condition
-        let condition = assert_inst::is_start_if(module.insts.remove(0));
+        let condition = assert_inst::is_start_if(module.dequeue_instr());
         assert_r_value::is_named_value_with_id(condition, condition_id);
-        assert_inst::is_break(module.insts.remove(0));
-        assert_inst::is_end_if(module.insts.remove(0));
+        assert_inst::is_break(module.dequeue_instr());
+        assert_inst::is_end_if(module.dequeue_instr());
 
         // post body
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, i_id);
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_r_value_terminal::is_named_value_with_id(lhs, i_id);
         assert_eq!(op, BinOp::Add);
         assert_r_value_terminal::is_integer_with_value(rhs, 1);
-        assert_inst::is_end_loop(module.insts.remove(0));
+        assert_inst::is_end_loop(module.dequeue_instr());
     }
 
     #[test]
@@ -1366,7 +1377,7 @@ mod tests {
         let mut module = create_module("[1, 2, 3];");
         assert_eq!(module.errors.len(), 0);
 
-        let value = assert_inst::is_statement(module.insts.remove(0));
+        let value = assert_inst::is_statement(module.dequeue_instr());
         let items = assert_r_value::is_list(value);
         assert_eq!(
             items,
@@ -1385,25 +1396,25 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = 0
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // let $tmp0
-        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // $tmp0 = a.b;
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, rhs) = assert_r_value::is_property_access(rhs);
         assert_eq!(lhs, ValueId(0));
         assert_eq!(rhs, "b");
 
         // $tmp0;
-        let value = assert_inst::is_statement(module.insts.remove(0));
+        let value = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_named_value_with_id(value, tmp_id);
     }
 
@@ -1423,16 +1434,16 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let (id, params) = assert_inst::is_start_function(module.insts.remove(0));
+        let (id, params) = assert_inst::is_start_function(module.dequeue_instr());
         assert_eq!(id, ValueId(0));
         assert_eq!(params.len(), 0);
-        assert_inst::is_end_function(module.insts.remove(0));
+        assert_inst::is_end_function(module.dequeue_instr());
 
         // let $tmp;
         // $tmp = noop(10);
         // $tmp;
-        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (id, args) = assert_r_value::is_fn_call(rhs);
         assert_eq!(id, ValueId(0));
@@ -1446,18 +1457,18 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = 0
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // let $tmp0
-        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // $tmp0 = a.to-vector(2)
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, name, args) = assert_r_value::is_method_call(rhs);
         assert_eq!(lhs, ValueId(0));
@@ -1465,7 +1476,7 @@ mod tests {
         assert_eq!(args, vec![RValueTerminal::Integer(2)]);
 
         // $tmp0;
-        let stmt = assert_inst::is_statement(module.insts.remove(0));
+        let stmt = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_named_value_with_id(stmt, tmp_id);
     }
 
@@ -1476,15 +1487,15 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = 0
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // a.b = 1
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         let (id, prop) = assert_l_value::is_property_access(lhs);
         assert_eq!(id, ValueId(0));
         assert_eq!(prop, "b");
@@ -1498,10 +1509,10 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = [1]
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         let list = assert_r_value::is_list(rhs);
         assert_eq!(
@@ -1514,10 +1525,10 @@ mod tests {
         );
 
         // let $tmp
-        let tmp_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // $tmp = a[0]
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, index) = assert_r_value::is_list_access(rhs);
         assert_eq!(lhs, ValueId(0));
@@ -1531,16 +1542,16 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = [1]
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         let list = assert_r_value::is_list(rhs);
         assert_eq!(list, vec![RValueTerminal::Integer(1)]);
 
         // a[0] = 2
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         let (id, index) = assert_l_value::is_list_access(lhs);
         assert_eq!(id, ValueId(0));
         assert_r_value_terminal::is_integer_with_value(index, 0);
@@ -1554,7 +1565,7 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 0);
 
-        let r_value = assert_inst::is_statement(module.insts.remove(0));
+        let r_value = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_bool_with_value(r_value, true);
 
         /* Returns the value of a variable */
@@ -1563,15 +1574,15 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = true
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
         // a
-        let block_result = assert_inst::is_statement(module.insts.remove(0));
+        let block_result = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_named_value_with_id(block_result, a_id);
 
         /* Assigns simple result to variable */
@@ -1580,10 +1591,10 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = true
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
@@ -1593,18 +1604,18 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let b
-        let b_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let b_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // b = true
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, b_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
 
         // a = b
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_named_value_with_id(rhs, b_id);
     }
@@ -1615,7 +1626,7 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 0);
 
-        let r_value = assert_inst::is_statement(module.insts.remove(0));
+        let r_value = assert_inst::is_statement(module.dequeue_instr());
         let term = assert_r_value::is_not(r_value);
         assert_r_value_terminal::is_boolean_with_value(term, true);
     }
@@ -1626,7 +1637,7 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 0);
 
-        let r_value = assert_inst::is_statement(module.insts.remove(0));
+        let r_value = assert_inst::is_statement(module.dequeue_instr());
         assert_r_value::is_bool_with_value(r_value, true);
     }
 
@@ -1637,25 +1648,25 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        assert_inst::is_start_js_block(module.insts.remove(0));
-        let term = assert_inst::is_js_block_instr(module.insts.remove(0));
+        assert_inst::is_start_js_block(module.dequeue_instr());
+        let term = assert_inst::is_js_block_instr(module.dequeue_instr());
         assert_r_value_terminal::is_string_with_value(term, "console.log('Hello');");
-        assert_inst::is_end_js_block(module.insts.remove(0));
+        assert_inst::is_end_js_block(module.dequeue_instr());
 
         /* Block that produces a value */
         let mut module = create_module("let a = #js : int { '1' };");
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let js_block_id = assert_inst::is_start_js_block(module.insts.remove(0));
+        let js_block_id = assert_inst::is_start_js_block(module.dequeue_instr());
         assert_r_value_terminal::is_string_with_value(
-            assert_inst::is_js_block_instr(module.insts.remove(0)),
+            assert_inst::is_js_block_instr(module.dequeue_instr()),
             "1",
         );
-        assert_inst::is_end_js_block(module.insts.remove(0));
+        assert_inst::is_end_js_block(module.dequeue_instr());
 
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_named_value_with_id(rhs, js_block_id);
     }
@@ -1666,40 +1677,40 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        let result_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let condition = assert_inst::is_start_if(module.insts.remove(0));
+        let result_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let condition = assert_inst::is_start_if(module.dequeue_instr());
         assert_r_value::is_bool_with_value(condition, true);
 
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 1);
 
-        assert_inst::is_else(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_inst::is_else(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 2);
-        assert_inst::is_end_if(module.insts.remove(0));
+        assert_inst::is_end_if(module.dequeue_instr());
 
         let mut module = create_module("let a = if true { 1 } else { 2 };");
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let result_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let condition = assert_inst::is_start_if(module.insts.remove(0));
+        let result_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let condition = assert_inst::is_start_if(module.dequeue_instr());
         assert_r_value::is_bool_with_value(condition, true);
 
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 1);
 
-        assert_inst::is_else(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_inst::is_else(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 2);
-        assert_inst::is_end_if(module.insts.remove(0));
+        assert_inst::is_end_if(module.dequeue_instr());
 
-        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
-        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_named_value_with_id(rhs, result_id);
     }
