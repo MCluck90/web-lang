@@ -236,12 +236,12 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             if op == BinOp::Assign {
                 // Handle assigning to things other than variables
                 if let frontend::ir::ExpressionKind::PropertyAccess(lhs, prop) = lhs.kind {
+                    let rhs = convert_expression(ctx, *rhs)?;
                     let lhs = convert_expression(ctx, *lhs).to_terminal()?;
                     let lhs = match lhs {
                         RValueTerminal::NamedValue(lhs) => lhs,
                         _ => return None,
                     };
-                    let rhs = convert_expression(ctx, *rhs)?;
 
                     ctx.nodes.push(LoweredModuleAstNode::Assign(
                         LValue::Property(lhs, prop.name.clone()),
@@ -250,13 +250,13 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
 
                     return Some(RValue::property_access(expr.span, lhs, prop.name));
                 } else if let frontend::ir::ExpressionKind::ArrayAccess(lhs, index) = lhs.kind {
+                    let rhs = convert_expression(ctx, *rhs)?;
+                    let index = convert_expression(ctx, *index).to_terminal()?;
                     let lhs = convert_expression(ctx, *lhs).to_terminal()?;
                     let lhs = match lhs {
                         RValueTerminal::NamedValue(lhs) => lhs,
                         _ => return None,
                     };
-                    let index = convert_expression(ctx, *index).to_terminal()?;
-                    let rhs = convert_expression(ctx, *rhs)?;
 
                     ctx.nodes.push(LoweredModuleAstNode::Assign(
                         LValue::ListAccess(lhs, index.clone()),
@@ -264,14 +264,22 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                     ));
 
                     return Some(RValue::list_access(expr.span, lhs, index));
+                } else if let frontend::ir::ExpressionKind::Identifier(lhs) = lhs.kind {
+                    let rhs = convert_expression(ctx, *rhs)?;
+                    let lhs = find_value(&ctx.scopes, &lhs.name)?;
+
+                    ctx.nodes
+                        .push(LoweredModuleAstNode::Assign(LValue::NamedValue(lhs), rhs));
+
+                    return Some(RValue::named_value(expr.span, lhs));
                 }
             }
 
             match (
-                convert_expression(ctx, *lhs).to_terminal(),
                 convert_expression(ctx, *rhs).to_terminal(),
+                convert_expression(ctx, *lhs).to_terminal(),
             ) {
-                (Some(lhs), Some(rhs)) => {
+                (Some(rhs), Some(lhs)) => {
                     let value_id = ctx.value_ids.get_next();
                     ctx.name_bindings.insert(
                         value_id,
@@ -414,10 +422,10 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
         }
         frontend::ir::ExpressionKind::ArrayAccess(lhs, index) => {
             match (
-                convert_expression(ctx, *lhs).to_terminal(),
                 convert_expression(ctx, *index).to_terminal(),
+                convert_expression(ctx, *lhs).to_terminal(),
             ) {
-                (Some(RValueTerminal::NamedValue(lhs)), Some(index)) => {
+                (Some(index), Some(RValueTerminal::NamedValue(lhs))) => {
                     let value_id = ctx.value_ids.get_next();
                     ctx.nodes
                         .push(LoweredModuleAstNode::VariableDeclaration(value_id));
@@ -431,6 +439,21 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                 }
                 _ => None,
             }
+        }
+        frontend::ir::ExpressionKind::Block(block) => {
+            ctx.scopes.push(Scope::default());
+            for stmt in block.statements {
+                convert_statement(ctx, stmt);
+            }
+
+            let result = match block.return_expression {
+                Some(expr) => convert_expression(ctx, expr),
+                None => Some(RValue::void(expr.span)),
+            };
+
+            ctx.scopes.pop();
+
+            result
         }
         _ => None,
     }
@@ -491,6 +514,7 @@ pub enum LValue {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RValueTerminal {
     NamedValue(ValueId),
+    Void,
     Integer(i32),
     String(String),
     Bool(bool),
@@ -539,6 +563,13 @@ impl RValue {
         }
     }
 
+    fn void(span: Span) -> Self {
+        RValue {
+            span,
+            kind: RValueKind::Void,
+        }
+    }
+
     fn method_call(span: Span, lhs: ValueId, name: String, args: Vec<RValueTerminal>) -> Self {
         RValue {
             span,
@@ -577,6 +608,7 @@ impl RValue {
     fn to_terminal(self) -> Option<RValueTerminal> {
         match self.kind {
             RValueKind::NamedValue(id) => Some(RValueTerminal::NamedValue(id)),
+            RValueKind::Void => Some(RValueTerminal::Void),
             RValueKind::Integer(n) => Some(RValueTerminal::Integer(n)),
             RValueKind::String(s) => Some(RValueTerminal::String(s)),
             RValueKind::Bool(b) => Some(RValueTerminal::Bool(b)),
@@ -603,6 +635,7 @@ impl OptionRValueToTerminal for Option<RValue> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RValueKind {
+    Void,
     NamedValue(ValueId),
     Integer(i32),
     String(String),
@@ -1360,5 +1393,63 @@ mod tests {
         assert_eq!(id, ValueId(0));
         assert_r_value_terminal::is_integer_with_value(index, 0);
         assert_r_value::is_integer_with_value(rhs, 2);
+    }
+
+    #[test]
+    fn handles_blocks() {
+        /* Block with only a simple return expression */
+        let mut module = create_module("{ true };");
+        assert_eq!(module.errors.len(), 0);
+
+        let r_value = assert_node::is_statement(module.nodes.remove(0));
+        assert_r_value::is_bool_with_value(r_value, true);
+
+        /* Returns the value of a variable */
+        let mut module = create_module("{ let a = true; a };");
+        assert_eq!(module.errors.len(), 0);
+
+        // let a
+        let a_id = assert_node::is_variable_declaration(module.nodes.remove(0));
+
+        // a = true
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, a_id.0);
+        assert_r_value::is_bool_with_value(rhs, true);
+
+        // a
+        let block_result = assert_node::is_statement(module.nodes.remove(0));
+        assert_r_value::is_named_value_with_id(block_result, a_id.0);
+
+        /* Assigns simple result to variable */
+        let mut module = create_module("let a = { true };");
+        assert_eq!(module.errors.len(), 0);
+
+        // let a
+        let a_id = assert_node::is_variable_declaration(module.nodes.remove(0));
+
+        // a = true
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, a_id.0);
+        assert_r_value::is_bool_with_value(rhs, true);
+
+        /* Assigns a named value to the result of a block */
+        let mut module = create_module("let a = { let b = true; b };");
+        assert_eq!(module.errors.len(), 0);
+
+        // let b
+        let b_id = assert_node::is_variable_declaration(module.nodes.remove(0));
+
+        // b = true
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, b_id.0);
+        assert_r_value::is_bool_with_value(rhs, true);
+
+        // let a
+        let a_id = assert_node::is_variable_declaration(module.nodes.remove(0));
+
+        // a = b
+        let (lhs, rhs) = assert_node::is_assignment(module.nodes.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, a_id.0);
+        assert_r_value::is_named_value_with_id(rhs, b_id.0);
     }
 }
