@@ -34,7 +34,7 @@ impl ValueIdBuilder {
 pub struct MirModule {
     pub path: String,
     pub insts: Vec<MirInstruction>,
-    pub name_bindings: HashMap<ValueId, Symbol>,
+    pub values: HashMap<ValueId, Symbol>,
     pub types: HashMap<ValueId, Type>,
     pub errors: Vec<CompilerError>,
 }
@@ -62,9 +62,63 @@ fn find_value(scopes: &[Scope], name: &str) -> Option<ValueId> {
 struct MirModuleContext {
     errors: Vec<CompilerError>,
     insts: Vec<MirInstruction>,
-    name_bindings: HashMap<ValueId, Symbol>,
+    values: HashMap<ValueId, Symbol>,
     scopes: Vec<Scope>,
     value_ids: ValueIdBuilder,
+}
+
+impl MirModuleContext {
+    fn create_value(&mut self, span: Span, declared_type: Option<Type>) -> ValueId {
+        let id = self.value_ids.get_next();
+
+        self.values.insert(
+            id,
+            Symbol {
+                id,
+                span,
+                declared_type,
+            },
+        );
+
+        id
+    }
+
+    fn create_value_with_name(
+        &mut self,
+        span: Span,
+        declared_type: Option<Type>,
+        name: String,
+    ) -> ValueId {
+        let value_id = self.create_value(span, declared_type);
+        self.scopes.last_mut().unwrap().insert(name, value_id);
+        value_id
+    }
+
+    /// Returns the declared type for the value, if one exists
+    fn get_declared_type(&self, id: ValueId) -> Option<Type> {
+        self.values
+            .get(&id)
+            .and_then(|sym| sym.declared_type.clone())
+    }
+
+    /// If the given ID points to a function, return its return type
+    fn get_return_type(&self, id: ValueId) -> Option<Type> {
+        self.get_declared_type(id).and_then(|type_| match type_ {
+            Type::Function {
+                parameters: _,
+                return_type,
+            } => Some(*return_type.clone()),
+            _ => None,
+        })
+    }
+
+    /// If the given ID points to a list, return its element type
+    fn get_list_element_type(&self, id: ValueId) -> Option<Type> {
+        self.get_declared_type(id).and_then(|type_| match type_ {
+            Type::List(t) => Some(*t.clone()),
+            _ => None,
+        })
+    }
 }
 
 fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
@@ -75,19 +129,8 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
             identifier,
             initializer,
         } => {
-            let value_id = ctx.value_ids.get_next();
-            ctx.name_bindings.insert(
-                value_id,
-                Symbol {
-                    id: value_id,
-                    span: identifier.span,
-                    declared_type: type_,
-                },
-            );
-            ctx.scopes
-                .last_mut()
-                .unwrap()
-                .insert(identifier.name.clone(), value_id);
+            let value_id =
+                ctx.create_value_with_name(identifier.span, type_, identifier.name.clone());
 
             if let Some(rhs) = convert_expression(ctx, initializer) {
                 ctx.insts
@@ -110,38 +153,32 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
             return_type,
             body,
         } => {
-            let id = ctx.value_ids.get_next();
-            ctx.scopes.last_mut().unwrap().insert(name.name, id);
-
-            let mut function_scope = Scope::default();
+            // Pre-push this scope to capture the parameters
+            let function_scope = Scope::default();
+            ctx.scopes.push(function_scope);
 
             let mut parameter_ids: Vec<ValueId> = Vec::new();
             let mut parameter_types: Vec<Type> = Vec::new();
             for param in parameters {
-                let param_id = ctx.value_ids.get_next();
-                function_scope.insert(param.identifier.name, param_id);
-                ctx.name_bindings.insert(
-                    param_id,
-                    Symbol {
-                        id: param_id,
-                        span: param.span,
-                        declared_type: Some(param.type_.clone()),
-                    },
+                let param_id = ctx.create_value_with_name(
+                    param.span,
+                    Some(param.type_.clone()),
+                    param.identifier.name,
                 );
                 parameter_ids.push(param_id);
                 parameter_types.push(param.type_);
             }
 
-            ctx.name_bindings.insert(
-                id,
-                Symbol {
-                    id,
-                    span: stmt.span,
-                    declared_type: Some(Type::Function {
-                        parameters: parameter_types,
-                        return_type: Box::new(return_type),
-                    }),
-                },
+            // Pop the scope so we don't bind the function to it's own scope
+            let function_scope = ctx.scopes.pop().unwrap();
+
+            let id = ctx.create_value_with_name(
+                stmt.span,
+                Some(Type::Function {
+                    parameters: parameter_types,
+                    return_type: Box::new(return_type),
+                }),
+                name.name,
             );
 
             ctx.insts
@@ -278,15 +315,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 convert_expression(ctx, *lhs).to_terminal(),
             ) {
                 (Some(rhs), Some(lhs)) => {
-                    let value_id = ctx.value_ids.get_next();
-                    ctx.name_bindings.insert(
-                        value_id,
-                        Symbol {
-                            id: value_id,
-                            span: expr.span.clone(),
-                            declared_type: None,
-                        },
-                    );
+                    let value_id = ctx.create_value(expr.span.clone(), None);
 
                     ctx.insts
                         .push(MirInstruction::VariableDeclaration(value_id));
@@ -310,7 +339,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 return match expr.clone().to_terminal() {
                     Some(term) => Some(RValue::not(span, term)),
                     None => {
-                        let value_id = ctx.value_ids.get_next();
+                        let value_id = ctx.create_value(span.clone(), Some(Type::Bool));
                         ctx.insts
                             .push(MirInstruction::VariableDeclaration(value_id));
                         ctx.insts
@@ -370,7 +399,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 None => return None,
             };
 
-            let value_id = ctx.value_ids.get_next();
+            let value_id = ctx.create_value(expr.span.clone(), None);
             ctx.insts
                 .push(MirInstruction::VariableDeclaration(value_id));
 
@@ -399,7 +428,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                     args.push(arg);
                 }
 
-                let result_value_id = ctx.value_ids.get_next();
+                let result_value_id = ctx.create_value(expr.span.clone(), ctx.get_return_type(lhs));
                 ctx.insts
                     .push(MirInstruction::VariableDeclaration(result_value_id));
 
@@ -426,7 +455,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                     args.push(arg);
                 }
 
-                let value_id = ctx.value_ids.get_next();
+                let value_id = ctx.create_value(expr.span.clone(), ctx.get_return_type(lhs));
                 ctx.insts
                     .push(MirInstruction::VariableDeclaration(value_id));
 
@@ -444,7 +473,8 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 convert_expression(ctx, *lhs).to_terminal(),
             ) {
                 (Some(index), Some(RValueTerminal::NamedValue(lhs))) => {
-                    let value_id = ctx.value_ids.get_next();
+                    let value_id =
+                        ctx.create_value(expr.span.clone(), ctx.get_list_element_type(lhs));
                     ctx.insts
                         .push(MirInstruction::VariableDeclaration(value_id));
 
@@ -475,15 +505,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
         }
         frontend::ir::ExpressionKind::Parenthesized(expr) => convert_expression(ctx, *expr),
         frontend::ir::ExpressionKind::JsBlock(type_, expressions_) => {
-            let value_id = ctx.value_ids.get_next();
-            ctx.name_bindings.insert(
-                value_id,
-                Symbol {
-                    id: value_id,
-                    span: expr.span.clone(),
-                    declared_type: Some(type_),
-                },
-            );
+            let value_id = ctx.create_value(expr.span.clone(), Some(type_));
 
             ctx.insts.push(MirInstruction::StartJsBlock(value_id));
 
@@ -507,7 +529,7 @@ impl From<frontend::ir::Module> for MirModule {
         let mut ctx = MirModuleContext {
             errors: module.errors,
             insts: Vec::new(),
-            name_bindings: HashMap::new(),
+            values: HashMap::new(),
             scopes: vec![Scope::default()],
             value_ids: ValueIdBuilder::default(),
         };
@@ -532,7 +554,7 @@ impl From<frontend::ir::Module> for MirModule {
         Self {
             path: module.path,
             insts: ctx.insts,
-            name_bindings: ctx.name_bindings,
+            values: ctx.values,
             types: HashMap::new(),
             errors: ctx.errors,
         }
@@ -1080,14 +1102,16 @@ mod tests {
     fn does_not_report_an_error_when_a_declared_variable_is_used() {
         let module = create_module("let id = 0; id;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
-        assert!(module.name_bindings.contains_key(&ValueId(0)));
+        assert!(module.values.contains_key(&ValueId(0)));
     }
 
     #[test]
     fn turns_var_declarations_in_to_assignments() {
         let mut module = create_module("let id = 32;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         let value_id = assert_inst::is_variable_declaration(module.insts.remove(0));
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
@@ -1100,6 +1124,7 @@ mod tests {
     fn turns_complex_expressions_in_to_sequences_of_assignments() {
         let mut module = create_module("1 + 2 * 3;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         // let $tmp1 = 2 * 3;
         // let $tmp2 = 1 + $tmp1;
@@ -1127,6 +1152,7 @@ mod tests {
     fn handles_variable_declarations_with_complex_expressions() {
         let mut module = create_module("let n = 1 + 2 * 3;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 3);
 
         // let $tmp1 = 2 * 3;
         // let $tmp2 = 1 + $tmp1;
@@ -1180,7 +1206,7 @@ mod tests {
         let module = create_module("let i: int = 1;");
         assert_eq!(module.errors.len(), 0);
 
-        let symbol = module.name_bindings.get(&ValueId(0)).unwrap();
+        let symbol = module.values.get(&ValueId(0)).unwrap();
         assert_eq!(symbol.declared_type, Some(Type::Int));
     }
 
@@ -1188,11 +1214,12 @@ mod tests {
     fn flattens_empty_functions() {
         let mut module = create_module("fn noop() {}");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         assert_inst::is_start_function(module.insts.remove(0));
         assert_inst::is_end_function(module.insts.remove(0));
 
-        let symbol = module.name_bindings.get(&ValueId(0)).unwrap();
+        let symbol = module.values.get(&ValueId(0)).unwrap();
         assert_eq!(
             Some(Type::Function {
                 parameters: Vec::new(),
@@ -1206,14 +1233,14 @@ mod tests {
     fn flattens_identity_function() {
         let mut module = create_module("fn id(n: int): int { n }");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
-        assert_inst::is_start_function(module.insts.remove(0));
+        let (fn_id, _) = assert_inst::is_start_function(module.insts.remove(0));
         let return_value = assert_inst::is_return_with_value(module.insts.remove(0));
-        let return_value = assert_r_value::is_named_value(return_value);
-        assert_eq!(return_value, ValueId(1));
+        assert_r_value::is_named_value(return_value);
         assert_inst::is_end_function(module.insts.remove(0));
 
-        let symbol = module.name_bindings.get(&ValueId(0)).unwrap();
+        let symbol = module.values.get(&fn_id).unwrap();
         assert_eq!(
             Some(Type::Function {
                 parameters: vec![Type::Int],
@@ -1227,6 +1254,7 @@ mod tests {
     fn handles_return_statements() {
         let mut module = create_module("fn noop() { return; }");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         assert_inst::is_start_function(module.insts.remove(0));
         assert_inst::is_empty_return(module.insts.remove(0));
@@ -1257,6 +1285,7 @@ mod tests {
     fn handles_for_loops() {
         let mut module = create_module("for (let i = 0; i < 10; ++i) {}");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         // initializer
         let i_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1325,6 +1354,7 @@ mod tests {
     fn handles_property_access() {
         let mut module = create_module("let a = 0; a.b;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         // let a
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1363,6 +1393,7 @@ mod tests {
     fn handles_function_calls() {
         let mut module = create_module("fn noop() {} noop(10);");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         let (id, params) = assert_inst::is_start_function(module.insts.remove(0));
         assert_eq!(id, ValueId(0));
@@ -1384,6 +1415,7 @@ mod tests {
     fn handles_method_calls() {
         let mut module = create_module("let a = 0; a.to-vector(2);");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         // let a
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1413,6 +1445,7 @@ mod tests {
     fn allows_assigning_to_properties() {
         let mut module = create_module("let a = 0; a.b = 1;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         // let a
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1434,6 +1467,7 @@ mod tests {
     fn can_access_list_items() {
         let mut module = create_module("let a = [1, 2, 3]; a[2];");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         // let a
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1466,6 +1500,7 @@ mod tests {
     fn can_assign_to_list_indices() {
         let mut module = create_module("let a = [1]; a[0] = 2;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         // let a
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1489,6 +1524,7 @@ mod tests {
         /* Block with only a simple return expression */
         let mut module = create_module("{ true };");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 0);
 
         let r_value = assert_inst::is_statement(module.insts.remove(0));
         assert_r_value::is_bool_with_value(r_value, true);
@@ -1496,6 +1532,7 @@ mod tests {
         /* Returns the value of a variable */
         let mut module = create_module("{ let a = true; a };");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         // let a
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1512,6 +1549,7 @@ mod tests {
         /* Assigns simple result to variable */
         let mut module = create_module("let a = { true };");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         // let a
         let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1524,6 +1562,7 @@ mod tests {
         /* Assigns a named value to the result of a block */
         let mut module = create_module("let a = { let b = true; b };");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         // let b
         let b_id = assert_inst::is_variable_declaration(module.insts.remove(0));
@@ -1546,6 +1585,7 @@ mod tests {
     fn can_negate_bools() {
         let mut module = create_module("!true;");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 0);
 
         let r_value = assert_inst::is_statement(module.insts.remove(0));
         let term = assert_r_value::is_not(r_value);
@@ -1556,6 +1596,7 @@ mod tests {
     fn handles_parenthesized_expressions() {
         let mut module = create_module("(true);");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 0);
 
         let r_value = assert_inst::is_statement(module.insts.remove(0));
         assert_r_value::is_bool_with_value(r_value, true);
@@ -1566,6 +1607,7 @@ mod tests {
         /* Simple block */
         let mut module = create_module(r#"#js { "console.log('Hello');" };"#);
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
 
         assert_inst::is_start_js_block(module.insts.remove(0));
         let term = assert_inst::is_js_block_instr(module.insts.remove(0));
@@ -1575,6 +1617,7 @@ mod tests {
         /* Block that produces a value */
         let mut module = create_module("let a = #js : int { '1' };");
         assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
 
         let js_block_id = assert_inst::is_start_js_block(module.insts.remove(0));
         assert_r_value_terminal::is_string_with_value(
