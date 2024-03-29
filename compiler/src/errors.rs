@@ -7,8 +7,8 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct CompilerError {
-    span: Span,
-    reason: CompilerErrorReason,
+    pub span: Span,
+    pub reason: CompilerErrorReason,
 }
 
 impl CompilerError {

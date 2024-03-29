@@ -5,7 +5,10 @@ use crate::{
     phases::{
         frontend::{
             self,
-            ir::{EnvironmentType, Expression, ModuleItemKind, Statement, StatementKind},
+            ir::{
+                EnvironmentType, Expression, ExpressionKind, ModuleItemKind, Statement,
+                StatementKind,
+            },
         },
         shared::{BinOp, Span, Type},
     },
@@ -221,6 +224,21 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             span: expr.span,
             kind: RValueKind::String(s),
         }),
+        frontend::ir::ExpressionKind::List(items) => {
+            let mut r_value_items = Vec::new();
+            for item in items {
+                if let Some(item) = convert_expression(ctx, item).and_then(|i| i.to_terminal()) {
+                    r_value_items.push(item);
+                } else {
+                    return None;
+                }
+            }
+
+            Some(RValue {
+                span: expr.span,
+                kind: RValueKind::List(r_value_items),
+            })
+        }
         frontend::ir::ExpressionKind::Identifier(id) => find_value(&ctx.scopes, &id.name)
             .map(|value_id| RValue {
                 span: id.span,
@@ -268,6 +286,19 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
             }
         }
         frontend::ir::ExpressionKind::PrefixUnaryOp(op, expr) => {
+            match expr.kind {
+                ExpressionKind::ArrayAccess(_, _)
+                | ExpressionKind::Identifier(_)
+                | ExpressionKind::PropertyAccess(_, _) => {}
+                _ => {
+                    ctx.errors
+                        .push(CompilerError::invalid_rhs_expression_in_prefix_operation(
+                            &expr.span,
+                        ));
+                    return None;
+                }
+            }
+
             if let Some(expr) = convert_expression(ctx, *expr) {
                 let op = match op {
                     crate::phases::shared::PrefixUnaryOp::Not => todo!(),
@@ -290,7 +321,7 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                         ));
                         Some(r_value)
                     }
-                    _ => None,
+                    _ => unreachable!(),
                 }
             } else {
                 None
@@ -359,6 +390,7 @@ pub enum RValueTerminal {
     Integer(i32),
     String(String),
     Bool(bool),
+    List(Vec<RValueTerminal>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -378,6 +410,7 @@ impl RValue {
             RValueKind::Integer(n) => Some(RValueTerminal::Integer(n)),
             RValueKind::String(s) => Some(RValueTerminal::String(s)),
             RValueKind::Bool(b) => Some(RValueTerminal::Bool(b)),
+            RValueKind::List(items) => Some(RValueTerminal::List(items)),
             RValueKind::MethodCall(_, _) => None,
             RValueKind::FnCall(_, _) => None,
             RValueKind::BinOp(_, _, _) => None,
@@ -391,6 +424,7 @@ pub enum RValueKind {
     Integer(i32),
     String(String),
     Bool(bool),
+    List(Vec<RValueTerminal>),
     MethodCall(LValue, Vec<RValue>),
     FnCall(ValueId, Vec<RValue>),
     BinOp(RValueTerminal, BinOp, RValueTerminal),
@@ -857,5 +891,55 @@ mod tests {
                 }
             ))
         ));
+    }
+
+    #[test]
+    fn reports_errors_when_prefix_incrementing_invalid_values() {
+        let sources = vec!["++true;", "++1;", "++(1 + 2);", "++'hello';"];
+        for source in sources {
+            let module = create_module(source);
+            let lowered_module = LoweredModule::from(module);
+            assert_eq!(lowered_module.errors.len(), 1);
+
+            assert!(matches!(
+                lowered_module.errors.get(0).unwrap(),
+                CompilerError {
+                    span: _,
+                    reason: CompilerErrorReason::InvalidRhsExpressionInPrefixOperation
+                }
+            ));
+        }
+    }
+
+    #[test]
+    fn handles_basic_list_expressions() {
+        let module = create_module("[1, 2, 3];");
+        let lowered_module = LoweredModule::from(module);
+        assert_eq!(lowered_module.errors.len(), 0);
+
+        assert!(matches!(
+            lowered_module.nodes.get(0).unwrap(),
+            LoweredModuleASTNode::Statement(RValue {
+                span: _,
+                kind: RValueKind::List(_)
+            })
+        ));
+
+        if let LoweredModuleASTNode::Statement(RValue {
+            span: _,
+            kind: RValueKind::List(list),
+        }) = lowered_module.nodes.get(0).unwrap()
+        {
+            assert_eq!(
+                list,
+                &vec![
+                    RValueTerminal::Integer(1),
+                    RValueTerminal::Integer(2),
+                    RValueTerminal::Integer(3)
+                ]
+            );
+        } else {
+            unreachable!()
+        }
     }
 }
