@@ -82,7 +82,6 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
                     id: value_id,
                     span: identifier.span,
                     declared_type: type_,
-                    type_depends_on: Vec::new(),
                 },
             );
             ctx.scopes
@@ -129,7 +128,6 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
                         id: param_id,
                         span: param.span,
                         declared_type: Some(param.type_.clone()),
-                        type_depends_on: Vec::new(),
                     },
                 );
                 parameter_ids.push(param_id);
@@ -145,7 +143,6 @@ fn convert_statement(ctx: &mut LoweredModuleContext, stmt: Statement) {
                         parameters: parameter_types,
                         return_type: Box::new(return_type),
                     }),
-                    type_depends_on: Vec::new(),
                 },
             );
 
@@ -247,7 +244,6 @@ fn convert_expression(ctx: &mut LoweredModuleContext, expr: Expression) -> Optio
                             id: value_id,
                             span: expr.span.clone(),
                             declared_type: None,
-                            type_depends_on: Vec::new(),
                         },
                     );
 
@@ -353,7 +349,6 @@ pub struct Symbol {
     id: ValueId,
     span: Span,
     declared_type: Option<Type>,
-    type_depends_on: Vec<ValueId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
