@@ -520,7 +520,32 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
 
             Some(RValue::named_value(expr.span, value_id))
         }
-        _ => None,
+        frontend::ir::ExpressionKind::If {
+            condition,
+            body,
+            else_,
+        } => {
+            let result_id = ctx.create_value(expr.span.clone(), None);
+            ctx.insts
+                .push(MirInstruction::VariableDeclaration(result_id));
+
+            let condition = convert_expression(ctx, *condition)?;
+            ctx.insts.push(MirInstruction::StartIf(condition));
+            let body = convert_expression(ctx, *body)?;
+            ctx.insts
+                .push(MirInstruction::Assign(LValue::NamedValue(result_id), body));
+
+            if let Some(else_) = else_ {
+                ctx.insts.push(MirInstruction::Else);
+                let else_ = convert_expression(ctx, *else_)?;
+                ctx.insts
+                    .push(MirInstruction::Assign(LValue::NamedValue(result_id), else_));
+            }
+
+            ctx.insts.push(MirInstruction::EndIf);
+
+            Some(RValue::named_value(expr.span, result_id))
+        }
     }
 }
 
@@ -735,6 +760,7 @@ pub enum MirInstruction {
     StartLoop,
     EndLoop,
     StartIf(RValue),
+    Else,
     EndIf,
     StartJsBlock(ValueId),
     JsBlockInstr(RValueTerminal),
@@ -853,6 +879,13 @@ mod tests {
             match node {
                 MirInstruction::StartIf(condition) => condition,
                 _ => panic!("Expected the start of an `if`, found {:?}", node),
+            }
+        }
+
+        pub fn is_else(instr: MirInstruction) {
+            match instr {
+                MirInstruction::Else => {}
+                _ => panic!("Expected an else, found {:?}", instr),
             }
         }
 
@@ -1630,5 +1663,49 @@ mod tests {
         let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_named_value_with_id(rhs, js_block_id);
+    }
+
+    #[test]
+    fn handles_if_expressions() {
+        let mut module = create_module("if true { 1 } else { 2 };");
+        assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 1);
+
+        let result_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let condition = assert_inst::is_start_if(module.insts.remove(0));
+        assert_r_value::is_bool_with_value(condition, true);
+
+        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, result_id);
+        assert_r_value::is_integer_with_value(rhs, 1);
+
+        assert_inst::is_else(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, result_id);
+        assert_r_value::is_integer_with_value(rhs, 2);
+        assert_inst::is_end_if(module.insts.remove(0));
+
+        let mut module = create_module("let a = if true { 1 } else { 2 };");
+        assert_eq!(module.errors.len(), 0);
+        assert_eq!(module.values.len(), 2);
+
+        let result_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let condition = assert_inst::is_start_if(module.insts.remove(0));
+        assert_r_value::is_bool_with_value(condition, true);
+
+        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, result_id);
+        assert_r_value::is_integer_with_value(rhs, 1);
+
+        assert_inst::is_else(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, result_id);
+        assert_r_value::is_integer_with_value(rhs, 2);
+        assert_inst::is_end_if(module.insts.remove(0));
+
+        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, a_id);
+        assert_r_value::is_named_value_with_id(rhs, result_id);
     }
 }
