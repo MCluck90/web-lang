@@ -474,6 +474,30 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
             result
         }
         frontend::ir::ExpressionKind::Parenthesized(expr) => convert_expression(ctx, *expr),
+        frontend::ir::ExpressionKind::JsBlock(type_, expressions_) => {
+            let value_id = ctx.value_ids.get_next();
+            ctx.name_bindings.insert(
+                value_id,
+                Symbol {
+                    id: value_id,
+                    span: expr.span.clone(),
+                    declared_type: Some(type_),
+                },
+            );
+
+            ctx.insts.push(MirInstruction::StartJsBlock(value_id));
+
+            for expr in expressions_ {
+                match convert_expression(ctx, expr).to_terminal() {
+                    None => break,
+                    Some(term) => ctx.insts.push(MirInstruction::JsBlockInstr(term)),
+                }
+            }
+
+            ctx.insts.push(MirInstruction::EndJsBlock);
+
+            Some(RValue::named_value(expr.span, value_id))
+        }
         _ => None,
     }
 }
@@ -690,6 +714,9 @@ pub enum MirInstruction {
     EndLoop,
     StartIf(RValue),
     EndIf,
+    StartJsBlock(ValueId),
+    JsBlockInstr(RValueTerminal),
+    EndJsBlock,
 }
 
 #[cfg(test)]
@@ -709,7 +736,9 @@ mod tests {
     }
 
     mod assert_inst {
-        use super::{frontend::ir::EnvironmentType, LValue, MirInstruction, RValue, ValueId};
+        use super::{
+            frontend::ir::EnvironmentType, LValue, MirInstruction, RValue, RValueTerminal, ValueId,
+        };
 
         pub fn is_statement(node: MirInstruction) -> RValue {
             match node {
@@ -818,6 +847,27 @@ mod tests {
             match node {
                 MirInstruction::EndIf => {}
                 _ => panic!("Expected the end of an `if`, found {:?}", node),
+            }
+        }
+
+        pub fn is_start_js_block(instr: MirInstruction) -> ValueId {
+            match instr {
+                MirInstruction::StartJsBlock(id) => id,
+                _ => panic!("Expected the start of a JS block, found {:?}", instr),
+            }
+        }
+
+        pub fn is_js_block_instr(instr: MirInstruction) -> RValueTerminal {
+            match instr {
+                MirInstruction::JsBlockInstr(instr) => instr,
+                _ => panic!("Expected a JS block instruction, found {:?}", instr),
+            }
+        }
+
+        pub fn is_end_js_block(instr: MirInstruction) {
+            match instr {
+                MirInstruction::EndJsBlock => {}
+                _ => panic!("Expected the end of a JS block, found {:?}", instr),
             }
         }
     }
@@ -970,6 +1020,13 @@ mod tests {
             match term {
                 RValueTerminal::Bool(actual_value) => assert_eq!(actual_value, value),
                 _ => panic!("Expected a boolean, found {:?}", term),
+            }
+        }
+
+        pub fn is_string_with_value(term: RValueTerminal, value: &str) {
+            match term {
+                RValueTerminal::String(actual_value) => assert_eq!(actual_value, value),
+                _ => panic!("Expected a string, found {:?}", term),
             }
         }
     }
@@ -1511,5 +1568,33 @@ mod tests {
 
         let r_value = assert_inst::is_statement(module.insts.remove(0));
         assert_r_value::is_bool_with_value(r_value, true);
+    }
+
+    #[test]
+    fn allows_for_js_blocks() {
+        /* Simple block */
+        let mut module = create_module(r#"#js { "console.log('Hello');" };"#);
+        assert_eq!(module.errors.len(), 0);
+
+        assert_inst::is_start_js_block(module.insts.remove(0));
+        let term = assert_inst::is_js_block_instr(module.insts.remove(0));
+        assert_r_value_terminal::is_string_with_value(term, "console.log('Hello');");
+        assert_inst::is_end_js_block(module.insts.remove(0));
+
+        /* Block that produces a value */
+        let mut module = create_module("let a = #js : int { '1' };");
+        assert_eq!(module.errors.len(), 0);
+
+        let js_block_id = assert_inst::is_start_js_block(module.insts.remove(0));
+        assert_r_value_terminal::is_string_with_value(
+            assert_inst::is_js_block_instr(module.insts.remove(0)),
+            "1",
+        );
+        assert_inst::is_end_js_block(module.insts.remove(0));
+
+        let a_id = assert_inst::is_variable_declaration(module.insts.remove(0));
+        let (lhs, rhs) = assert_inst::is_assignment(module.insts.remove(0));
+        assert_l_value::is_named_value_with_id(lhs, a_id.0);
+        assert_r_value::is_named_value_with_id(rhs, js_block_id.0);
     }
 }
