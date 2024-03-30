@@ -30,7 +30,7 @@ impl ValueIdBuilder {
 #[derive(Debug)]
 pub struct MirModule {
     pub path: String,
-    pub insts: Vec<MirInstruction>,
+    pub stmts: Vec<MirStatement>,
     pub values: HashMap<ValueId, Symbol>,
     pub types: HashMap<ValueId, Type>,
     pub errors: Vec<CompilerError>,
@@ -58,7 +58,7 @@ fn find_value(scopes: &[Scope], name: &str) -> Option<ValueId> {
 
 struct MirModuleContext {
     errors: Vec<CompilerError>,
-    insts: Vec<MirInstruction>,
+    stmts: Vec<MirStatement>,
     values: HashMap<ValueId, Symbol>,
     scopes: Vec<Scope>,
     value_ids: ValueIdBuilder,
@@ -130,18 +130,16 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
                 ctx.create_value_with_name(identifier.span, type_, identifier.name.clone());
 
             if let Some(rhs) = convert_expression(ctx, initializer) {
-                ctx.insts
-                    .push(MirInstruction::VariableDeclaration(value_id));
-                ctx.insts
-                    .push(MirInstruction::Assign(LValue::NamedValue(value_id), rhs));
+                ctx.stmts.push(MirStatement::VariableDeclaration(value_id));
+                ctx.stmts
+                    .push(MirStatement::Assign(LValue::NamedValue(value_id), rhs));
             } else {
-                ctx.insts
-                    .push(MirInstruction::VariableDeclaration(value_id));
+                ctx.stmts.push(MirStatement::VariableDeclaration(value_id));
             }
         }
         StatementKind::Expression(expr) => {
             if let Some(r_value) = convert_expression(ctx, expr) {
-                ctx.insts.push(MirInstruction::Statement(r_value));
+                ctx.stmts.push(MirStatement::Expression(r_value));
             }
         }
         StatementKind::FunctionDefinition {
@@ -178,8 +176,8 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
                 name.name,
             );
 
-            ctx.insts
-                .push(MirInstruction::StartFunction(id, parameter_ids));
+            ctx.stmts
+                .push(MirStatement::StartFunction(id, parameter_ids));
 
             ctx.scopes.push(function_scope);
             for stmt in body.statements {
@@ -187,26 +185,26 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
             }
             if let Some(expr) = body.return_expression {
                 if let Some(value) = convert_expression(ctx, expr) {
-                    ctx.insts.push(MirInstruction::Return(Some(value)));
+                    ctx.stmts.push(MirStatement::Return(Some(value)));
                 };
             }
             ctx.scopes.pop();
 
-            ctx.insts.push(MirInstruction::EndFunction);
+            ctx.stmts.push(MirStatement::EndFunction);
         }
         StatementKind::Return(expr) => {
             let return_value = expr.and_then(|expr| convert_expression(ctx, expr));
-            ctx.insts.push(MirInstruction::Return(return_value));
+            ctx.stmts.push(MirStatement::Return(return_value));
         }
         StatementKind::Loop(body) => {
-            ctx.insts.push(MirInstruction::StartLoop);
+            ctx.stmts.push(MirStatement::StartLoop);
             for stmt in body {
                 convert_statement(ctx, stmt);
             }
-            ctx.insts.push(MirInstruction::EndLoop);
+            ctx.stmts.push(MirStatement::EndLoop);
         }
         StatementKind::Break => {
-            ctx.insts.push(MirInstruction::Break);
+            ctx.stmts.push(MirStatement::Break);
         }
         StatementKind::ForLoop {
             initializer,
@@ -219,12 +217,12 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
                 convert_statement(ctx, *stmt);
             }
 
-            ctx.insts.push(MirInstruction::StartLoop);
+            ctx.stmts.push(MirStatement::StartLoop);
             if let Some(condition) = condition.and_then(|expr| convert_expression(ctx, expr)) {
                 // TODO: Need to invert the condition
-                ctx.insts.push(MirInstruction::StartIf(condition));
-                ctx.insts.push(MirInstruction::Break);
-                ctx.insts.push(MirInstruction::EndIf);
+                ctx.stmts.push(MirStatement::StartIf(condition));
+                ctx.stmts.push(MirStatement::Break);
+                ctx.stmts.push(MirStatement::EndIf);
             }
 
             for stmt in body {
@@ -235,7 +233,7 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
                 convert_expression(ctx, expr);
             }
 
-            ctx.insts.push(MirInstruction::EndLoop);
+            ctx.stmts.push(MirStatement::EndLoop);
         }
     };
 }
@@ -275,7 +273,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                         _ => return None,
                     };
 
-                    ctx.insts.push(MirInstruction::Assign(
+                    ctx.stmts.push(MirStatement::Assign(
                         LValue::Property(lhs, prop.name.clone()),
                         rhs,
                     ));
@@ -290,7 +288,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                         _ => return None,
                     };
 
-                    ctx.insts.push(MirInstruction::Assign(
+                    ctx.stmts.push(MirStatement::Assign(
                         LValue::ListAccess(lhs, index.clone()),
                         rhs,
                     ));
@@ -300,8 +298,8 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                     let rhs = convert_expression(ctx, *rhs)?;
                     let lhs = find_value(&ctx.scopes, &lhs.name)?;
 
-                    ctx.insts
-                        .push(MirInstruction::Assign(LValue::NamedValue(lhs), rhs));
+                    ctx.stmts
+                        .push(MirStatement::Assign(LValue::NamedValue(lhs), rhs));
 
                     return Some(RValue::named_value(expr.span, lhs));
                 }
@@ -314,10 +312,9 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 (Some(rhs), Some(lhs)) => {
                     let value_id = ctx.create_value(expr.span.clone(), None);
 
-                    ctx.insts
-                        .push(MirInstruction::VariableDeclaration(value_id));
+                    ctx.stmts.push(MirStatement::VariableDeclaration(value_id));
 
-                    ctx.insts.push(MirInstruction::Assign(
+                    ctx.stmts.push(MirStatement::Assign(
                         LValue::NamedValue(value_id),
                         RValue::bin_op(expr.span.clone(), lhs, op, rhs),
                     ));
@@ -337,10 +334,9 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                     Some(term) => Some(RValue::not(span, term)),
                     None => {
                         let value_id = ctx.create_value(span.clone(), Some(Type::Bool));
-                        ctx.insts
-                            .push(MirInstruction::VariableDeclaration(value_id));
-                        ctx.insts
-                            .push(MirInstruction::Assign(LValue::NamedValue(value_id), expr));
+                        ctx.stmts.push(MirStatement::VariableDeclaration(value_id));
+                        ctx.stmts
+                            .push(MirStatement::Assign(LValue::NamedValue(value_id), expr));
 
                         Some(RValue::not(span, RValueTerminal::NamedValue(value_id)))
                     }
@@ -377,7 +373,7 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                                 RValueTerminal::Integer(1),
                             ),
                         };
-                        ctx.insts.push(MirInstruction::Assign(
+                        ctx.stmts.push(MirStatement::Assign(
                             LValue::NamedValue(id),
                             r_value.clone(),
                         ));
@@ -397,10 +393,9 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
             };
 
             let value_id = ctx.create_value(expr.span.clone(), None);
-            ctx.insts
-                .push(MirInstruction::VariableDeclaration(value_id));
+            ctx.stmts.push(MirStatement::VariableDeclaration(value_id));
 
-            ctx.insts.push(MirInstruction::Assign(
+            ctx.stmts.push(MirStatement::Assign(
                 LValue::NamedValue(value_id),
                 RValue::property_access(expr.span.clone(), lhs, prop.name),
             ));
@@ -426,10 +421,10 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 }
 
                 let result_value_id = ctx.create_value(expr.span.clone(), ctx.get_return_type(lhs));
-                ctx.insts
-                    .push(MirInstruction::VariableDeclaration(result_value_id));
+                ctx.stmts
+                    .push(MirStatement::VariableDeclaration(result_value_id));
 
-                ctx.insts.push(MirInstruction::Assign(
+                ctx.stmts.push(MirStatement::Assign(
                     LValue::NamedValue(result_value_id),
                     RValue::method_call(expr.span.clone(), lhs, prop.name, args),
                 ));
@@ -453,10 +448,9 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 }
 
                 let value_id = ctx.create_value(expr.span.clone(), ctx.get_return_type(lhs));
-                ctx.insts
-                    .push(MirInstruction::VariableDeclaration(value_id));
+                ctx.stmts.push(MirStatement::VariableDeclaration(value_id));
 
-                ctx.insts.push(MirInstruction::Assign(
+                ctx.stmts.push(MirStatement::Assign(
                     LValue::NamedValue(value_id),
                     RValue::fn_call(expr.span.clone(), lhs, args),
                 ));
@@ -472,10 +466,9 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
                 (Some(index), Some(RValueTerminal::NamedValue(lhs))) => {
                     let value_id =
                         ctx.create_value(expr.span.clone(), ctx.get_list_element_type(lhs));
-                    ctx.insts
-                        .push(MirInstruction::VariableDeclaration(value_id));
+                    ctx.stmts.push(MirStatement::VariableDeclaration(value_id));
 
-                    ctx.insts.push(MirInstruction::Assign(
+                    ctx.stmts.push(MirStatement::Assign(
                         LValue::NamedValue(value_id),
                         RValue::list_access(expr.span.clone(), lhs, index),
                     ));
@@ -504,16 +497,16 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
         ExpressionKind::JsBlock(type_, expressions_) => {
             let value_id = ctx.create_value(expr.span.clone(), Some(type_));
 
-            ctx.insts.push(MirInstruction::StartJsBlock(value_id));
+            ctx.stmts.push(MirStatement::StartJsBlock(value_id));
 
             for expr in expressions_ {
                 match convert_expression(ctx, expr).to_terminal() {
                     None => break,
-                    Some(term) => ctx.insts.push(MirInstruction::JsBlockInstr(term)),
+                    Some(term) => ctx.stmts.push(MirStatement::JsBlockInstr(term)),
                 }
             }
 
-            ctx.insts.push(MirInstruction::EndJsBlock);
+            ctx.stmts.push(MirStatement::EndJsBlock);
 
             Some(RValue::named_value(expr.span, value_id))
         }
@@ -523,23 +516,22 @@ fn convert_expression(ctx: &mut MirModuleContext, expr: Expression) -> Option<RV
             else_,
         } => {
             let result_id = ctx.create_value(expr.span.clone(), None);
-            ctx.insts
-                .push(MirInstruction::VariableDeclaration(result_id));
+            ctx.stmts.push(MirStatement::VariableDeclaration(result_id));
 
             let condition = convert_expression(ctx, *condition)?;
-            ctx.insts.push(MirInstruction::StartIf(condition));
+            ctx.stmts.push(MirStatement::StartIf(condition));
             let body = convert_expression(ctx, *body)?;
-            ctx.insts
-                .push(MirInstruction::Assign(LValue::NamedValue(result_id), body));
+            ctx.stmts
+                .push(MirStatement::Assign(LValue::NamedValue(result_id), body));
 
             if let Some(else_) = else_ {
-                ctx.insts.push(MirInstruction::Else);
+                ctx.stmts.push(MirStatement::Else);
                 let else_ = convert_expression(ctx, *else_)?;
-                ctx.insts
-                    .push(MirInstruction::Assign(LValue::NamedValue(result_id), else_));
+                ctx.stmts
+                    .push(MirStatement::Assign(LValue::NamedValue(result_id), else_));
             }
 
-            ctx.insts.push(MirInstruction::EndIf);
+            ctx.stmts.push(MirStatement::EndIf);
 
             Some(RValue::named_value(expr.span, result_id))
         }
@@ -550,7 +542,7 @@ impl From<Module> for MirModule {
     fn from(module: Module) -> Self {
         let mut ctx = MirModuleContext {
             errors: module.errors,
-            insts: Vec::new(),
+            stmts: Vec::new(),
             values: HashMap::new(),
             scopes: vec![Scope::default()],
             value_ids: ValueIdBuilder::default(),
@@ -559,15 +551,14 @@ impl From<Module> for MirModule {
         for item in module.ast.items {
             match item.kind {
                 ModuleItemKind::EnvironmentBlock(env_type, statements) => {
-                    ctx.insts.push(MirInstruction::StartDeclaredEnvironment(
-                        item.span, env_type,
-                    ));
+                    ctx.stmts
+                        .push(MirStatement::StartDeclaredEnvironment(item.span, env_type));
 
                     for stmt in statements {
                         convert_statement(&mut ctx, stmt);
                     }
 
-                    ctx.insts.push(MirInstruction::EndDeclaredEnvironment);
+                    ctx.stmts.push(MirStatement::EndDeclaredEnvironment);
                 }
                 ModuleItemKind::Statement(stmt) => convert_statement(&mut ctx, stmt),
             }
@@ -575,7 +566,7 @@ impl From<Module> for MirModule {
 
         Self {
             path: module.path,
-            insts: ctx.insts,
+            stmts: ctx.stmts,
             values: ctx.values,
             types: HashMap::new(),
             errors: ctx.errors,
@@ -744,10 +735,10 @@ pub enum RValueKind {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum MirInstruction {
+pub enum MirStatement {
     VariableDeclaration(ValueId),
     Assign(LValue, RValue),
-    Statement(RValue),
+    Expression(RValue),
     Return(Option<RValue>),
     Break,
     StartFunction(ValueId, Vec<ValueId>),
@@ -769,14 +760,14 @@ mod tests {
     use super::*;
     use crate::phases::frontend::ir::Module;
 
-    // Conveniently pull out the instructions from a module
-    trait InstructionStream {
-        fn dequeue_instr(&mut self) -> MirInstruction;
+    // Conveniently pull out the statements from a module
+    trait StatementStream {
+        fn dequeue_statement(&mut self) -> MirStatement;
     }
 
-    impl InstructionStream for MirModule {
-        fn dequeue_instr(&mut self) -> MirInstruction {
-            self.insts.remove(0)
+    impl StatementStream for MirModule {
+        fn dequeue_statement(&mut self) -> MirStatement {
+            self.stmts.remove(0)
         }
     }
 
@@ -792,134 +783,134 @@ mod tests {
     }
 
     mod assert_inst {
-        use super::{EnvironmentType, LValue, MirInstruction, RValue, RValueTerminal, ValueId};
+        use super::{EnvironmentType, LValue, MirStatement, RValue, RValueTerminal, ValueId};
 
-        pub fn is_statement(node: MirInstruction) -> RValue {
-            match node {
-                MirInstruction::Statement(r) => r,
-                _ => panic!("Expected a statement, found {:?}", node),
+        pub fn is_statement(stmt: MirStatement) -> RValue {
+            match stmt {
+                MirStatement::Expression(r) => r,
+                _ => panic!("Expected a statement, found {:?}", stmt),
             }
         }
 
-        pub fn is_variable_declaration(node: MirInstruction) -> ValueId {
-            match node {
-                MirInstruction::VariableDeclaration(id) => id,
-                _ => panic!("Expected a variable declaration, found {:?}", node),
+        pub fn is_variable_declaration(stmt: MirStatement) -> ValueId {
+            match stmt {
+                MirStatement::VariableDeclaration(id) => id,
+                _ => panic!("Expected a variable declaration, found {:?}", stmt),
             }
         }
 
-        pub fn is_assignment(node: MirInstruction) -> (LValue, RValue) {
-            match node {
-                MirInstruction::Assign(lhs, rhs) => (lhs, rhs),
-                _ => panic!("Expected an assignment, found {:?}", node),
+        pub fn is_assignment(stmt: MirStatement) -> (LValue, RValue) {
+            match stmt {
+                MirStatement::Assign(lhs, rhs) => (lhs, rhs),
+                _ => panic!("Expected an assignment, found {:?}", stmt),
             }
         }
 
-        pub fn is_start_declared_environment(node: MirInstruction) -> EnvironmentType {
-            match node {
-                MirInstruction::StartDeclaredEnvironment(_, env) => env,
-                _ => panic!("Expected the start of an environment, found {:?}", node),
+        pub fn is_start_declared_environment(stmt: MirStatement) -> EnvironmentType {
+            match stmt {
+                MirStatement::StartDeclaredEnvironment(_, env) => env,
+                _ => panic!("Expected the start of an environment, found {:?}", stmt),
             }
         }
 
-        pub fn is_end_declared_environment(node: MirInstruction) {
-            match node {
-                MirInstruction::EndDeclaredEnvironment => {}
+        pub fn is_end_declared_environment(stmt: MirStatement) {
+            match stmt {
+                MirStatement::EndDeclaredEnvironment => {}
                 _ => panic!(
                     "Expected the end of an environment declaration, found {:?}",
-                    node
+                    stmt
                 ),
             }
         }
 
-        pub fn is_start_function(node: MirInstruction) -> (ValueId, Vec<ValueId>) {
-            match node {
-                MirInstruction::StartFunction(id, params) => (id, params),
-                _ => panic!("Expected the start of a function, found {:?}", node),
+        pub fn is_start_function(stmt: MirStatement) -> (ValueId, Vec<ValueId>) {
+            match stmt {
+                MirStatement::StartFunction(id, params) => (id, params),
+                _ => panic!("Expected the start of a function, found {:?}", stmt),
             }
         }
 
-        pub fn is_end_function(node: MirInstruction) {
-            match node {
-                MirInstruction::EndFunction => {}
-                _ => panic!("Expected the end of a function, found {:?}", node),
+        pub fn is_end_function(stmt: MirStatement) {
+            match stmt {
+                MirStatement::EndFunction => {}
+                _ => panic!("Expected the end of a function, found {:?}", stmt),
             }
         }
 
-        pub fn is_return_with_value(node: MirInstruction) -> RValue {
-            match node {
-                MirInstruction::Return(Some(value)) => value,
-                _ => panic!("Expected a return with a value, found {:?}", node),
+        pub fn is_return_with_value(stmt: MirStatement) -> RValue {
+            match stmt {
+                MirStatement::Return(Some(value)) => value,
+                _ => panic!("Expected a return with a value, found {:?}", stmt),
             }
         }
 
-        pub fn is_empty_return(node: MirInstruction) {
-            match node {
-                MirInstruction::Return(None) => {}
-                _ => panic!("Expected a return with a value, found {:?}", node),
+        pub fn is_empty_return(stmt: MirStatement) {
+            match stmt {
+                MirStatement::Return(None) => {}
+                _ => panic!("Expected a return with a value, found {:?}", stmt),
             }
         }
 
-        pub fn is_start_loop(node: MirInstruction) {
-            match node {
-                MirInstruction::StartLoop => {}
-                _ => panic!("Expected the start of a loop, found {:?}", node),
+        pub fn is_start_loop(stmt: MirStatement) {
+            match stmt {
+                MirStatement::StartLoop => {}
+                _ => panic!("Expected the start of a loop, found {:?}", stmt),
             }
         }
 
-        pub fn is_end_loop(node: MirInstruction) {
-            match node {
-                MirInstruction::EndLoop => {}
-                _ => panic!("Expected the end of a loop, found {:?}", node),
+        pub fn is_end_loop(stmt: MirStatement) {
+            match stmt {
+                MirStatement::EndLoop => {}
+                _ => panic!("Expected the end of a loop, found {:?}", stmt),
             }
         }
 
-        pub fn is_break(node: MirInstruction) {
-            match node {
-                MirInstruction::Break => {}
-                _ => panic!("Expected a break, found {:?}", node),
+        pub fn is_break(stmt: MirStatement) {
+            match stmt {
+                MirStatement::Break => {}
+                _ => panic!("Expected a break, found {:?}", stmt),
             }
         }
 
-        pub fn is_start_if(node: MirInstruction) -> RValue {
-            match node {
-                MirInstruction::StartIf(condition) => condition,
-                _ => panic!("Expected the start of an `if`, found {:?}", node),
+        pub fn is_start_if(stmt: MirStatement) -> RValue {
+            match stmt {
+                MirStatement::StartIf(condition) => condition,
+                _ => panic!("Expected the start of an `if`, found {:?}", stmt),
             }
         }
 
-        pub fn is_else(instr: MirInstruction) {
-            match instr {
-                MirInstruction::Else => {}
-                _ => panic!("Expected an else, found {:?}", instr),
+        pub fn is_else(stmt: MirStatement) {
+            match stmt {
+                MirStatement::Else => {}
+                _ => panic!("Expected an else, found {:?}", stmt),
             }
         }
 
-        pub fn is_end_if(node: MirInstruction) {
-            match node {
-                MirInstruction::EndIf => {}
-                _ => panic!("Expected the end of an `if`, found {:?}", node),
+        pub fn is_end_if(stmt: MirStatement) {
+            match stmt {
+                MirStatement::EndIf => {}
+                _ => panic!("Expected the end of an `if`, found {:?}", stmt),
             }
         }
 
-        pub fn is_start_js_block(instr: MirInstruction) -> ValueId {
-            match instr {
-                MirInstruction::StartJsBlock(id) => id,
-                _ => panic!("Expected the start of a JS block, found {:?}", instr),
+        pub fn is_start_js_block(stmt: MirStatement) -> ValueId {
+            match stmt {
+                MirStatement::StartJsBlock(id) => id,
+                _ => panic!("Expected the start of a JS block, found {:?}", stmt),
             }
         }
 
-        pub fn is_js_block_instr(instr: MirInstruction) -> RValueTerminal {
-            match instr {
-                MirInstruction::JsBlockInstr(instr) => instr,
-                _ => panic!("Expected a JS block instruction, found {:?}", instr),
+        pub fn is_js_block_instr(stmt: MirStatement) -> RValueTerminal {
+            match stmt {
+                MirStatement::JsBlockInstr(instr) => instr,
+                _ => panic!("Expected a JS block instruction, found {:?}", stmt),
             }
         }
 
-        pub fn is_end_js_block(instr: MirInstruction) {
-            match instr {
-                MirInstruction::EndJsBlock => {}
-                _ => panic!("Expected the end of a JS block, found {:?}", instr),
+        pub fn is_end_js_block(stmt: MirStatement) {
+            match stmt {
+                MirStatement::EndJsBlock => {}
+                _ => panic!("Expected the end of a JS block, found {:?}", stmt),
             }
         }
     }
@@ -1109,22 +1100,22 @@ mod tests {
     #[test]
     fn can_lower_empty_ast() {
         let module = create_module("");
-        let expected = Vec::<MirInstruction>::new();
-        assert_eq!(expected, MirModule::from(module).insts);
+        let expected = Vec::<MirStatement>::new();
+        assert_eq!(expected, MirModule::from(module).stmts);
     }
 
     #[test]
     fn lowers_single_statements() {
         let mut module = create_module("1;");
-        let statement_value = assert_inst::is_statement(module.dequeue_instr());
+        let statement_value = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_integer_with_value(statement_value, 1);
 
         let mut module = create_module("'a';");
-        let statement_value = assert_inst::is_statement(module.dequeue_instr());
+        let statement_value = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_string_with_value(statement_value, "a");
 
         let mut module = create_module("true;");
-        let statement_value = assert_inst::is_statement(module.dequeue_instr());
+        let statement_value = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_bool_with_value(statement_value, true);
     }
 
@@ -1152,8 +1143,8 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        let value_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let value_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         let lhs = assert_l_value::is_named_value(lhs);
         assert_eq!(value_id, lhs);
         assert_eq!(rhs.kind, RValueKind::Integer(32));
@@ -1167,8 +1158,8 @@ mod tests {
 
         // let $tmp1 = 2 * 3;
         // let $tmp2 = 1 + $tmp1;
-        let tmp1_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let tmp1_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp1_id);
         let rhs = assert_r_value::is_bin_op(rhs);
         assert_eq!(
@@ -1180,8 +1171,8 @@ mod tests {
             )
         );
 
-        let tmp2_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let tmp2_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp2_id);
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_eq!(lhs, RValueTerminal::Integer(1));
@@ -1199,9 +1190,9 @@ mod tests {
         // let $tmp2 = 1 + $tmp1;
         // let n = $tmp2;
 
-        let tmp1_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let tmp1_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp1_id);
         let rhs = assert_r_value::is_bin_op(rhs);
         assert_eq!(
@@ -1213,18 +1204,18 @@ mod tests {
             )
         );
 
-        let tmp2_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let tmp2_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp2_id);
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_eq!(lhs, RValueTerminal::Integer(1));
         assert_eq!(op, BinOp::Add);
         assert_r_value_terminal::is_named_value(rhs);
 
-        let n_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let n_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, n_id);
         assert_r_value::is_named_value(rhs);
     }
@@ -1234,15 +1225,15 @@ mod tests {
         let mut module = create_module("back {} front {}");
         assert_eq!(module.errors.len(), 0);
 
-        let env = assert_inst::is_start_declared_environment(module.dequeue_instr());
+        let env = assert_inst::is_start_declared_environment(module.dequeue_statement());
         assert_eq!(env, EnvironmentType::Backend);
 
-        assert_inst::is_end_declared_environment(module.dequeue_instr());
+        assert_inst::is_end_declared_environment(module.dequeue_statement());
 
-        let env = assert_inst::is_start_declared_environment(module.dequeue_instr());
+        let env = assert_inst::is_start_declared_environment(module.dequeue_statement());
         assert_eq!(env, EnvironmentType::Frontend);
 
-        assert_inst::is_end_declared_environment(module.dequeue_instr());
+        assert_inst::is_end_declared_environment(module.dequeue_statement());
     }
 
     #[test]
@@ -1260,8 +1251,8 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        assert_inst::is_start_function(module.dequeue_instr());
-        assert_inst::is_end_function(module.dequeue_instr());
+        assert_inst::is_start_function(module.dequeue_statement());
+        assert_inst::is_end_function(module.dequeue_statement());
 
         let symbol = module.values.get(&ValueId(0)).unwrap();
         assert_eq!(
@@ -1279,10 +1270,10 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let (fn_id, _) = assert_inst::is_start_function(module.dequeue_instr());
-        let return_value = assert_inst::is_return_with_value(module.dequeue_instr());
+        let (fn_id, _) = assert_inst::is_start_function(module.dequeue_statement());
+        let return_value = assert_inst::is_return_with_value(module.dequeue_statement());
         assert_r_value::is_named_value(return_value);
-        assert_inst::is_end_function(module.dequeue_instr());
+        assert_inst::is_end_function(module.dequeue_statement());
 
         let symbol = module.values.get(&fn_id).unwrap();
         assert_eq!(
@@ -1300,17 +1291,17 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        assert_inst::is_start_function(module.dequeue_instr());
-        assert_inst::is_empty_return(module.dequeue_instr());
-        assert_inst::is_end_function(module.dequeue_instr());
+        assert_inst::is_start_function(module.dequeue_statement());
+        assert_inst::is_empty_return(module.dequeue_statement());
+        assert_inst::is_end_function(module.dequeue_statement());
 
         let mut module = create_module("fn get_5() { return 5; }");
         assert_eq!(module.errors.len(), 0);
 
-        assert_inst::is_start_function(module.dequeue_instr());
-        let return_value = assert_inst::is_return_with_value(module.dequeue_instr());
+        assert_inst::is_start_function(module.dequeue_statement());
+        let return_value = assert_inst::is_return_with_value(module.dequeue_statement());
         assert_r_value::is_integer_with_value(return_value, 5);
-        assert_inst::is_end_function(module.dequeue_instr());
+        assert_inst::is_end_function(module.dequeue_statement());
     }
 
     #[test]
@@ -1318,11 +1309,11 @@ mod tests {
         let mut module = create_module("loop { 1; break; }");
         assert_eq!(module.errors.len(), 0);
 
-        assert_inst::is_start_loop(module.dequeue_instr());
-        let value = assert_inst::is_statement(module.dequeue_instr());
+        assert_inst::is_start_loop(module.dequeue_statement());
+        let value = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_integer_with_value(value, 1);
-        assert_inst::is_break(module.dequeue_instr());
-        assert_inst::is_end_loop(module.dequeue_instr());
+        assert_inst::is_break(module.dequeue_statement());
+        assert_inst::is_end_loop(module.dequeue_statement());
     }
 
     #[test]
@@ -1332,17 +1323,17 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // initializer
-        let i_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let i_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, i_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // begin loop
-        assert_inst::is_start_loop(module.dequeue_instr());
+        assert_inst::is_start_loop(module.dequeue_statement());
 
         // condition
-        let condition_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let condition_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, condition_id);
 
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
@@ -1351,19 +1342,19 @@ mod tests {
         assert_r_value_terminal::is_integer_with_value(rhs, 10);
 
         // check the condition
-        let condition = assert_inst::is_start_if(module.dequeue_instr());
+        let condition = assert_inst::is_start_if(module.dequeue_statement());
         assert_r_value::is_named_value_with_id(condition, condition_id);
-        assert_inst::is_break(module.dequeue_instr());
-        assert_inst::is_end_if(module.dequeue_instr());
+        assert_inst::is_break(module.dequeue_statement());
+        assert_inst::is_end_if(module.dequeue_statement());
 
         // post body
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, i_id);
         let (lhs, op, rhs) = assert_r_value::is_bin_op(rhs);
         assert_r_value_terminal::is_named_value_with_id(lhs, i_id);
         assert_eq!(op, BinOp::Add);
         assert_r_value_terminal::is_integer_with_value(rhs, 1);
-        assert_inst::is_end_loop(module.dequeue_instr());
+        assert_inst::is_end_loop(module.dequeue_statement());
     }
 
     #[test]
@@ -1382,7 +1373,7 @@ mod tests {
         let mut module = create_module("[1, 2, 3];");
         assert_eq!(module.errors.len(), 0);
 
-        let value = assert_inst::is_statement(module.dequeue_instr());
+        let value = assert_inst::is_statement(module.dequeue_statement());
         let items = assert_r_value::is_list(value);
         assert_eq!(
             items,
@@ -1401,25 +1392,25 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = 0
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // let $tmp0
-        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // $tmp0 = a.b;
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, rhs) = assert_r_value::is_property_access(rhs);
         assert_eq!(lhs, ValueId(0));
         assert_eq!(rhs, "b");
 
         // $tmp0;
-        let value = assert_inst::is_statement(module.dequeue_instr());
+        let value = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_named_value_with_id(value, tmp_id);
     }
 
@@ -1427,7 +1418,7 @@ mod tests {
     fn elides_property_access_when_lhs_does_not_exist() {
         let mut module = create_module("a.b;");
         assert_eq!(module.errors.len(), 1);
-        assert_eq!(module.insts.len(), 0);
+        assert_eq!(module.stmts.len(), 0);
 
         let id = assert_error::is_reference_error(module.errors.remove(0));
         assert_eq!(id, "a");
@@ -1439,16 +1430,16 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let (id, params) = assert_inst::is_start_function(module.dequeue_instr());
+        let (id, params) = assert_inst::is_start_function(module.dequeue_statement());
         assert_eq!(id, ValueId(0));
         assert_eq!(params.len(), 0);
-        assert_inst::is_end_function(module.dequeue_instr());
+        assert_inst::is_end_function(module.dequeue_statement());
 
         // let $tmp;
         // $tmp = noop(10);
         // $tmp;
-        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (id, args) = assert_r_value::is_fn_call(rhs);
         assert_eq!(id, ValueId(0));
@@ -1462,18 +1453,18 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = 0
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // let $tmp0
-        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // $tmp0 = a.to-vector(2)
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, name, args) = assert_r_value::is_method_call(rhs);
         assert_eq!(lhs, ValueId(0));
@@ -1481,7 +1472,7 @@ mod tests {
         assert_eq!(args, vec![RValueTerminal::Integer(2)]);
 
         // $tmp0;
-        let stmt = assert_inst::is_statement(module.dequeue_instr());
+        let stmt = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_named_value_with_id(stmt, tmp_id);
     }
 
@@ -1492,15 +1483,15 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = 0
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_integer_with_value(rhs, 0);
 
         // a.b = 1
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         let (id, prop) = assert_l_value::is_property_access(lhs);
         assert_eq!(id, ValueId(0));
         assert_eq!(prop, "b");
@@ -1514,10 +1505,10 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = [1]
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         let list = assert_r_value::is_list(rhs);
         assert_eq!(
@@ -1530,10 +1521,10 @@ mod tests {
         );
 
         // let $tmp
-        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let tmp_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // $tmp = a[0]
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, tmp_id);
         let (lhs, index) = assert_r_value::is_list_access(rhs);
         assert_eq!(lhs, ValueId(0));
@@ -1547,16 +1538,16 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = [1]
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         let list = assert_r_value::is_list(rhs);
         assert_eq!(list, vec![RValueTerminal::Integer(1)]);
 
         // a[0] = 2
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         let (id, index) = assert_l_value::is_list_access(lhs);
         assert_eq!(id, ValueId(0));
         assert_r_value_terminal::is_integer_with_value(index, 0);
@@ -1570,7 +1561,7 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 0);
 
-        let r_value = assert_inst::is_statement(module.dequeue_instr());
+        let r_value = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_bool_with_value(r_value, true);
 
         /* Returns the value of a variable */
@@ -1579,15 +1570,15 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = true
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
         // a
-        let block_result = assert_inst::is_statement(module.dequeue_instr());
+        let block_result = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_named_value_with_id(block_result, a_id);
 
         /* Assigns simple result to variable */
@@ -1596,10 +1587,10 @@ mod tests {
         assert_eq!(module.values.len(), 1);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = true
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
@@ -1609,18 +1600,18 @@ mod tests {
         assert_eq!(module.values.len(), 2);
 
         // let b
-        let b_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let b_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // b = true
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, b_id);
         assert_r_value::is_bool_with_value(rhs, true);
 
         // let a
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
 
         // a = b
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_named_value_with_id(rhs, b_id);
     }
@@ -1631,7 +1622,7 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 0);
 
-        let r_value = assert_inst::is_statement(module.dequeue_instr());
+        let r_value = assert_inst::is_statement(module.dequeue_statement());
         let term = assert_r_value::is_not(r_value);
         assert_r_value_terminal::is_boolean_with_value(term, true);
     }
@@ -1642,7 +1633,7 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 0);
 
-        let r_value = assert_inst::is_statement(module.dequeue_instr());
+        let r_value = assert_inst::is_statement(module.dequeue_statement());
         assert_r_value::is_bool_with_value(r_value, true);
     }
 
@@ -1653,25 +1644,25 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        assert_inst::is_start_js_block(module.dequeue_instr());
-        let term = assert_inst::is_js_block_instr(module.dequeue_instr());
+        assert_inst::is_start_js_block(module.dequeue_statement());
+        let term = assert_inst::is_js_block_instr(module.dequeue_statement());
         assert_r_value_terminal::is_string_with_value(term, "console.log('Hello');");
-        assert_inst::is_end_js_block(module.dequeue_instr());
+        assert_inst::is_end_js_block(module.dequeue_statement());
 
         /* Block that produces a value */
         let mut module = create_module("let a = #js : int { '1' };");
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let js_block_id = assert_inst::is_start_js_block(module.dequeue_instr());
+        let js_block_id = assert_inst::is_start_js_block(module.dequeue_statement());
         assert_r_value_terminal::is_string_with_value(
-            assert_inst::is_js_block_instr(module.dequeue_instr()),
+            assert_inst::is_js_block_instr(module.dequeue_statement()),
             "1",
         );
-        assert_inst::is_end_js_block(module.dequeue_instr());
+        assert_inst::is_end_js_block(module.dequeue_statement());
 
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_named_value_with_id(rhs, js_block_id);
     }
@@ -1682,40 +1673,40 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 1);
 
-        let result_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let condition = assert_inst::is_start_if(module.dequeue_instr());
+        let result_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let condition = assert_inst::is_start_if(module.dequeue_statement());
         assert_r_value::is_bool_with_value(condition, true);
 
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 1);
 
-        assert_inst::is_else(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        assert_inst::is_else(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 2);
-        assert_inst::is_end_if(module.dequeue_instr());
+        assert_inst::is_end_if(module.dequeue_statement());
 
         let mut module = create_module("let a = if true { 1 } else { 2 };");
         assert_eq!(module.errors.len(), 0);
         assert_eq!(module.values.len(), 2);
 
-        let result_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let condition = assert_inst::is_start_if(module.dequeue_instr());
+        let result_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let condition = assert_inst::is_start_if(module.dequeue_statement());
         assert_r_value::is_bool_with_value(condition, true);
 
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 1);
 
-        assert_inst::is_else(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        assert_inst::is_else(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, result_id);
         assert_r_value::is_integer_with_value(rhs, 2);
-        assert_inst::is_end_if(module.dequeue_instr());
+        assert_inst::is_end_if(module.dequeue_statement());
 
-        let a_id = assert_inst::is_variable_declaration(module.dequeue_instr());
-        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_instr());
+        let a_id = assert_inst::is_variable_declaration(module.dequeue_statement());
+        let (lhs, rhs) = assert_inst::is_assignment(module.dequeue_statement());
         assert_l_value::is_named_value_with_id(lhs, a_id);
         assert_r_value::is_named_value_with_id(rhs, result_id);
     }
