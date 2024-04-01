@@ -2,7 +2,8 @@ use core::fmt;
 
 use crate::{
     errors::CompilerError,
-    phases::shared::{BinOp, PrefixUnaryOp, Type, VisibilityModifier, Span},
+    phases::shared::{BinOp, PrefixUnaryOp, Span, Type, VisibilityModifier},
+    types,
 };
 
 pub struct Module {
@@ -88,6 +89,14 @@ pub enum ModuleItemKind {
 pub enum EnvironmentType {
     Frontend,
     Backend,
+}
+impl Into<types::environment::EnvironmentType> for EnvironmentType {
+    fn into(self) -> types::environment::EnvironmentType {
+        match self {
+            EnvironmentType::Backend => types::environment::EnvironmentType::Backend,
+            EnvironmentType::Frontend => types::environment::EnvironmentType::Frontend,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

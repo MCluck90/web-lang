@@ -59,7 +59,13 @@ pub enum Terminator {
         if_true: BasicBlockId,
         if_false: BasicBlockId,
     },
-    Return(BasicBlockId, RValueTerminal),
+    FnCall {
+        lhs: LValue,
+        func: LValue,
+        args: Vec<RValueTerminal>,
+        return_to: BasicBlockId,
+    },
+    Return(Option<RValueTerminal>),
 }
 
 #[derive(Debug)]
@@ -115,6 +121,20 @@ impl MirModuleContext {
 
     fn get_active_basic_block(&mut self) -> &mut BasicBlock {
         self.basic_blocks.get_mut(self.active_block.0).unwrap()
+    }
+
+    fn create_new_basic_block(&mut self) -> BasicBlockId {
+        let id = BasicBlockId(self.basic_blocks.len());
+        self.basic_blocks.push(BasicBlock::new(id));
+        id
+    }
+
+    fn goto_new_block(&mut self) -> BasicBlockId {
+        let new_id = self.create_new_basic_block();
+        self.get_active_basic_block()
+            .set_terminator(Terminator::Goto(new_id));
+        self.active_block = new_id;
+        new_id
     }
 
     fn append_statement(&mut self, stmt: MirStatement) {
@@ -174,7 +194,11 @@ impl MirModuleContext {
     }
 }
 
-fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
+fn convert_statement(
+    ctx: &mut MirModuleContext,
+    stmt: Statement,
+    next_block_id: Option<BasicBlockId>,
+) {
     match stmt.kind {
         StatementKind::VariableDeclaration {
             is_mutable: _,
@@ -235,7 +259,8 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
 
             ctx.scopes.push(function_scope);
             for stmt in body.statements {
-                convert_statement(ctx, stmt);
+                // TODO: Convert to basic blocks
+                convert_statement(ctx, stmt, None);
             }
             if let Some(expr) = body.return_expression {
                 if let Some(value) = convert_expression(ctx, expr) {
@@ -252,6 +277,7 @@ fn convert_statement(ctx: &mut MirModuleContext, stmt: Statement) {
         }
         StatementKind::Loop(body) => {
             ctx.append_statement(MirStatement::StartLoop);
+            ctx.goto_new_block();
             for stmt in body {
                 convert_statement(ctx, stmt);
             }
@@ -786,17 +812,10 @@ pub enum MirStatement {
     VariableDeclaration(ValueId),
     Assign(LValue, RValue),
     Expression(RValue),
-    Return(Option<RValue>),
-    Break,
     StartFunction(ValueId, Vec<ValueId>),
     EndFunction,
     StartDeclaredEnvironment(Span, EnvironmentType),
     EndDeclaredEnvironment,
-    StartLoop,
-    EndLoop,
-    StartIf(RValue),
-    Else,
-    EndIf,
     StartJsBlock(ValueId),
     JsBlockInstr(RValueTerminal),
     EndJsBlock,
@@ -833,22 +852,35 @@ mod tests {
             }
         }
 
-        fn consume_next_statement(&mut self) -> MirStatement {
+        fn get_active_block(&self) -> &BasicBlock {
+            match self.basic_blocks.get(self.active_block.0) {
+                None => panic!(
+                    "Expected a basic block with ID {} but block does not exist",
+                    self.active_block.0
+                ),
+                Some(block) => block,
+            }
+        }
+
+        fn get_active_block_mut(&mut self) -> &mut BasicBlock {
             match self.basic_blocks.get_mut(self.active_block.0) {
                 None => panic!(
                     "Expected a basic block with ID {} but block does not exist",
                     self.active_block.0
                 ),
-                Some(block) => {
-                    if block.stmts.is_empty() {
-                        panic!(
-                            "Expected to find a statement but basic block {} is empty",
-                            self.active_block.0
-                        );
-                    }
-                    block.stmts.remove(0)
-                }
+                Some(block) => block,
             }
+        }
+
+        fn consume_next_statement(&mut self) -> MirStatement {
+            let block = self.get_active_block_mut();
+            if block.stmts.is_empty() {
+                panic!(
+                    "Expected to find a statement but basic block {} is empty",
+                    self.active_block.0
+                );
+            }
+            block.stmts.remove(0)
         }
 
         fn switch_to_block(&mut self, id: BasicBlockId) {
@@ -858,6 +890,10 @@ mod tests {
         fn is_empty(&self) -> bool {
             self.basic_blocks.is_empty()
                 || self.basic_blocks.iter().all(|block| block.stmts.is_empty())
+        }
+
+        fn follow_goto(&mut self) {
+            self.active_block = assert_terminator::is_goto(&self.get_active_block().terminator);
         }
     }
 
@@ -1157,6 +1193,18 @@ mod tests {
         }
     }
 
+    mod assert_terminator {
+        use super::{BasicBlockId, Terminator};
+
+        pub fn is_goto(terminator: &Option<Terminator>) -> BasicBlockId {
+            match terminator {
+                Some(Terminator::Goto(id)) => *id,
+                Some(terminator) => panic!("Expected a goto, found {:?}", terminator),
+                None => panic!("Expected a goto, found end of program"),
+            }
+        }
+    }
+
     mod assert_error {
         use crate::errors::CompilerErrorReason;
 
@@ -1399,9 +1447,10 @@ mod tests {
         assert_eq!(module.errors.len(), 0);
 
         assert_inst::is_start_loop(module.consume_next_statement());
+        module.follow_goto();
         let value = assert_inst::is_statement(module.consume_next_statement());
         assert_r_value::is_integer_with_value(value, 1);
-        assert_inst::is_break(module.consume_next_statement());
+        module.follow_goto();
         assert_inst::is_end_loop(module.consume_next_statement());
     }
 

@@ -189,6 +189,13 @@ impl CompilerError {
         }
     }
 
+    pub fn break_must_occur_within_loop(span: &Span) -> CompilerError {
+        CompilerError {
+            span: span.clone(),
+            reason: CompilerErrorReason::BreakMustOccurWithinLoop,
+        }
+    }
+
     pub fn to_error_code(&self) -> i32 {
         self.reason.to_error_code()
     }
@@ -279,6 +286,9 @@ pub enum CompilerErrorReason {
     // Ex: Invalid right-hand side expression in prefix operation
     InvalidRhsExpressionInPrefixOperation,
 
+    // Ex: Tried to `break` at the root of a module
+    BreakMustOccurWithinLoop,
+
     InvalidToken(String),
     UnexpectedEOF(Vec<String>),
     UnexpectedToken(String, Vec<String>),
@@ -303,7 +313,8 @@ impl CompilerErrorReason {
             CompilerErrorReason::InvalidRhsExpressionInPrefixOperation => 16,
             CompilerErrorReason::InvalidToken(_) => 17,
             CompilerErrorReason::UnexpectedEOF(_) => 18,
-            CompilerErrorReason::UnexpectedToken(_, _) => 18,
+            CompilerErrorReason::UnexpectedToken(_, _) => 19,
+            CompilerErrorReason::BreakMustOccurWithinLoop => 20,
         }
     }
 
@@ -402,6 +413,9 @@ impl CompilerErrorReason {
             CompilerErrorReason::UnexpectedToken(token, _) => {
                 format!("Unexpected token `{}`", token)
             }
+            CompilerErrorReason::BreakMustOccurWithinLoop => {
+                "Breaks must only occur within a loop".to_string()
+            }
         }
     }
 
@@ -456,6 +470,7 @@ impl CompilerErrorReason {
             CompilerErrorReason::UnexpectedToken(_, expected) => label
                 .with_message(format!("expected: {:?}", expected))
                 .with_color(Color::Red),
+            CompilerErrorReason::BreakMustOccurWithinLoop => label.with_color(Color::Red),
         }
     }
 }
