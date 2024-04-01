@@ -149,8 +149,8 @@ impl RValue {
                 | BinOp::Mod
                 | BinOp::Mul
                 | BinOp::Sub => Some(Type::Int),
-                BinOp::And | BinOp::Or => Some(Type::Bool),
-                BinOp::Assign | BinOp::Ne | BinOp::Eq => match (lhs.to_type(), rhs.to_type()) {
+                BinOp::And | BinOp::Or | BinOp::Eq | BinOp::Ne => Some(Type::Bool),
+                BinOp::Assign => match (lhs.to_type(), rhs.to_type()) {
                     (Some(lhs), Some(rhs)) => {
                         if lhs == rhs {
                             Some(lhs)
@@ -463,6 +463,8 @@ impl ModuleBuilder {
                 self.convert_expression(*expr, next_block_id)
             }
             frontend::ir::ExpressionKind::BinaryOp(lhs, op, rhs) => {
+                let lhs_span = lhs.span.clone();
+                let rhs_span = rhs.span.clone();
                 let lhs = self.convert_expression(*lhs, next_block_id)?;
                 let rhs = self.convert_expression(*rhs, next_block_id)?;
 
@@ -515,7 +517,64 @@ impl ModuleBuilder {
                             _ => todo!(),
                         }
                     }
-                    _ => todo!(),
+                    BinOp::Ne | BinOp::Eq => {
+                        match (self.get_r_value_type(&lhs), self.get_r_value_type(&rhs)) {
+                            (Some(lhs_type), Some(rhs_type)) => {
+                                if lhs_type == rhs_type {
+                                    Some(RValue::BinaryOp(
+                                        self.r_value_to_operand(lhs_span, lhs),
+                                        op,
+                                        self.r_value_to_operand(rhs_span, rhs),
+                                    ))
+                                } else {
+                                    self.report_error(CompilerError::mismatched_types(
+                                        &rhs_span,
+                                        &lhs_type.into(),
+                                        &rhs_type.into(),
+                                    ));
+                                    None
+                                }
+                            }
+                            _ => Some(RValue::BinaryOp(
+                                self.r_value_to_operand(lhs_span, lhs),
+                                op,
+                                self.r_value_to_operand(rhs_span, rhs),
+                            )),
+                        }
+                    }
+                    BinOp::And | BinOp::Or => {
+                        match (self.get_r_value_type(&lhs), self.get_r_value_type(&rhs)) {
+                            (Some(Type::Bool), Some(Type::Bool))
+                            | (Some(Type::Bool), None)
+                            | (None, Some(Type::Bool))
+                            | (None, None) => Some(RValue::BinaryOp(
+                                self.r_value_to_operand(lhs_span, lhs),
+                                op,
+                                self.r_value_to_operand(rhs_span, rhs),
+                            )),
+                            (lhs_type, rhs_type) => {
+                                if let Some(t) = lhs_type {
+                                    self.report_error(
+                                        CompilerError::binary_operator_not_supported_on_type(
+                                            &lhs_span,
+                                            &op,
+                                            &t.into(),
+                                        ),
+                                    );
+                                }
+                                if let Some(t) = rhs_type {
+                                    self.report_error(
+                                        CompilerError::binary_operator_not_supported_on_type(
+                                            &rhs_span,
+                                            &op,
+                                            &t.into(),
+                                        ),
+                                    );
+                                }
+                                None
+                            }
+                        }
+                    }
                 }
             }
             frontend::ir::ExpressionKind::PrefixUnaryOp(operator, operand) => {
@@ -1226,6 +1285,50 @@ mod tests {
         let (lhs, rhs) = assert_statement::is_assign(ctx.consume_statement());
         assert_r_value::has_type(&rhs, Type::Bool);
         assert_place::has_type(&ctx, &lhs, Type::Bool);
+    }
+
+    #[test]
+    fn can_compare_if_values_are_equal() {
+        let mut ctx = start_test("1 == 2; 'a' != 'b';");
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(1);
+        assert_basic_block::has_num_of_statements(&ctx, 2);
+
+        let r_value = assert_statement::is_eval(ctx.consume_statement());
+        assert_r_value::has_type(&r_value, Type::Bool);
+        let (lhs, op, rhs) = assert_r_value::is_binary_op(r_value);
+        assert_operand::is_int_with_value(&lhs, 1);
+        assert_eq!(op, BinOp::Eq);
+        assert_operand::is_int_with_value(&rhs, 2);
+
+        let r_value = assert_statement::is_eval(ctx.consume_statement());
+        assert_r_value::has_type(&r_value, Type::Bool);
+        let (lhs, op, rhs) = assert_r_value::is_binary_op(r_value);
+        assert_operand::is_string_with_value(&lhs, "a");
+        assert_eq!(op, BinOp::Ne);
+        assert_operand::is_string_with_value(&rhs, "b");
+    }
+
+    #[test]
+    fn can_perform_boolean_comparisons() {
+        let mut ctx = start_test("true && false; false || true;");
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(1);
+        assert_basic_block::has_num_of_statements(&ctx, 2);
+
+        let r_value = assert_statement::is_eval(ctx.consume_statement());
+        assert_r_value::has_type(&r_value, Type::Bool);
+        let (lhs, op, rhs) = assert_r_value::is_binary_op(r_value);
+        assert_operand::is_bool_with_value(&lhs, true);
+        assert_eq!(op, BinOp::And);
+        assert_operand::is_bool_with_value(&rhs, false);
+
+        let r_value = assert_statement::is_eval(ctx.consume_statement());
+        assert_r_value::has_type(&r_value, Type::Bool);
+        let (lhs, op, rhs) = assert_r_value::is_binary_op(r_value);
+        assert_operand::is_bool_with_value(&lhs, false);
+        assert_eq!(op, BinOp::Or);
+        assert_operand::is_bool_with_value(&rhs, true);
     }
 
     #[test]
