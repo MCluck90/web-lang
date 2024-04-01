@@ -162,7 +162,6 @@ impl RValue {
                 },
             },
             RValue::UnaryOp(op, operand) => {
-                let operand_type = operand.to_type();
                 if let Some(operand_type) = operand.to_type() {
                     match (op, operand_type) {
                         (PrefixUnaryOp::Not, Type::Bool) => Some(Type::Bool),
@@ -205,7 +204,7 @@ pub enum Terminator {
     Conditional {
         condition: RValue,
         true_branch: BasicBlockId,
-        else_branch: Option<BasicBlockId>,
+        else_branch: BasicBlockId,
     },
     EndOfModule,
 }
@@ -250,6 +249,12 @@ impl Scope {
     fn insert(&mut self, k: String, v: Local) {
         self.values.insert(k, v);
     }
+}
+
+struct BasicBlockCreationResult {
+    new_block_id: BasicBlockId,
+    next_block_id: BasicBlockId,
+    value: Option<RValue>,
 }
 
 struct ModuleBuilder {
@@ -352,7 +357,44 @@ impl ModuleBuilder {
                 condition,
                 post_loop,
                 body,
-            } => todo!(),
+            } => {
+                if let Some(initializer) = initializer {
+                    self.convert_statement(*initializer, next_block_id);
+                }
+
+                let start_of_loop = self.goto_new_block(None);
+                let loop_block = self.create_new_block(None);
+                let post_loop_block = self.create_new_block(None);
+                let next_block_id = self.create_new_block(None);
+
+                let condition = condition.and_then(|cond| self.convert_expression(cond, None));
+                match condition {
+                    Some(condition) => {
+                        self.set_block_terminator(Terminator::Conditional {
+                            condition,
+                            true_branch: loop_block,
+                            else_branch: next_block_id,
+                        });
+                    }
+                    None => {
+                        self.set_block_terminator(Terminator::Goto(loop_block));
+                    }
+                }
+
+                self.active_block = loop_block;
+                for stmt in body {
+                    self.convert_statement(stmt, Some(next_block_id));
+                }
+                self.set_block_terminator(Terminator::Goto(post_loop_block));
+
+                self.active_block = post_loop_block;
+                if let Some(post_loop) = post_loop {
+                    self.convert_expression(post_loop, Some(start_of_loop));
+                }
+                self.set_block_terminator(Terminator::Goto(start_of_loop));
+
+                self.active_block = next_block_id;
+            }
             frontend::ir::StatementKind::Break => match next_block_id {
                 Some(next_block_id) => {
                     self.set_block_terminator(Terminator::Goto(next_block_id));
@@ -387,49 +429,20 @@ impl ModuleBuilder {
                 Some(RValue::Use(Operand::Constant(ConstOperand::String(s))))
             }
             frontend::ir::ExpressionKind::Block(block) => {
-                let local = if block.return_expression.is_some() {
-                    Some(self.create_local(expr.span.clone(), Mutability::Immutable, None))
-                } else {
-                    None
-                };
-                self.goto_new_block(None);
-                self.scopes.push(Scope::default());
+                let span = expr.span.clone();
+                let result = self.convert_block(*block, next_block_id);
+                self.set_block_terminator(Terminator::Goto(result.new_block_id));
+                self.active_block = result.next_block_id;
 
-                for stmt in block.statements {
-                    self.convert_statement(stmt, None);
-                }
-
-                if let Some(return_expr) = block
-                    .return_expression
-                    .and_then(|return_expr| self.convert_expression(return_expr, next_block_id))
-                {
-                    let local = local.unwrap();
+                result.value.map(|value| {
+                    let local =
+                        self.create_local(span.clone(), Mutability::Immutable, value.to_type());
                     self.append_statement(Statement {
-                        span: expr.span.clone(),
-                        kind: StatementKind::Assign(local.into(), return_expr),
+                        span,
+                        kind: StatementKind::Assign(local.into(), value),
                     });
-                    self.scopes.pop();
-                    match next_block_id {
-                        None => {
-                            self.goto_new_block(None);
-                        }
-                        Some(next_block_id) => {
-                            self.active_block = next_block_id;
-                        }
-                    }
-                    Some(RValue::Use(Operand::Reference(local.into())))
-                } else {
-                    self.scopes.pop();
-                    match next_block_id {
-                        None => {
-                            self.goto_new_block(None);
-                        }
-                        Some(next_block_id) => {
-                            self.active_block = next_block_id;
-                        }
-                    }
-                    None
-                }
+                    RValue::Use(Operand::Reference(local.into()))
+                })
             }
             frontend::ir::ExpressionKind::List(items) => {
                 let mut list_items = Vec::new();
@@ -507,14 +520,48 @@ impl ModuleBuilder {
             }
             frontend::ir::ExpressionKind::PrefixUnaryOp(operator, operand) => {
                 let operand = self.convert_expression(*operand, next_block_id)?;
-                Some(RValue::UnaryOp(
-                    operator,
-                    self.r_value_to_operand(expr.span, operand),
-                ))
+                match operator {
+                    PrefixUnaryOp::Not => Some(RValue::UnaryOp(
+                        operator,
+                        self.r_value_to_operand(expr.span, operand),
+                    )),
+                    PrefixUnaryOp::Inc => todo!(),
+                    PrefixUnaryOp::Dec => todo!(),
+                }
             }
             frontend::ir::ExpressionKind::PropertyAccess(_, _) => todo!(),
             frontend::ir::ExpressionKind::ArrayAccess(_, _) => todo!(),
             frontend::ir::ExpressionKind::FunctionCall { callee, arguments } => todo!(),
+        }
+    }
+
+    fn convert_block(
+        &mut self,
+        block: Block,
+        next_block_id: Option<BasicBlockId>,
+    ) -> BasicBlockCreationResult {
+        let prev_block_id = self.active_block;
+        let new_block_id = self.create_new_block(None);
+        let next_block_id = next_block_id.unwrap_or_else(|| self.create_new_block(None));
+
+        self.active_block = new_block_id;
+        self.set_block_terminator(Terminator::Goto(next_block_id));
+        self.scopes.push(Scope::default());
+        for stmt in block.statements {
+            self.convert_statement(stmt, Some(next_block_id));
+        }
+
+        let value = block
+            .return_expression
+            .and_then(|expr| self.convert_expression(expr, Some(next_block_id)));
+
+        self.scopes.pop();
+        self.active_block = prev_block_id;
+
+        BasicBlockCreationResult {
+            new_block_id,
+            next_block_id,
+            value,
         }
     }
 
@@ -809,10 +856,12 @@ mod tests {
             }
         }
 
-        pub fn is_constant(r_value: RValue) -> ConstOperand {
+        pub fn is_int_with_value(r_value: RValue, n: i32) {
             match r_value {
-                RValue::Use(Operand::Constant(c)) => c,
-                _ => panic!("Expected a constant, found {:?}", r_value),
+                RValue::Use(Operand::Constant(ConstOperand::Int(actual_n))) => {
+                    assert_eq!(actual_n, n)
+                }
+                _ => panic!("Expected an int, found {:?}", r_value),
             }
         }
 
@@ -933,7 +982,7 @@ mod tests {
 
         pub fn terminates_with_conditional(
             ctx: &TestContext,
-        ) -> (RValue, BasicBlockId, Option<BasicBlockId>) {
+        ) -> (RValue, BasicBlockId, BasicBlockId) {
             let terminator = ctx.basic_block().terminator.clone();
             match terminator {
                 Terminator::Conditional {
@@ -1331,15 +1380,16 @@ mod tests {
         assert_basic_block::has_num_of_statements(&ctx, 0);
         ctx.follow_goto();
 
-        assert_basic_block::has_num_of_statements(&ctx, 3);
+        assert_basic_block::has_num_of_statements(&ctx, 2);
         let (x_place, _) = assert_statement::is_assign(ctx.consume_statement());
         let (y_place, _) = assert_statement::is_assign(ctx.consume_statement());
+        ctx.follow_goto();
+
         let (block_result_place, rhs) = assert_statement::is_assign(ctx.consume_statement());
         let (lhs, op, rhs) = assert_r_value::is_binary_op(rhs);
         assert_operand::refers_to_place(&lhs, &x_place);
         assert_eq!(op, BinOp::Add);
         assert_operand::refers_to_place(&rhs, &y_place);
-        ctx.follow_goto();
 
         assert_basic_block::has_num_of_statements(&ctx, 2);
         let (a_place, rhs) = assert_statement::is_assign(ctx.consume_statement());
@@ -1349,5 +1399,48 @@ mod tests {
         let val = assert_statement::is_eval(ctx.consume_statement());
         let val_place = assert_r_value::is_reference(val);
         assert_eq!(val_place, a_place);
+    }
+
+    #[test]
+    fn can_write_a_for_loop() {
+        let source = "
+        for (mut i = 0; i < 10; i = i + 1) {
+            i;
+            i + 1;
+            i + 2;
+        }
+        ";
+        let mut ctx = start_test(source);
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(5);
+        ctx.assert_num_of_locals(1);
+
+        assert_basic_block::has_num_of_statements(&ctx, 1);
+        let (i_place, rhs) = assert_statement::is_assign(ctx.consume_statement());
+        assert_r_value::is_int_with_value(rhs, 0);
+
+        let start_of_loop = ctx.follow_goto();
+        let (condition, true_block, false_block) =
+            assert_basic_block::terminates_with_conditional(&ctx);
+        let (lhs, op, rhs) = assert_r_value::is_binary_op(condition);
+        assert_operand::refers_to_place(&lhs, &i_place);
+        assert_eq!(op, BinOp::Lt);
+        assert_operand::is_int_with_value(&rhs, 10);
+
+        ctx.set_active_block(true_block);
+        {
+            assert_basic_block::has_num_of_statements(&ctx, 3);
+
+            ctx.follow_goto();
+            assert_basic_block::has_num_of_statements(&ctx, 1);
+            let (expected_i_place, _) = assert_statement::is_assign(ctx.consume_statement());
+            assert_eq!(expected_i_place, i_place);
+            assert_basic_block::will_goto(&ctx, start_of_loop);
+        }
+
+        ctx.set_active_block(false_block);
+        {
+            assert_basic_block::has_num_of_statements(&ctx, 0);
+        }
     }
 }
