@@ -636,7 +636,16 @@ impl ModuleBuilder {
                                 let rhs = self.r_value_to_operand(expr.span, rhs);
                                 Some(RValue::BinaryOp(lhs, op, rhs))
                             }
-                            _ => todo!(),
+                            (Some(type_), None) | (None, Some(type_)) | (Some(type_), Some(_)) => {
+                                self.report_error(
+                                    CompilerError::binary_operator_not_supported_on_type(
+                                        &expr.span,
+                                        &op,
+                                        &type_.into(),
+                                    ),
+                                );
+                                None
+                            }
                         }
                     }
                     BinOp::Ne | BinOp::Eq => {
