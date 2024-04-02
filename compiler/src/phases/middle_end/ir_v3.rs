@@ -82,6 +82,7 @@ pub enum Operand {
     Reference(Place),
     Constant(ConstOperand),
     List(Vec<Operand>),
+    Js(Type, Vec<Operand>),
 }
 impl Operand {
     fn to_type(&self) -> Option<Type> {
@@ -106,6 +107,7 @@ impl Operand {
 
                 ops_type.map(|t| Type::List(Box::new(t)))
             }
+            Operand::Js(type_, _) => Some(type_.clone()),
         }
     }
 }
@@ -453,7 +455,15 @@ impl ModuleBuilder {
                 }
                 Some(RValue::Use(Operand::List(list_items)))
             }
-            frontend::ir::ExpressionKind::JsBlock(_, _) => todo!(),
+            frontend::ir::ExpressionKind::JsBlock(type_, expressions) => {
+                let mut operands = Vec::new();
+                for expr in expressions {
+                    let span = expr.span.clone();
+                    let r_value = self.convert_expression(expr, next_block_id)?;
+                    operands.push(self.r_value_to_operand(span, r_value));
+                }
+                Some(RValue::Use(Operand::Js(type_, operands)))
+            }
             frontend::ir::ExpressionKind::If {
                 condition,
                 body,
@@ -932,6 +942,13 @@ mod tests {
             match r_value {
                 RValue::Use(Operand::Reference(place)) => place,
                 _ => panic!("Expected a reference, found {:?}", r_value),
+            }
+        }
+
+        pub fn is_js(r_value: RValue) -> (Type, Vec<Operand>) {
+            match r_value {
+                RValue::Use(Operand::Js(type_, operands)) => (type_, operands),
+                _ => panic!("Expected some JS, found {:?}", r_value),
             }
         }
 
@@ -1599,5 +1616,45 @@ mod tests {
         {
             assert_basic_block::has_num_of_statements(&ctx, 0);
         }
+    }
+
+    #[test]
+    fn can_use_js_block_expressions() {
+        let mut ctx = start_test("let x = #js { 'console.log(`Hello world`)' };");
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(1);
+        ctx.assert_num_of_locals(1);
+        assert_basic_block::has_num_of_statements(&ctx, 1);
+
+        let (_, r_value) = assert_statement::is_assign(ctx.consume_statement());
+        let (type_, mut operands) = assert_r_value::is_js(r_value);
+        assert_eq!(type_, Type::Void);
+        assert_eq!(operands.len(), 1);
+        let operand = operands.remove(0);
+        assert_operand::is_string_with_value(&operand, "console.log(`Hello world`)");
+
+        let mut ctx = start_test(
+            "
+            let x = 1;
+            let y = #js : int { 'Math.random() + ' x };
+        ",
+        );
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(1);
+        ctx.assert_num_of_locals(2);
+        assert_basic_block::has_num_of_statements(&ctx, 2);
+
+        let (x_place, _) = assert_statement::is_assign(ctx.consume_statement());
+
+        let (_, r_value) = assert_statement::is_assign(ctx.consume_statement());
+        let (type_, mut operands) = assert_r_value::is_js(r_value);
+        assert_eq!(type_, Type::Int);
+        assert_eq!(operands.len(), 2);
+
+        let operand = operands.remove(0);
+        assert_operand::is_string_with_value(&operand, "Math.random() + ");
+
+        let operand = operands.remove(0);
+        assert_operand::refers_to_place(&operand, &x_place);
     }
 }
