@@ -74,7 +74,6 @@ pub struct Place {
 pub enum PlaceElem {
     Field(String),
     Index(Local),
-    ConstantIndex(i32),
 }
 
 #[derive(Clone, Debug)]
@@ -618,7 +617,13 @@ impl ModuleBuilder {
                     }
                 }
             }
-            frontend::ir::ExpressionKind::PropertyAccess(_, _) => todo!(),
+            frontend::ir::ExpressionKind::PropertyAccess(left, prop) => {
+                let left = self.convert_expression(*left, next_block_id)?;
+                let left = self.r_value_to_operand(expr.span, left);
+                let mut left = self.operand_to_place(left);
+                left.projection.push(PlaceElem::Field(prop.name));
+                Some(RValue::Use(Operand::Reference(left)))
+            }
             frontend::ir::ExpressionKind::ArrayAccess(_, _) => todo!(),
             frontend::ir::ExpressionKind::FunctionCall { callee, arguments } => todo!(),
         }
@@ -718,6 +723,15 @@ impl ModuleBuilder {
         }
     }
 
+    fn operand_to_place(&mut self, operand: Operand) -> Place {
+        match operand {
+            Operand::Reference(reference) => reference,
+            Operand::Constant(_) => todo!(),
+            Operand::List(_) => todo!(),
+            Operand::Js(_, _) => todo!(),
+        }
+    }
+
     fn add_to_scope(
         &mut self,
         span: Span,
@@ -760,6 +774,7 @@ mod tests {
         errors::{CompilerError, CompilerErrorReason},
         phases::{
             frontend,
+            middle_end::ir_v3::PlaceElem,
             shared::{BinOp, PrefixUnaryOp, Type},
         },
         types::environment::EnvironmentType,
@@ -1656,5 +1671,38 @@ mod tests {
 
         let operand = operands.remove(0);
         assert_operand::refers_to_place(&operand, &x_place);
+    }
+
+    #[test]
+    fn can_access_properties() {
+        let mut ctx = start_test("let x = [1, 2, 3]; x.length; x.length.toString;");
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(1);
+        ctx.assert_num_of_locals(1);
+        assert_basic_block::has_num_of_statements(&ctx, 3);
+
+        let (x_place, _) = assert_statement::is_assign(ctx.consume_statement());
+
+        let access = assert_statement::is_eval(ctx.consume_statement());
+        let mut access = assert_r_value::is_reference(access);
+        assert_eq!(x_place.local, access.local);
+        assert_eq!(access.projection.len(), 1);
+        assert_eq!(
+            access.projection.remove(0),
+            PlaceElem::Field("length".to_string())
+        );
+
+        let access = assert_statement::is_eval(ctx.consume_statement());
+        let mut access = assert_r_value::is_reference(access);
+        assert_eq!(x_place.local, access.local);
+        assert_eq!(access.projection.len(), 2);
+        assert_eq!(
+            access.projection.remove(0),
+            PlaceElem::Field("length".to_string())
+        );
+        assert_eq!(
+            access.projection.remove(0),
+            PlaceElem::Field("toString".to_string())
+        );
     }
 }
