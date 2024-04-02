@@ -619,12 +619,22 @@ impl ModuleBuilder {
             }
             frontend::ir::ExpressionKind::PropertyAccess(left, prop) => {
                 let left = self.convert_expression(*left, next_block_id)?;
-                let left = self.r_value_to_operand(expr.span, left);
-                let mut left = self.operand_to_place(left);
+                let left = self.r_value_to_operand(expr.span.clone(), left);
+                let mut left = self.operand_to_place(expr.span, left);
                 left.projection.push(PlaceElem::Field(prop.name));
                 Some(RValue::Use(Operand::Reference(left)))
             }
-            frontend::ir::ExpressionKind::ArrayAccess(_, _) => todo!(),
+            frontend::ir::ExpressionKind::ArrayAccess(left, index) => {
+                let index = self.convert_expression(*index, next_block_id)?;
+                let index = self.r_value_to_operand(expr.span.clone(), index);
+                let index = self.operand_to_place(expr.span.clone(), index);
+
+                let left = self.convert_expression(*left, next_block_id)?;
+                let left = self.r_value_to_operand(expr.span.clone(), left);
+                let mut left = self.operand_to_place(expr.span, left);
+                left.projection.push(PlaceElem::Index(index.local));
+                Some(RValue::Use(Operand::Reference(left)))
+            }
             frontend::ir::ExpressionKind::FunctionCall { callee, arguments } => todo!(),
         }
     }
@@ -723,10 +733,24 @@ impl ModuleBuilder {
         }
     }
 
-    fn operand_to_place(&mut self, operand: Operand) -> Place {
+    fn operand_to_place(&mut self, span: Span, operand: Operand) -> Place {
         match operand {
             Operand::Reference(reference) => reference,
-            Operand::Constant(_) => todo!(),
+            Operand::Constant(const_operand) => {
+                let local = self.create_local(
+                    span.clone(),
+                    Mutability::Immutable,
+                    Some(const_operand.to_type()),
+                );
+                self.append_statement(Statement {
+                    span,
+                    kind: StatementKind::Assign(
+                        local.into(),
+                        RValue::Use(Operand::Constant(const_operand)),
+                    ),
+                });
+                local.into()
+            }
             Operand::List(_) => todo!(),
             Operand::Js(_, _) => todo!(),
         }
@@ -1704,5 +1728,25 @@ mod tests {
             access.projection.remove(0),
             PlaceElem::Field("toString".to_string())
         );
+    }
+
+    #[test]
+    fn can_access_list_elements() {
+        let mut ctx = start_test("let x = [1, 2, 3]; x[0];");
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(1);
+        ctx.assert_num_of_locals(2);
+        assert_basic_block::has_num_of_statements(&ctx, 3);
+
+        let (x_place, _) = assert_statement::is_assign(ctx.consume_statement());
+
+        let (_, index) = assert_statement::is_assign(ctx.consume_statement());
+        assert_r_value::is_int_with_value(index, 0);
+
+        let access = assert_statement::is_eval(ctx.consume_statement());
+        let mut access = assert_r_value::is_reference(access);
+        assert_eq!(access.local, x_place.local);
+        assert_eq!(access.projection.len(), 1);
+        assert_eq!(access.projection.remove(0), PlaceElem::Index(Local(1)));
     }
 }
