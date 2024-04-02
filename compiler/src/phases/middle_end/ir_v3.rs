@@ -467,7 +467,120 @@ impl ModuleBuilder {
                 condition,
                 body,
                 else_,
-            } => todo!(),
+            } => {
+                // The block that we encountered the `if` in
+                let starting_block = self.active_block;
+
+                // Create a local to store the result in
+                let result = self.create_local(expr.span.clone(), Mutability::Immutable, None);
+                // We're going to attempt to discover the type based on the branches
+                let mut result_type: Option<Type> = None;
+
+                // Evaluate the condition first
+                let condition = self.convert_expression(*condition, next_block_id)?;
+
+                // Create a new block to jump to, if one does not exist
+                let next_block_id = next_block_id.unwrap_or_else(|| self.create_new_block(None));
+
+                // Convert the true branch to it's own basic block
+                let true_branch;
+                if let frontend::ir::ExpressionKind::Block(block) = body.kind {
+                    let block_result = self.convert_block(*block, Some(next_block_id));
+                    if let Some(value) = block_result.value {
+                        // It's possible that an if only executes statements without producing a value.
+                        // If it does produce a value, use that to infer the type of the result
+                        // and assign to the temporary variable
+                        result_type = value.to_type();
+                        self.active_block = block_result.new_block_id;
+                        self.append_statement(Statement {
+                            span: expr.span.clone(),
+                            kind: StatementKind::Assign(result.into(), value),
+                        });
+                        self.active_block = starting_block;
+                    }
+
+                    // Now we know where to jump if the condition is true
+                    true_branch = block_result.new_block_id;
+                } else {
+                    panic!("It should not be possible to have an if where the body is not a block");
+                }
+
+                // Convert the else branch to it's own block, if it exists
+                let else_branch = match else_ {
+                    Some(else_) => {
+                        // Else branches should always be blocks
+                        if let frontend::ir::ExpressionKind::Block(block) = else_.kind {
+                            let block_result = self.convert_block(*block, Some(next_block_id));
+                            if let Some(value) = block_result.value {
+                                // If the else branch produced a value, infer it's type and make sure
+                                // it matches the true branch
+                                let else_type = value.to_type();
+                                match (&result_type, &else_type) {
+                                    (Some(_), None) | (None, None) => {}
+                                    (Some(type_), Some(else_type)) => {
+                                        if type_ != else_type {
+                                            self.report_error(
+                                                CompilerError::if_branch_incompatiable_types(
+                                                    &expr.span,
+                                                    &type_.into(),
+                                                    &else_type.into(),
+                                                ),
+                                            );
+                                        }
+                                    }
+                                    (None, Some(type_)) => {
+                                        result_type = Some(type_.clone());
+                                    }
+                                }
+
+                                self.active_block = block_result.new_block_id;
+                                self.append_statement(Statement {
+                                    span: expr.span,
+                                    kind: StatementKind::Assign(result.into(), value),
+                                });
+                                self.active_block = starting_block;
+                            } else if result_type.is_some() && result_type != Some(Type::Void) {
+                                self.report_error(CompilerError::if_branch_incompatiable_types(
+                                    &expr.span,
+                                    &result_type.clone().unwrap().into(),
+                                    &Type::Void.into(),
+                                ));
+                            }
+                            block_result.new_block_id
+                        } else {
+                            panic!("It should not be possible to have an else where the body is not a block")
+                        }
+                    }
+
+                    // If no else is given, jump to the next block if the condition is false
+                    None => {
+                        if result_type.is_some() && result_type != Some(Type::Void) {
+                            self.report_error(CompilerError::if_branch_incompatiable_types(
+                                &expr.span,
+                                &result_type.clone().unwrap().into(),
+                                &Type::Void.into(),
+                            ));
+                        }
+                        next_block_id
+                    }
+                };
+
+                // If we managed to infer a type, assign that type to our local
+                if let Some(type_) = result_type.as_ref() {
+                    self.module.locals.get_mut(result).unwrap().type_ = Some(type_.clone());
+                }
+
+                self.set_block_terminator(Terminator::Conditional {
+                    condition,
+                    true_branch,
+                    else_branch,
+                });
+
+                // Focus on the unified next block for any statements or expressions
+                self.active_block = next_block_id;
+
+                Some(RValue::Use(Operand::Reference(result.into())))
+            }
             frontend::ir::ExpressionKind::Parenthesized(expr) => {
                 self.convert_expression(*expr, next_block_id)
             }
@@ -997,6 +1110,15 @@ mod tests {
                     assert_eq!(actual_n, n)
                 }
                 _ => panic!("Expected an int, found {:?}", r_value),
+            }
+        }
+
+        pub fn is_bool_with_value(r_value: RValue, b: bool) {
+            match r_value {
+                RValue::Use(Operand::Constant(ConstOperand::Bool(actual_b))) => {
+                    assert_eq!(actual_b, b)
+                }
+                _ => panic!("Expected a bool, found {:?}", r_value),
             }
         }
 
@@ -1748,5 +1870,91 @@ mod tests {
         assert_eq!(access.local, x_place.local);
         assert_eq!(access.projection.len(), 1);
         assert_eq!(access.projection.remove(0), PlaceElem::Index(Local(1)));
+    }
+
+    #[test]
+    fn can_use_if_expressions() {
+        let mut ctx = start_test(
+            "
+            if true {
+                1;
+            };
+        ",
+        );
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(3);
+
+        assert_basic_block::has_num_of_statements(&ctx, 0);
+        let (condition, true_branch, false_branch) =
+            assert_basic_block::terminates_with_conditional(&ctx);
+        assert_r_value::is_bool_with_value(condition, true);
+
+        ctx.set_active_block(true_branch);
+        assert_basic_block::has_num_of_statements(&ctx, 1);
+        let value = assert_statement::is_eval(ctx.consume_statement());
+        assert_r_value::is_int_with_value(value, 1);
+        assert_basic_block::will_goto(&ctx, false_branch);
+
+        let mut ctx = start_test(
+            "
+            if true {
+                1;
+            } else {
+                2;
+            };
+        ",
+        );
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(4);
+
+        assert_basic_block::has_num_of_statements(&ctx, 0);
+        let (condition, true_branch, false_branch) =
+            assert_basic_block::terminates_with_conditional(&ctx);
+        assert_r_value::is_bool_with_value(condition, true);
+
+        ctx.set_active_block(true_branch);
+        assert_basic_block::has_num_of_statements(&ctx, 1);
+        let value = assert_statement::is_eval(ctx.consume_statement());
+        assert_r_value::is_int_with_value(value, 1);
+        let post_true_block = assert_basic_block::terminates_with_goto(&ctx);
+
+        ctx.set_active_block(false_branch);
+        assert_basic_block::has_num_of_statements(&ctx, 1);
+        let value = assert_statement::is_eval(ctx.consume_statement());
+        assert_r_value::is_int_with_value(value, 2);
+        let post_false_block = assert_basic_block::terminates_with_goto(&ctx);
+
+        assert_eq!(post_true_block, post_false_block);
+
+        let mut ctx = start_test(
+            "
+            let x = if true {
+                1
+            } else {
+                2
+            };
+        ",
+        );
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(4);
+        ctx.assert_num_of_locals(2);
+
+        assert_basic_block::has_num_of_statements(&ctx, 0);
+        let (_, true_branch, false_branch) = assert_basic_block::terminates_with_conditional(&ctx);
+
+        ctx.set_active_block(true_branch);
+        assert_basic_block::has_num_of_statements(&ctx, 1);
+        let (true_assignment_place, rhs) = assert_statement::is_assign(ctx.consume_statement());
+        assert_r_value::is_int_with_value(rhs, 1);
+        let post_true_branch = assert_basic_block::terminates_with_goto(&ctx);
+
+        ctx.set_active_block(false_branch);
+        assert_basic_block::has_num_of_statements(&ctx, 1);
+        let (false_assignment_place, rhs) = assert_statement::is_assign(ctx.consume_statement());
+        assert_r_value::is_int_with_value(rhs, 2);
+        let post_false_branch = assert_basic_block::terminates_with_goto(&ctx);
+
+        assert_eq!(post_true_branch, post_false_branch);
+        assert_eq!(true_assignment_place, false_assignment_place);
     }
 }
