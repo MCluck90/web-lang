@@ -579,13 +579,33 @@ impl ModuleBuilder {
             }
             frontend::ir::ExpressionKind::PrefixUnaryOp(operator, operand) => {
                 let operand = self.convert_expression(*operand, next_block_id)?;
+                let operand = self.r_value_to_operand(expr.span.clone(), operand);
                 match operator {
-                    PrefixUnaryOp::Not => Some(RValue::UnaryOp(
-                        operator,
-                        self.r_value_to_operand(expr.span, operand),
-                    )),
-                    PrefixUnaryOp::Inc => todo!(),
-                    PrefixUnaryOp::Dec => todo!(),
+                    PrefixUnaryOp::Not => Some(RValue::UnaryOp(operator, operand)),
+                    PrefixUnaryOp::Inc | PrefixUnaryOp::Dec => {
+                        let bin_op = match operator {
+                            PrefixUnaryOp::Dec => BinOp::Sub,
+                            PrefixUnaryOp::Inc => BinOp::Add,
+                            _ => unreachable!(),
+                        };
+
+                        let place = match &operand {
+                            Operand::Reference(place) => place.clone(),
+                            _ => todo!(),
+                        };
+
+                        let r_value = RValue::BinaryOp(
+                            operand,
+                            bin_op,
+                            Operand::Constant(ConstOperand::Int(1)),
+                        );
+                        self.append_statement(Statement {
+                            span: expr.span,
+                            kind: StatementKind::Assign(place.clone(), r_value),
+                        });
+
+                        Some(RValue::Use(Operand::Reference(place)))
+                    }
                 }
             }
             frontend::ir::ExpressionKind::PropertyAccess(_, _) => todo!(),
@@ -1332,6 +1352,40 @@ mod tests {
     }
 
     #[test]
+    fn can_perform_prefix_increment_and_decrement() {
+        let mut ctx = start_test("let i = 0; ++i; --i;");
+        ctx.assert_no_errors();
+        ctx.assert_num_of_basic_blocks(1);
+        ctx.assert_num_of_locals(1);
+
+        let (i_place, _) = assert_statement::is_assign(ctx.consume_statement());
+
+        // ++i -> (i = i + 1; i)
+        let (expected_i, rhs) = assert_statement::is_assign(ctx.consume_statement());
+        assert_eq!(i_place, expected_i);
+        let (expected_i, op, n) = assert_r_value::is_binary_op(rhs);
+        assert_operand::refers_to_place(&expected_i, &i_place);
+        assert_eq!(op, BinOp::Add);
+        assert_operand::is_int_with_value(&n, 1);
+
+        let expected_i = assert_statement::is_eval(ctx.consume_statement());
+        let expected_i = assert_r_value::is_reference(expected_i);
+        assert_eq!(expected_i, i_place);
+
+        // --i -> (i = i - 1; i)
+        let (expected_i, rhs) = assert_statement::is_assign(ctx.consume_statement());
+        assert_eq!(i_place, expected_i);
+        let (expected_i, op, n) = assert_r_value::is_binary_op(rhs);
+        assert_operand::refers_to_place(&expected_i, &i_place);
+        assert_eq!(op, BinOp::Sub);
+        assert_operand::is_int_with_value(&n, 1);
+
+        let expected_i = assert_statement::is_eval(ctx.consume_statement());
+        let expected_i = assert_r_value::is_reference(expected_i);
+        assert_eq!(expected_i, i_place);
+    }
+
+    #[test]
     fn environment_blocks_set_the_environment_type() {
         let mut ctx = start_test("back {} front {}");
         ctx.assert_no_errors();
@@ -1507,7 +1561,7 @@ mod tests {
     #[test]
     fn can_write_a_for_loop() {
         let source = "
-        for (mut i = 0; i < 10; i = i + 1) {
+        for (mut i = 0; i < 10; ++i) {
             i;
             i + 1;
             i + 2;
