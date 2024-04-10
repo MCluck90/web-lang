@@ -10,6 +10,8 @@ use crate::{
     types::environment::EnvironmentType,
 };
 
+use super::scope::Scope;
+
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct Local(usize);
 impl Idx for Local {
@@ -241,17 +243,6 @@ impl Module {
     }
 }
 
-#[derive(Default)]
-struct Scope {
-    values: HashMap<String, Local>,
-}
-
-impl Scope {
-    fn insert(&mut self, k: String, v: Local) {
-        self.values.insert(k, v);
-    }
-}
-
 struct BasicBlockCreationResult {
     new_block_id: BasicBlockId,
     next_block_id: BasicBlockId,
@@ -261,7 +252,7 @@ struct BasicBlockCreationResult {
 struct ModuleBuilder {
     module: Module,
     active_block: BasicBlockId,
-    scopes: Vec<Scope>,
+    value_scope: Scope<String, Local>,
 }
 
 impl ModuleBuilder {
@@ -275,7 +266,7 @@ impl ModuleBuilder {
                 basic_blocks: IndexVec::from_raw(vec![BasicBlock::default()]),
             },
             active_block: BasicBlockId(0),
-            scopes: vec![Scope::default()],
+            value_scope: Scope::default(),
         };
 
         for item in fe_module.ast.items {
@@ -416,13 +407,15 @@ impl ModuleBuilder {
             frontend::ir::ExpressionKind::Boolean(b) => {
                 Some(RValue::Use(Operand::Constant(ConstOperand::Bool(b))))
             }
-            frontend::ir::ExpressionKind::Identifier(ident) => match self.find_local(&ident.name) {
-                Some(local) => Some(RValue::Use(Operand::Reference(local.into()))),
-                None => {
-                    self.report_error(CompilerError::reference_error(&expr.span, &ident.name));
-                    None
+            frontend::ir::ExpressionKind::Identifier(ident) => {
+                match self.value_scope.get_copied(&ident.name) {
+                    Some(local) => Some(RValue::Use(Operand::Reference(local.into()))),
+                    None => {
+                        self.report_error(CompilerError::reference_error(&expr.span, &ident.name));
+                        None
+                    }
                 }
-            },
+            }
             frontend::ir::ExpressionKind::Integer(n) => {
                 Some(RValue::Use(Operand::Constant(ConstOperand::Int(n))))
             }
@@ -772,7 +765,7 @@ impl ModuleBuilder {
 
         self.active_block = new_block_id;
         self.set_block_terminator(Terminator::Goto(next_block_id));
-        self.scopes.push(Scope::default());
+        self.value_scope.start_new_scope();
         for stmt in block.statements {
             self.convert_statement(stmt, Some(next_block_id));
         }
@@ -781,7 +774,7 @@ impl ModuleBuilder {
             .return_expression
             .and_then(|expr| self.convert_expression(expr, Some(next_block_id)));
 
-        self.scopes.pop();
+        self.value_scope.end_scope();
         self.active_block = prev_block_id;
 
         BasicBlockCreationResult {
@@ -886,7 +879,7 @@ impl ModuleBuilder {
         type_: Option<Type>,
     ) -> Local {
         let local = self.create_local(span, mutability, type_);
-        self.scopes.last_mut().unwrap().insert(name, local);
+        self.value_scope.insert(name, local);
         local
     }
 
@@ -897,15 +890,6 @@ impl ModuleBuilder {
             .unwrap()
             .stmts
             .push(stmt);
-    }
-
-    fn find_local(&self, name: &str) -> Option<Local> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(id) = scope.values.get(name) {
-                return Some(*id);
-            }
-        }
-        None
     }
 
     fn report_error(&mut self, error: CompilerError) {

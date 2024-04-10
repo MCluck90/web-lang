@@ -8,6 +8,7 @@ pub mod ir;
 // pub mod ir_v2;
 pub mod ir_v3;
 mod name_resolution;
+mod scope;
 mod type_checking;
 
 pub fn run_middle_end(program: frontend::Program) -> (Program, bool) {
