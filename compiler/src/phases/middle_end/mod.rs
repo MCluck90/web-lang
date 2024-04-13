@@ -6,6 +6,7 @@ use super::frontend;
 
 pub mod ir;
 // pub mod ir_v2;
+mod body;
 pub mod ir_v3;
 mod name_resolution;
 mod scope;
